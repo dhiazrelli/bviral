@@ -1,0 +1,17 @@
+packages:
+  "framer-motion": "For premium page transitions, stagger animations, and interactive elements"
+  "recharts": "For modern, animated data visualization charts"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility function to efficiently merge Tailwind CSS classes without conflicts"
+
+images:
+  - path: "artifacts/bviral-dashboard/public/images/bg-glow.png"
+    description: "Abstract futuristic neon purple, cyan, and deep blue gradient mesh background with soft bokeh and subtle grid lines, ultra premium 8k"
+    aspect_ratio: "16:9"
+  - path: "artifacts/bviral-dashboard/public/images/user-avatar.png"
+    description: "Stylized premium 3D avatar of a professional user with cyberpunk subtle neon rim lighting, high quality"
+    aspect_ratio: "1:1"
+
+notes:
+  - This is a frontend-only demo; all data is mocked for visual presentation.
+  - The application uses a forced dark mode aesthetic.

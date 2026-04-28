@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "BVIRAL Scheduler"
+version = "1.0.0"
+id = "artifacts/bviral-dashboard"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 26108
+
+[services.development]
+run = "pnpm --filter @workspace/bviral-dashboard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/bviral-dashboard", "run", "build" ]
+publicDir = "artifacts/bviral-dashboard/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26108"
+BASE_PATH = "/"
