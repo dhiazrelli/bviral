@@ -1,4 +1,13 @@
-import { pgEnum, pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { authUid, authenticatedRole } from "drizzle-orm/supabase";
+import {
+  pgEnum,
+  pgPolicy,
+  pgTable,
+  timestamp,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
 
 export const userRoleValues = ["admin", "member"] as const;
 export const userRoleEnum = pgEnum("user_role", userRoleValues);
@@ -10,7 +19,29 @@ export const usersTable = pgTable("users", {
   role: userRoleEnum("role").default("member").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => [
+  pgPolicy("users_select_own", {
+    for: "select",
+    to: authenticatedRole,
+    using: sql`${table.id} = ${authUid}`,
+  }),
+  pgPolicy("users_insert_own", {
+    for: "insert",
+    to: authenticatedRole,
+    withCheck: sql`${table.id} = ${authUid}`,
+  }),
+  pgPolicy("users_update_own", {
+    for: "update",
+    to: authenticatedRole,
+    using: sql`${table.id} = ${authUid}`,
+    withCheck: sql`${table.id} = ${authUid}`,
+  }),
+  pgPolicy("users_delete_own", {
+    for: "delete",
+    to: authenticatedRole,
+    using: sql`${table.id} = ${authUid}`,
+  }),
+]).enableRLS();
 
 export type UserRecord = typeof usersTable.$inferSelect;
 export type NewUserRecord = typeof usersTable.$inferInsert;

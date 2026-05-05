@@ -9,10 +9,6 @@ interface UserParams {
   userId: string;
 }
 
-function getHeaderValue(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
 function isUniqueViolation(error: unknown) {
   return typeof error === "object"
     && error !== null
@@ -24,6 +20,8 @@ export default async function usersRoutes(fastify: FastifyInstance) {
   fastify.register(async function readScope(readScope) {
     const usersRepository =
       readScope.getDecorator<UsersRepository>("usersRepository");
+
+    readScope.addHook("preHandler", readScope.requireRole("admin"));
 
     readScope.get<{ Querystring: ListUsersQuery }>("/", {
       schema: {
@@ -71,28 +69,7 @@ export default async function usersRoutes(fastify: FastifyInstance) {
     writeScope.decorateRequest("adminScope", null);
     writeScope.addHook("preHandler", async (request, reply) => {
       request.adminScope = "users:write";
-
-      if (!writeScope.config.adminToken) {
-        if (writeScope.config.nodeEnv === "production") {
-          reply.code(500).send({
-            statusCode: 500,
-            error: "Internal Server Error",
-            message: "ADMIN_TOKEN is missing for a protected route.",
-          });
-        }
-
-        return;
-      }
-
-      const adminToken = getHeaderValue(request.headers["x-admin-token"]);
-
-      if (adminToken !== writeScope.config.adminToken) {
-        reply.code(401).send({
-          statusCode: 401,
-          error: "Unauthorized",
-          message: "A valid x-admin-token header is required.",
-        });
-      }
+      await writeScope.requireRole("admin")(request, reply);
     });
 
     writeScope.post<{ Body: CreateUserPayload }>("/", {

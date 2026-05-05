@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useListAccounts, useListAlerts } from "@workspace/api-client-react";
 import bviralLogo from "../../../../../bviral.png";
 
 const navItems = [
@@ -27,7 +28,7 @@ const navItems = [
   { path: "/scheduling", label: "Scheduling", icon: CalendarClock, section: "overview" },
   { path: "/ai-video-studio", label: "AI Studio", icon: Wand2, section: "creation" },
   { path: "/analytics", label: "Analytics", icon: BarChart3, section: "creation" },
-  { path: "/alerts", label: "Alerts", icon: BellRing, badge: 3, section: "operations" },
+  { path: "/alerts", label: "Alerts", icon: BellRing, section: "operations" },
   { path: "/accounts", label: "Accounts", icon: Users, section: "operations" },
   { path: "/settings", label: "Settings", icon: Settings, section: "operations" },
 ];
@@ -56,11 +57,13 @@ function NavItem({
   item,
   active,
   collapsed,
+  badge,
   onNavigate,
 }: {
   item: (typeof navItems)[number];
   active: boolean;
   collapsed: boolean;
+  badge?: number;
   onNavigate?: () => void;
 }) {
   return (
@@ -101,9 +104,9 @@ function NavItem({
                     : "Runbook"}
               </p>
             </div>
-            {item.badge ? (
+            {badge ? (
               <span className="ml-auto rounded-full bg-destructive/14 px-2 py-1 text-[10px] font-bold text-destructive">
-                {item.badge}
+                {badge}
               </span>
             ) : null}
           </>
@@ -121,6 +124,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState("");
   const shouldReduceMotion = useReducedMotion();
   const { toast } = useToast();
+  const alertsQuery = useListAlerts();
+  const accountsQuery = useListAccounts();
+  const alerts = alertsQuery.data?.data ?? [];
+  const accounts = accountsQuery.data?.data ?? [];
+  const alertCount = alerts.filter((alert) => alert.status === "unresolved").length;
+  const accountCount = accounts.length;
 
   const groupedNavItems = navItems.reduce((acc, item) => {
     if (!acc[item.section]) {
@@ -222,6 +231,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   item={item}
                   active={location === item.path}
                   collapsed={!isSidebarOpen}
+                  badge={item.path === "/alerts" ? alertCount : undefined}
                   onNavigate={() => setMobileMenuOpen(false)}
                 />
               ))}
@@ -238,14 +248,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/42">
                   Workspace
                 </p>
-                <p className="mt-1 text-sm font-semibold text-white">156 live accounts</p>
+                <p className="mt-1 text-sm font-semibold text-white">{accountCount} live accounts</p>
               </div>
               <span className="rounded-full bg-emerald-500/12 px-2 py-1 text-[10px] font-bold text-emerald-300">
-                Healthy
+                Live
               </span>
             </div>
             <p className="text-[12px] leading-6 text-white/55">
-              Publishing cadence is stable. Two channels are above breakout threshold today.
+              {alertCount > 0
+                ? `${alertCount} alerts need operator review.`
+                : "No active alerts in the current workspace."}
             </p>
           </div>
         ) : null}
@@ -342,7 +354,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 className="relative rounded-2xl border border-white/8 bg-white/[0.04] p-3 text-white/72 transition hover:bg-white/[0.07] hover:text-white"
               >
                 <BellRing className="h-4.5 w-4.5" />
-                <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-primary" />
+                {alertCount > 0 ? <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-primary" /> : null}
               </button>
               <div className="flex items-center gap-3 rounded-[1.2rem] border border-white/8 bg-white/[0.04] px-3 py-2">
                 <div className="text-right">

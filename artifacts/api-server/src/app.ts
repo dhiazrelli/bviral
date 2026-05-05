@@ -9,8 +9,11 @@ import { randomUUID } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveNodeEnv } from "./lib/config";
+import { loadEnv } from "./lib/load-env";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+loadEnv();
 
 function getStatusCode(error: FastifyError): number {
   return error.statusCode && error.statusCode >= 400 ? error.statusCode : 500;

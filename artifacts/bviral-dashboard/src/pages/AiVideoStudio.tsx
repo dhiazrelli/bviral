@@ -1,10 +1,16 @@
 import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import { 
   Sparkles, Type, Crop, Maximize, Scissors, Mic, Music, 
   Film, Image as ImageIcon, Play, Download, Wand2, Plus,
   Upload, Layers
 } from 'lucide-react';
+import {
+  getListVideosQueryKey,
+  useListVideos,
+  useUploadVideo,
+} from '@workspace/api-client-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -23,21 +29,37 @@ const tools = [
 
 export default function AiVideoStudio() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const videosQuery = useListVideos();
+  const uploadVideoMutation = useUploadVideo({
+    mutation: {
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: getListVideosQueryKey() });
+        toast({
+          title: 'Video uploaded',
+          description: 'The upload is saved and queued for processing.',
+        });
+      },
+      onError: (error) => {
+        toast({
+          title: 'Upload failed',
+          description: error instanceof Error ? error.message : 'Unable to upload video.',
+          variant: 'destructive',
+        });
+      },
+    },
+  });
   const [activeTools, setActiveTools] = useState<Record<string, boolean>>(
     tools.reduce((acc, tool) => ({ ...acc, [tool.id]: tool.active }), {})
   );
   const [prompt, setPrompt] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
   const [styleTemplate, setStyleTemplate] = useState("Fast Paced Tech");
   const [voiceModel, setVoiceModel] = useState("Energetic Male (Adam)");
   const [uploadedAsset, setUploadedAsset] = useState<string | null>(null);
   const [isTimelinePlaying, setTimelinePlaying] = useState(false);
-  const [previewingId, setPreviewingId] = useState<number | null>(null);
-  const [recentGenerations, setRecentGenerations] = useState([
-    { id: 1, label: "Variation 1" },
-    { id: 2, label: "Variation 2" },
-  ]);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const videos = videosQuery.data?.data ?? [];
 
   const toggleTool = (id: string) => {
     setActiveTools(prev => {
@@ -54,23 +76,11 @@ export default function AiVideoStudio() {
   };
 
   const handleGenerate = () => {
-    if(!prompt) return;
-    setIsGenerating(true);
+    if (!prompt) return;
     toast({
-      title: 'Generation started',
-      description: `${styleTemplate} with ${voiceModel} is entering the render queue.`,
+      title: 'Generation API not connected',
+      description: `${styleTemplate} with ${voiceModel} is ready for the generation endpoint when it exists.`,
     });
-    setTimeout(() => {
-      setIsGenerating(false);
-      setRecentGenerations(prev => [
-        { id: Date.now(), label: `Variation ${prev.length + 1}` },
-        ...prev,
-      ].slice(0, 4));
-      toast({
-        title: 'Variations ready',
-        description: 'New renders were added to Recent Generations.',
-      });
-    }, 3000);
   };
 
   const activeCount = Object.values(activeTools).filter(Boolean).length;
@@ -106,10 +116,7 @@ export default function AiVideoStudio() {
               }
 
               setUploadedAsset(file.name);
-              toast({
-                title: 'Footage loaded',
-                description: `${file.name} is staged for enhancement.`,
-              });
+              uploadVideoMutation.mutate({ data: { file } });
             }}
           />
           <div
@@ -121,10 +128,10 @@ export default function AiVideoStudio() {
               <Upload className="w-6 h-6" />
             </div>
             <h3 className="text-white/90 font-bold text-sm mb-1">
-              {uploadedAsset ? uploadedAsset : 'Drag & drop raw footage'}
+              {uploadVideoMutation.isPending ? 'Uploading...' : uploadedAsset ? uploadedAsset : 'Click to upload raw footage'}
             </h3>
             <p className="text-muted-foreground/40 text-xs">
-              {uploadedAsset ? 'Click to replace the staged source file' : 'MP4, MOV up to 2GB'}
+              {uploadedAsset ? 'Click to replace the source file' : 'MP4 or MOV uploads to Supabase Storage'}
             </p>
           </div>
 
@@ -257,34 +264,45 @@ export default function AiVideoStudio() {
 
           <button 
             onClick={handleGenerate}
-            disabled={!prompt || isGenerating}
+            disabled={!prompt}
             className="w-full py-3.5 mt-2 btn-accent flex items-center justify-center gap-2 text-base disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
           >
-            {isGenerating ? (
-              <><span className="animate-spin"><Wand2 className="w-5 h-5" /></span> Generating...</>
-            ) : (
-              <><Sparkles className="w-5 h-5" /> Generate Variations</>
-            )}
+            <><Sparkles className="w-5 h-5" /> Prepare Generation</>
           </button>
 
           {/* Result Area */}
           <div className="pt-4 mt-4 border-t border-white/[0.06]">
-            <h3 className="text-[11px] font-bold text-muted-foreground/40 uppercase tracking-[0.15em] mb-3">Recent Generations</h3>
+            <h3 className="text-[11px] font-bold text-muted-foreground/40 uppercase tracking-[0.15em] mb-3">Uploaded Videos</h3>
+            {videosQuery.isLoading && (
+              <div className="grid grid-cols-2 gap-3">
+                {Array.from({ length: 2 }).map((_, index) => (
+                  <div key={index} className="aspect-[9/16] bg-white/[0.04] border border-white/[0.06] rounded-xl animate-pulse" />
+                ))}
+              </div>
+            )}
+            {videosQuery.isError && (
+              <div className="rounded-xl border border-red-500/15 bg-red-500/8 p-4">
+                <p className="text-sm font-semibold text-red-300">Unable to load videos</p>
+                <button onClick={() => videosQuery.refetch()} className="mt-3 text-xs font-semibold text-white/70 hover:text-white">
+                  Retry
+                </button>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
-              {recentGenerations.map((generation) => (
-                <div key={generation.id} className="aspect-[9/16] bg-black/40 border border-white/[0.06] rounded-xl relative overflow-hidden group cursor-pointer">
+              {!videosQuery.isLoading && !videosQuery.isError && videos.slice(0, 4).map((video) => (
+                <div key={video.id} className="aspect-[9/16] bg-black/40 border border-white/[0.06] rounded-xl relative overflow-hidden group cursor-pointer">
                   {/* Subtle gradient background */}
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10 opacity-50" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-3">
-                    <span className="text-[10px] text-white/70 font-medium">{generation.label}</span>
+                    <span className="text-[10px] text-white/70 font-medium">{video.status} · {video.id.slice(0, 8)}</span>
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/50 transition-all duration-300 backdrop-blur-sm gap-2">
                     <button
                       onClick={() => {
-                        setPreviewingId(generation.id);
+                        setPreviewingId(video.id);
                         toast({
                           title: 'Preview opened',
-                          description: `${generation.label} is now in focus.`,
+                          description: `Video ${video.id.slice(0, 8)} is now in focus.`,
                         });
                       }}
                       className="p-2 bg-primary/80 rounded-full text-white hover:scale-110 transition-transform cursor-pointer"
@@ -294,20 +312,26 @@ export default function AiVideoStudio() {
                     <button
                       onClick={() => toast({
                         title: 'Download queued',
-                        description: `${generation.label} is being prepared for export.`,
+                        description: 'Use the stored video URL for export.',
                       })}
                       className="p-2 bg-white/15 rounded-full text-white hover:bg-white/25 transition-colors cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  {previewingId === generation.id ? (
+                  {previewingId === video.id ? (
                     <div className="absolute left-3 top-3 rounded-full border border-primary/30 bg-primary/18 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-primary">
                       Previewing
                     </div>
                   ) : null}
                 </div>
               ))}
+              {!videosQuery.isLoading && !videosQuery.isError && videos.length === 0 && (
+                <div className="col-span-2 rounded-xl border border-white/[0.06] bg-white/[0.03] p-5 text-center">
+                  <p className="text-sm text-white/60">No uploaded videos yet.</p>
+                  <p className="mt-1 text-xs text-muted-foreground/40">Upload footage to populate this panel from the API.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

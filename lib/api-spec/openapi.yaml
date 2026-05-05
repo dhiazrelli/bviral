@@ -10,6 +10,20 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authenticated user operations
+  - name: accounts
+    description: Connected social account operations
+  - name: videos
+    description: Uploaded video operations
+  - name: posts
+    description: Scheduled publishing operations
+  - name: analytics
+    description: Cross-platform analytics operations
+  - name: alerts
+    description: Alert and notification operations
+security:
+  - bearerAuth: []
 paths:
   /healthz:
     get:
@@ -24,7 +38,505 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Current authenticated user
+      description: Returns the current user resolved from the Supabase JWT.
+      responses:
+        "200":
+          description: Current authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMe"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/accounts:
+    get:
+      operationId: listAccounts
+      tags: [accounts]
+      summary: List connected accounts
+      description: Returns all social accounts connected by the current user.
+      responses:
+        "200":
+          description: Connected accounts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountsCollection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createAccount
+      tags: [accounts]
+      summary: Connect an account
+      description: Creates a connected account record for the current user. OAuth exchange is not handled by this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountRequest"
+      responses:
+        "201":
+          description: Connected account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/accounts/youtube/connect:
+    get:
+      operationId: connectYouTubeAccount
+      tags: [accounts]
+      summary: Start YouTube OAuth
+      description: Redirects the authenticated user to Google's YouTube OAuth consent screen.
+      responses:
+        "302":
+          description: Redirect to Google OAuth
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/accounts/youtube/callback:
+    get:
+      operationId: handleYouTubeAccountCallback
+      tags: [accounts]
+      summary: Complete YouTube OAuth
+      description: Handles Google's OAuth callback and stores YouTube tokens for the account.
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect after account connection
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /v1/accounts/tiktok/connect:
+    get:
+      operationId: connectTikTokAccount
+      tags: [accounts]
+      summary: Start TikTok OAuth
+      description: Redirects the authenticated user to TikTok's OAuth consent screen.
+      responses:
+        "302":
+          description: Redirect to TikTok OAuth
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/accounts/tiktok/callback:
+    get:
+      operationId: handleTikTokAccountCallback
+      tags: [accounts]
+      summary: Complete TikTok OAuth
+      description: Handles TikTok's OAuth callback and stores TikTok tokens for the account.
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: scopes
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: error
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: error_description
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect after account connection
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /v1/accounts/meta/connect:
+    get:
+      operationId: connectMetaAccount
+      tags: [accounts]
+      summary: Start Meta OAuth
+      description: Redirects the authenticated user to Meta's OAuth consent screen for Facebook Pages and Instagram professional accounts.
+      responses:
+        "302":
+          description: Redirect to Meta OAuth
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/accounts/meta/callback:
+    get:
+      operationId: handleMetaAccountCallback
+      tags: [accounts]
+      summary: Complete Meta OAuth
+      description: Handles Meta's OAuth callback and stores Facebook Page and Instagram account tokens.
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: error
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: error_code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: error_message
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: error_description
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect after account connection
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /v1/accounts/{id}:
+    get:
+      operationId: getAccount
+      tags: [accounts]
+      summary: Get connected account
+      description: Returns a single connected account owned by the current user.
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      responses:
+        "200":
+          description: Connected account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAccount
+      tags: [accounts]
+      summary: Disconnect an account
+      description: Deletes a connected account owned by the current user.
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      responses:
+        "204":
+          description: Account disconnected
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/videos:
+    get:
+      operationId: listVideos
+      tags: [videos]
+      summary: List videos
+      description: Returns all uploaded videos for the current user.
+      responses:
+        "200":
+          description: Uploaded videos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VideosCollection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/videos/upload:
+    post:
+      operationId: uploadVideo
+      tags: [videos]
+      summary: Upload video
+      description: Uploads a video file to Supabase Storage, records it as uploaded, and queues placeholder processing.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadVideoRequest"
+      responses:
+        "201":
+          description: Uploaded video
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Video"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/videos/{id}:
+    get:
+      operationId: getVideo
+      tags: [videos]
+      summary: Get video
+      description: Returns a single uploaded video owned by the current user.
+      parameters:
+        - $ref: "#/components/parameters/VideoId"
+      responses:
+        "200":
+          description: Uploaded video
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Video"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/posts:
+    get:
+      operationId: listPosts
+      tags: [posts]
+      summary: List posts
+      description: Returns all scheduled and published posts for the current user.
+      responses:
+        "200":
+          description: Posts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostsCollection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createPost
+      tags: [posts]
+      summary: Create scheduled post
+      description: Creates a scheduled post and queues a publishing job for the scheduled time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePostRequest"
+      responses:
+        "201":
+          description: Scheduled post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/posts/{id}:
+    get:
+      operationId: getPost
+      tags: [posts]
+      summary: Get post
+      description: Returns a single post owned by the current user.
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "200":
+          description: Post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deletePost
+      tags: [posts]
+      summary: Cancel scheduled post
+      description: Cancels a scheduled post by deleting the record and removing its delayed publishing job.
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "204":
+          description: Scheduled post cancelled
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/analytics:
+    get:
+      operationId: getAnalyticsOverview
+      tags: [analytics]
+      summary: Get analytics overview
+      description: Returns aggregate analytics metrics for the current user's posted content.
+      responses:
+        "200":
+          description: Analytics overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/analytics/{post_id}:
+    get:
+      operationId: getPostAnalytics
+      tags: [analytics]
+      summary: Get post analytics
+      description: Returns analytics history for a single post owned by the current user.
+      parameters:
+        - $ref: "#/components/parameters/AnalyticsPostId"
+      responses:
+        "200":
+          description: Post analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostAnalytics"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/alerts:
+    get:
+      operationId: listAlerts
+      tags: [alerts]
+      summary: List alerts
+      description: Returns all alerts visible to the current user.
+      responses:
+        "200":
+          description: Alerts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertsCollection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/alerts/{id}:
+    delete:
+      operationId: deleteAlert
+      tags: [alerts]
+      summary: Dismiss an alert
+      description: Marks an alert visible to the current user as resolved.
+      parameters:
+        - $ref: "#/components/parameters/AlertId"
+      responses:
+        "204":
+          description: Alert dismissed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase JWT access token.
+  parameters:
+    AccountId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    VideoId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PostId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AnalyticsPostId:
+      name: post_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AlertId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Request conflicts with the current resource state
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +545,528 @@ components:
           type: string
       required:
         - status
-
+    AuthRole:
+      type: string
+      enum:
+        - admin
+        - team
+    AuthMe:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        role:
+          $ref: "#/components/schemas/AuthRole"
+        jwtRole:
+          type: string
+        appMetadata:
+          type: object
+          additionalProperties: true
+        userMetadata:
+          type: object
+          additionalProperties: true
+      required:
+        - id
+        - role
+        - appMetadata
+        - userMetadata
+    AccountPlatform:
+      type: string
+      enum:
+        - facebook
+        - instagram
+        - tiktok
+        - youtube
+        - snapchat
+    Account:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          $ref: "#/components/schemas/AccountPlatform"
+        accountName:
+          type: string
+          minLength: 1
+          maxLength: 255
+        tokenExpiry:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        userId:
+          type: string
+          format: uuid
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - platform
+        - accountName
+        - tokenExpiry
+        - userId
+        - metadata
+        - createdAt
+    AccountsCollection:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Account"
+      required:
+        - data
+    CreateAccountRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        platform:
+          $ref: "#/components/schemas/AccountPlatform"
+        accountName:
+          type: string
+          minLength: 1
+          maxLength: 255
+        accessToken:
+          type: string
+          minLength: 1
+        refreshToken:
+          oneOf:
+            - type: string
+              minLength: 1
+            - type: "null"
+        tokenExpiry:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - platform
+        - accountName
+        - accessToken
+    VideoStatus:
+      type: string
+      enum:
+        - uploaded
+        - processing
+        - ready
+        - failed
+    Video:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        originalUrl:
+          type: string
+        processedUrl:
+          oneOf:
+            - type: string
+            - type: "null"
+        duration:
+          oneOf:
+            - type: integer
+            - type: "null"
+        status:
+          $ref: "#/components/schemas/VideoStatus"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - originalUrl
+        - processedUrl
+        - duration
+        - status
+        - createdAt
+    VideosCollection:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Video"
+      required:
+        - data
+    UploadVideoRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        file:
+          type: string
+          format: binary
+      required:
+        - file
+    PostStatus:
+      type: string
+      enum:
+        - scheduled
+        - posted
+        - failed
+    Post:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        videoId:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        platform:
+          $ref: "#/components/schemas/AccountPlatform"
+        scheduledAt:
+          type: string
+          format: date-time
+        postedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        status:
+          $ref: "#/components/schemas/PostStatus"
+        externalPostId:
+          oneOf:
+            - type: string
+            - type: "null"
+        errorMessage:
+          oneOf:
+            - type: string
+            - type: "null"
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - videoId
+        - accountId
+        - platform
+        - scheduledAt
+        - postedAt
+        - status
+        - externalPostId
+        - errorMessage
+        - metadata
+        - createdAt
+    PostsCollection:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+      required:
+        - data
+    CreatePostRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        video_id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        scheduled_at:
+          type: string
+          format: date-time
+        platform:
+          $ref: "#/components/schemas/AccountPlatform"
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - video_id
+        - account_id
+        - scheduled_at
+        - platform
+    AnalyticsSnapshot:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        postId:
+          type: string
+          format: uuid
+        views:
+          type: integer
+        likes:
+          type: integer
+        comments:
+          type: integer
+        shares:
+          type: integer
+        revenue:
+          type: number
+        fetchedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - postId
+        - views
+        - likes
+        - comments
+        - shares
+        - revenue
+        - fetchedAt
+    AnalyticsTotals:
+      type: object
+      additionalProperties: false
+      properties:
+        views:
+          type: integer
+        likes:
+          type: integer
+        comments:
+          type: integer
+        shares:
+          type: integer
+        revenue:
+          type: number
+        posts:
+          type: integer
+        engagementRate:
+          type: number
+      required:
+        - views
+        - likes
+        - comments
+        - shares
+        - revenue
+        - posts
+        - engagementRate
+    AnalyticsPlatformTotals:
+      type: object
+      additionalProperties: false
+      properties:
+        platform:
+          $ref: "#/components/schemas/AccountPlatform"
+        views:
+          type: integer
+        likes:
+          type: integer
+        comments:
+          type: integer
+        shares:
+          type: integer
+        revenue:
+          type: number
+        posts:
+          type: integer
+      required:
+        - platform
+        - views
+        - likes
+        - comments
+        - shares
+        - revenue
+        - posts
+    AnalyticsTimelinePoint:
+      type: object
+      additionalProperties: false
+      properties:
+        date:
+          type: string
+        views:
+          type: integer
+        likes:
+          type: integer
+        comments:
+          type: integer
+        shares:
+          type: integer
+      required:
+        - date
+        - views
+        - likes
+        - comments
+        - shares
+    AnalyticsTopPost:
+      type: object
+      additionalProperties: false
+      properties:
+        postId:
+          type: string
+          format: uuid
+        platform:
+          $ref: "#/components/schemas/AccountPlatform"
+        externalPostId:
+          oneOf:
+            - type: string
+            - type: "null"
+        views:
+          type: integer
+        likes:
+          type: integer
+        comments:
+          type: integer
+        shares:
+          type: integer
+        revenue:
+          type: number
+        engagementRate:
+          type: number
+        fetchedAt:
+          type: string
+          format: date-time
+      required:
+        - postId
+        - platform
+        - externalPostId
+        - views
+        - likes
+        - comments
+        - shares
+        - revenue
+        - engagementRate
+        - fetchedAt
+    AnalyticsOverview:
+      type: object
+      additionalProperties: false
+      properties:
+        totals:
+          $ref: "#/components/schemas/AnalyticsTotals"
+        byPlatform:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalyticsPlatformTotals"
+        timeline:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalyticsTimelinePoint"
+        topPosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalyticsTopPost"
+      required:
+        - totals
+        - byPlatform
+        - timeline
+        - topPosts
+    PostAnalytics:
+      type: object
+      additionalProperties: false
+      properties:
+        postId:
+          type: string
+          format: uuid
+        platform:
+          $ref: "#/components/schemas/AccountPlatform"
+        externalPostId:
+          oneOf:
+            - type: string
+            - type: "null"
+        latest:
+          oneOf:
+            - $ref: "#/components/schemas/AnalyticsSnapshot"
+            - type: "null"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalyticsSnapshot"
+      required:
+        - postId
+        - platform
+        - externalPostId
+        - latest
+        - history
+    AlertType:
+      type: string
+      enum:
+        - error
+        - copyright
+        - success
+    AlertStatus:
+      type: string
+      enum:
+        - unresolved
+        - resolved
+    Alert:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/AlertType"
+        status:
+          $ref: "#/components/schemas/AlertStatus"
+        message:
+          type: string
+        platform:
+          $ref: "#/components/schemas/AccountPlatform"
+        accountId:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        postId:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - type
+        - status
+        - message
+        - platform
+        - accountId
+        - postId
+        - createdAt
+    AlertsCollection:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Alert"
+      required:
+        - data
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        statusCode:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - statusCode
+        - error
+        - message

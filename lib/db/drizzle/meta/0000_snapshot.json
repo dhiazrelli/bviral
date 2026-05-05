@@ -1,0 +1,788 @@
+{
+  "id": "56908e15-96c0-4214-8486-4b83e217f44e",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.accounts": {
+      "name": "accounts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "platform": {
+          "name": "platform",
+          "type": "platform",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_name": {
+          "name": "account_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_token": {
+          "name": "access_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refresh_token": {
+          "name": "refresh_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "token_expiry": {
+          "name": "token_expiry",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "accounts_user_id_users_id_fk": {
+          "name": "accounts_user_id_users_id_fk",
+          "tableFrom": "accounts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "accounts_select_own": {
+          "name": "accounts_select_own",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"accounts\".\"user_id\" = (select auth.uid())"
+        },
+        "accounts_insert_own": {
+          "name": "accounts_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "\"accounts\".\"user_id\" = (select auth.uid())"
+        },
+        "accounts_update_own": {
+          "name": "accounts_update_own",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"accounts\".\"user_id\" = (select auth.uid())",
+          "withCheck": "\"accounts\".\"user_id\" = (select auth.uid())"
+        },
+        "accounts_delete_own": {
+          "name": "accounts_delete_own",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"accounts\".\"user_id\" = (select auth.uid())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.alerts": {
+      "name": "alerts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "type": {
+          "name": "type",
+          "type": "alert_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "platform": {
+          "name": "platform",
+          "type": "platform",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "post_id": {
+          "name": "post_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "alerts_account_id_accounts_id_fk": {
+          "name": "alerts_account_id_accounts_id_fk",
+          "tableFrom": "alerts",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "alerts_post_id_posts_id_fk": {
+          "name": "alerts_post_id_posts_id_fk",
+          "tableFrom": "alerts",
+          "tableTo": "posts",
+          "columnsFrom": [
+            "post_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "alerts_select_own": {
+          "name": "alerts_select_own",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(\n    (\n      \"alerts\".\"account_id\" is not null\n      and exists (\n        select 1 from \"accounts\"\n        where \"accounts\".\"id\" = \"alerts\".\"account_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n    or (\n      \"alerts\".\"post_id\" is not null\n      and exists (\n        select 1\n        from \"posts\"\n        inner join \"accounts\"\n          on \"accounts\".\"id\" = \"posts\".\"account_id\"\n        where \"posts\".\"id\" = \"alerts\".\"post_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n  )"
+        },
+        "alerts_insert_own": {
+          "name": "alerts_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "(\n    (\n      \"alerts\".\"account_id\" is not null\n      and exists (\n        select 1 from \"accounts\"\n        where \"accounts\".\"id\" = \"alerts\".\"account_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n    or (\n      \"alerts\".\"post_id\" is not null\n      and exists (\n        select 1\n        from \"posts\"\n        inner join \"accounts\"\n          on \"accounts\".\"id\" = \"posts\".\"account_id\"\n        where \"posts\".\"id\" = \"alerts\".\"post_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n  )"
+        },
+        "alerts_update_own": {
+          "name": "alerts_update_own",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(\n    (\n      \"alerts\".\"account_id\" is not null\n      and exists (\n        select 1 from \"accounts\"\n        where \"accounts\".\"id\" = \"alerts\".\"account_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n    or (\n      \"alerts\".\"post_id\" is not null\n      and exists (\n        select 1\n        from \"posts\"\n        inner join \"accounts\"\n          on \"accounts\".\"id\" = \"posts\".\"account_id\"\n        where \"posts\".\"id\" = \"alerts\".\"post_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n  )",
+          "withCheck": "(\n    (\n      \"alerts\".\"account_id\" is not null\n      and exists (\n        select 1 from \"accounts\"\n        where \"accounts\".\"id\" = \"alerts\".\"account_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n    or (\n      \"alerts\".\"post_id\" is not null\n      and exists (\n        select 1\n        from \"posts\"\n        inner join \"accounts\"\n          on \"accounts\".\"id\" = \"posts\".\"account_id\"\n        where \"posts\".\"id\" = \"alerts\".\"post_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n  )"
+        },
+        "alerts_delete_own": {
+          "name": "alerts_delete_own",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(\n    (\n      \"alerts\".\"account_id\" is not null\n      and exists (\n        select 1 from \"accounts\"\n        where \"accounts\".\"id\" = \"alerts\".\"account_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n    or (\n      \"alerts\".\"post_id\" is not null\n      and exists (\n        select 1\n        from \"posts\"\n        inner join \"accounts\"\n          on \"accounts\".\"id\" = \"posts\".\"account_id\"\n        where \"posts\".\"id\" = \"alerts\".\"post_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n  )"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.analytics": {
+      "name": "analytics",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "post_id": {
+          "name": "post_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "views": {
+          "name": "views",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "likes": {
+          "name": "likes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "comments": {
+          "name": "comments",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "shares": {
+          "name": "shares",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "revenue": {
+          "name": "revenue",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
+        "fetched_at": {
+          "name": "fetched_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "analytics_post_id_posts_id_fk": {
+          "name": "analytics_post_id_posts_id_fk",
+          "tableFrom": "analytics",
+          "tableTo": "posts",
+          "columnsFrom": [
+            "post_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "analytics_select_own": {
+          "name": "analytics_select_own",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n    select 1\n    from \"posts\"\n    inner join \"accounts\"\n      on \"accounts\".\"id\" = \"posts\".\"account_id\"\n    where \"posts\".\"id\" = \"analytics\".\"post_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  )"
+        },
+        "analytics_insert_own": {
+          "name": "analytics_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "exists (\n    select 1\n    from \"posts\"\n    inner join \"accounts\"\n      on \"accounts\".\"id\" = \"posts\".\"account_id\"\n    where \"posts\".\"id\" = \"analytics\".\"post_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  )"
+        },
+        "analytics_update_own": {
+          "name": "analytics_update_own",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n    select 1\n    from \"posts\"\n    inner join \"accounts\"\n      on \"accounts\".\"id\" = \"posts\".\"account_id\"\n    where \"posts\".\"id\" = \"analytics\".\"post_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  )",
+          "withCheck": "exists (\n    select 1\n    from \"posts\"\n    inner join \"accounts\"\n      on \"accounts\".\"id\" = \"posts\".\"account_id\"\n    where \"posts\".\"id\" = \"analytics\".\"post_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  )"
+        },
+        "analytics_delete_own": {
+          "name": "analytics_delete_own",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n    select 1\n    from \"posts\"\n    inner join \"accounts\"\n      on \"accounts\".\"id\" = \"posts\".\"account_id\"\n    where \"posts\".\"id\" = \"analytics\".\"post_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  )"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.posts": {
+      "name": "posts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "video_id": {
+          "name": "video_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "platform": {
+          "name": "platform",
+          "type": "platform",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scheduled_at": {
+          "name": "scheduled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "posted_at": {
+          "name": "posted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "post_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'scheduled'"
+        },
+        "external_post_id": {
+          "name": "external_post_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "posts_video_id_videos_id_fk": {
+          "name": "posts_video_id_videos_id_fk",
+          "tableFrom": "posts",
+          "tableTo": "videos",
+          "columnsFrom": [
+            "video_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "posts_account_id_accounts_id_fk": {
+          "name": "posts_account_id_accounts_id_fk",
+          "tableFrom": "posts",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "posts_select_own": {
+          "name": "posts_select_own",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n    select 1 from \"accounts\"\n    where \"accounts\".\"id\" = \"posts\".\"account_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  )"
+        },
+        "posts_insert_own": {
+          "name": "posts_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "exists (\n    select 1 from \"accounts\"\n    where \"accounts\".\"id\" = \"posts\".\"account_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  ) and exists (\n    select 1 from \"videos\"\n    where \"videos\".\"id\" = \"posts\".\"video_id\"\n      and \"videos\".\"user_id\" = (select auth.uid())\n  )"
+        },
+        "posts_update_own": {
+          "name": "posts_update_own",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n    select 1 from \"accounts\"\n    where \"accounts\".\"id\" = \"posts\".\"account_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  )",
+          "withCheck": "exists (\n    select 1 from \"accounts\"\n    where \"accounts\".\"id\" = \"posts\".\"account_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  ) and exists (\n    select 1 from \"videos\"\n    where \"videos\".\"id\" = \"posts\".\"video_id\"\n      and \"videos\".\"user_id\" = (select auth.uid())\n  )"
+        },
+        "posts_delete_own": {
+          "name": "posts_delete_own",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n    select 1 from \"accounts\"\n    where \"accounts\".\"id\" = \"posts\".\"account_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  )"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.videos": {
+      "name": "videos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_url": {
+          "name": "original_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "processed_url": {
+          "name": "processed_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duration": {
+          "name": "duration",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "video_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'uploaded'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "videos_user_id_users_id_fk": {
+          "name": "videos_user_id_users_id_fk",
+          "tableFrom": "videos",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "videos_select_own": {
+          "name": "videos_select_own",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"videos\".\"user_id\" = (select auth.uid())"
+        },
+        "videos_insert_own": {
+          "name": "videos_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "\"videos\".\"user_id\" = (select auth.uid())"
+        },
+        "videos_update_own": {
+          "name": "videos_update_own",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"videos\".\"user_id\" = (select auth.uid())",
+          "withCheck": "\"videos\".\"user_id\" = (select auth.uid())"
+        },
+        "videos_delete_own": {
+          "name": "videos_delete_own",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"videos\".\"user_id\" = (select auth.uid())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "full_name": {
+          "name": "full_name",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "user_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'member'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {
+        "users_select_own": {
+          "name": "users_select_own",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"users\".\"id\" = (select auth.uid())"
+        },
+        "users_insert_own": {
+          "name": "users_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "\"users\".\"id\" = (select auth.uid())"
+        },
+        "users_update_own": {
+          "name": "users_update_own",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"users\".\"id\" = (select auth.uid())",
+          "withCheck": "\"users\".\"id\" = (select auth.uid())"
+        },
+        "users_delete_own": {
+          "name": "users_delete_own",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"users\".\"id\" = (select auth.uid())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    }
+  },
+  "enums": {
+    "public.alert_type": {
+      "name": "alert_type",
+      "schema": "public",
+      "values": [
+        "error",
+        "copyright",
+        "success"
+      ]
+    },
+    "public.platform": {
+      "name": "platform",
+      "schema": "public",
+      "values": [
+        "facebook",
+        "instagram",
+        "tiktok",
+        "youtube",
+        "snapchat"
+      ]
+    },
+    "public.post_status": {
+      "name": "post_status",
+      "schema": "public",
+      "values": [
+        "scheduled",
+        "posted",
+        "failed"
+      ]
+    },
+    "public.video_status": {
+      "name": "video_status",
+      "schema": "public",
+      "values": [
+        "uploaded",
+        "processing",
+        "ready",
+        "failed"
+      ]
+    },
+    "public.user_role": {
+      "name": "user_role",
+      "schema": "public",
+      "values": [
+        "admin",
+        "member"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

@@ -25,6 +25,21 @@ export default fp(async function commonSchemas(fastify) {
     },
     required: ["status"],
   });
+
+  fastify.addSchema({
+    $id: "authMeResponse",
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      id: { type: "string" },
+      email: { type: "string" },
+      role: { type: "string", enum: ["admin", "team"] },
+      jwtRole: { type: "string" },
+      appMetadata: { type: "object", additionalProperties: true },
+      userMetadata: { type: "object", additionalProperties: true },
+    },
+    required: ["id", "role", "appMetadata", "userMetadata"],
+  });
 }, {
   name: "common-schemas",
 });
