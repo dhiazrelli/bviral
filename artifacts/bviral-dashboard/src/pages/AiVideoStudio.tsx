@@ -1,10 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { 
   Sparkles, Type, Crop, Maximize, Scissors, Mic, Music, 
   Film, Image as ImageIcon, Play, Download, Wand2, Plus,
-  Upload, Layers
+  Upload, Layers, ExternalLink, RefreshCcw, MonitorPlay
 } from 'lucide-react';
 import {
   getListVideosQueryKey,
@@ -58,8 +57,11 @@ export default function AiVideoStudio() {
   const [uploadedAsset, setUploadedAsset] = useState<string | null>(null);
   const [isTimelinePlaying, setTimelinePlaying] = useState(false);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const [workspaceMode, setWorkspaceMode] = useState<'ai' | 'editor'>('ai');
+  const [editorFrameKey, setEditorFrameKey] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videos = videosQuery.data?.data ?? [];
+  const videoEditorUrl = import.meta.env.VITE_BVIRAL_VIDEO_EDITOR_URL ?? 'http://localhost:3000/projects';
 
   const toggleTool = (id: string) => {
     setActiveTools(prev => {
@@ -83,10 +85,104 @@ export default function AiVideoStudio() {
     });
   };
 
+  const handleLaunchVideoEditor = () => {
+    window.open(videoEditorUrl, '_blank', 'noopener,noreferrer');
+    toast({
+      title: 'BVIRAL Video Editor launched',
+      description: 'The editor opened in a separate browser tab.',
+    });
+  };
+
   const activeCount = Object.values(activeTools).filter(Boolean).length;
 
   return (
-    <div className="h-full flex flex-col lg:flex-row gap-4">
+    <div className="h-full flex flex-col gap-4">
+      <div className="glass-card flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/12 text-primary">
+            {workspaceMode === 'editor' ? <MonitorPlay className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
+          </div>
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-display font-bold text-white">
+              {workspaceMode === 'editor' ? 'BVIRAL Video Editor' : 'AI Studio Pipeline'}
+            </h2>
+            <p className="truncate text-xs text-muted-foreground/55">
+              {workspaceMode === 'editor'
+                ? 'Full browser editor for manual timeline work and exports.'
+                : 'Upload, enhance, and generate short-form video variants.'}
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/[0.06] bg-black/20 p-1">
+          <button
+            onClick={() => setWorkspaceMode('ai')}
+            className={cn(
+              'flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition',
+              workspaceMode === 'ai'
+                ? 'bg-primary/18 text-white shadow-[0_0_20px_rgba(124,58,237,0.12)]'
+                : 'text-white/52 hover:bg-white/[0.04] hover:text-white/80',
+            )}
+          >
+            <Wand2 className="h-4 w-4" />
+            AI Tools
+          </button>
+          <button
+            onClick={() => setWorkspaceMode('editor')}
+            className={cn(
+              'flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition',
+              workspaceMode === 'editor'
+                ? 'bg-primary/18 text-white shadow-[0_0_20px_rgba(124,58,237,0.12)]'
+                : 'text-white/52 hover:bg-white/[0.04] hover:text-white/80',
+            )}
+          >
+            <MonitorPlay className="h-4 w-4" />
+            Editor
+          </button>
+        </div>
+      </div>
+
+      {workspaceMode === 'editor' ? (
+        <div className="glass-card flex min-h-[760px] flex-1 flex-col overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-white/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="surface-label mb-2">
+                <Layers className="h-3.5 w-3.5 text-primary" />
+                BVIRAL
+              </div>
+              <h3 className="truncate text-lg font-display font-bold text-white">BVIRAL Video Editor</h3>
+              <p className="truncate text-xs text-muted-foreground/55">{videoEditorUrl}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={() => setEditorFrameKey((value) => value + 1)}
+                className="flex min-h-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-white/72 transition hover:bg-white/[0.07] hover:text-white"
+                aria-label="Reload BVIRAL Video Editor"
+              >
+                <RefreshCcw className="h-4 w-4" />
+              </button>
+              <button
+                onClick={handleLaunchVideoEditor}
+                className="btn-accent flex min-h-10 items-center justify-center gap-2 px-4"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Launch
+              </button>
+            </div>
+          </div>
+          <div className="relative min-h-0 flex-1 bg-slate-950">
+            <iframe
+              key={editorFrameKey}
+              src={videoEditorUrl}
+              title="BVIRAL Video Editor"
+              className="h-full min-h-[690px] w-full border-0 bg-slate-950"
+              allow="clipboard-read; clipboard-write; fullscreen"
+              referrerPolicy="no-referrer"
+              sandbox="allow-downloads allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-1 flex-col gap-4 lg:flex-row">
       
       {/* LEFT PANEL: Upload & Enhance */}
       <div className="w-full lg:w-[58%] flex flex-col gap-4">
@@ -337,6 +433,8 @@ export default function AiVideoStudio() {
         </div>
       </div>
 
+        </div>
+      )}
     </div>
   );
 }

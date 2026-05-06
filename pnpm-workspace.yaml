@@ -1,5 +1,6 @@
 packages:
   - artifacts/*
+  - '!artifacts/opencut'
   - lib/*
   - lib/integrations/*
   - scripts

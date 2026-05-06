@@ -18,6 +18,7 @@ artifacts/
   api-server/          Fastify API server
   bviral-dashboard/    Main React/Vite dashboard
   mockup-sandbox/      UI/mockup sandbox
+  opencut/             Vendored BVIRAL Video Editor, based on OpenCut
 
 lib/
   api-client-react/    Generated API client
@@ -33,6 +34,7 @@ scripts/               Utility scripts
 - Node.js 24
 - pnpm
 - PostgreSQL database URL for the API server
+- The vendored video editor uses its own nested pnpm workspace in `artifacts/opencut`
 
 The dashboard can run without a database because the UI currently uses mocked/demo data. The API server requires `DATABASE_URL`.
 
@@ -47,7 +49,7 @@ pnpm install
 ## Run the Dashboard
 
 ```powershell
-pnpm dev
+pnpm run dev:dashboard
 ```
 
 This starts the BViral dashboard at:
@@ -57,6 +59,47 @@ http://localhost:5173
 ```
 
 The root `dev` script only starts the dashboard.
+
+## Run the BVIRAL Video Editor
+
+The AI Studio includes a local browser video editor, vendored in `artifacts/opencut` and branded as **BVIRAL Video Editor**. It is implemented as a separate Next.js app so the heavier video timeline, canvas rendering, media storage, and export pipeline stay isolated from the main dashboard bundle.
+
+Install the editor dependencies from the project root if needed:
+
+```powershell
+pnpm --dir artifacts/opencut install
+```
+
+Start the editor:
+
+```powershell
+pnpm run dev:video-editor
+```
+
+This starts the editor at:
+
+```text
+http://localhost:3000/projects
+```
+
+AI Studio embeds this local editor from:
+
+```text
+http://localhost:5173/ai-video-studio
+```
+
+The dashboard integration defaults to `http://localhost:3000/projects`. To point AI Studio at another editor host, set:
+
+```powershell
+$env:VITE_BVIRAL_VIDEO_EDITOR_URL="http://localhost:3000/projects"
+```
+
+Notes:
+
+- The visible editor UI is branded as BVIRAL Video Editor with the BVIRAL logo.
+- OpenCut source/license files are preserved in the vendored app, but the embedded user-facing editor surfaces were rebranded.
+- Automatic transcription is disabled in this local build to avoid the heavy browser AI model/runtime dependency; manual editing, timeline work, text/captions, media import, and export remain the primary workflow.
+- The editor stores projects and media in the browser using local storage/IndexedDB/OPFS-style browser storage, so users should keep source files available until export is complete.
 
 ## Run the API Server
 
@@ -109,7 +152,7 @@ If Drizzle asks for confirmation, review the generated changes before accepting.
 
 ## Run Full Local Development
 
-Use two terminals.
+Use three terminals when running the API, dashboard, and editor together.
 
 Terminal 1: API server
 
@@ -121,13 +164,25 @@ pnpm --filter @workspace/api-server run dev
 Terminal 2: dashboard
 
 ```powershell
-pnpm dev
+pnpm run dev:dashboard
+```
+
+Terminal 3: BVIRAL Video Editor
+
+```powershell
+pnpm run dev:video-editor
 ```
 
 ## Build
 
 ```powershell
 pnpm run build
+```
+
+Build the vendored video editor separately:
+
+```powershell
+pnpm run build:video-editor
 ```
 
 ## Typecheck
@@ -144,6 +199,8 @@ pnpm --filter @workspace/bviral-dashboard run build
 pnpm --filter @workspace/api-server run dev
 pnpm --filter @workspace/api-server run build
 pnpm --filter @workspace/db run push
+pnpm run dev:video-editor
+pnpm run build:video-editor
 ```
 
 ## Notes
@@ -151,4 +208,4 @@ pnpm --filter @workspace/db run push
 - Keep the current Fastify API unless the backend grows large enough to justify a framework migration.
 - Supabase is used as hosted PostgreSQL; Fastify remains the backend server.
 - The dashboard and API are separate apps inside the same workspace.
-
+- The vendored video editor is excluded from the parent pnpm workspace and has its own `pnpm-workspace.yaml` under `artifacts/opencut`.
