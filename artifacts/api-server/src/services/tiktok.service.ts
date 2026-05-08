@@ -1,4 +1,9 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import {
+  createHash,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 import { ensureTikTokConfigured, type AppConfig } from "../lib/config";
 import type {
   AccountResponseDto,
@@ -17,6 +22,10 @@ const tiktokScopes = ["user.info.basic", "video.publish"];
 const stateTtlMs = 10 * 60 * 1000;
 const tokenRefreshSkewMs = 60_000;
 const maxCaptionLength = 2_200;
+const pendingPkce = new Map<string, {
+  codeVerifier: string;
+  expiresAt: number;
+}>();
 
 export interface TikTokConnectInput {
   userId: string;
@@ -97,14 +106,33 @@ function signState(payload: string, secret: string) {
   return createHmac("sha256", secret).update(payload).digest("base64url");
 }
 
-function createState(userId: string, secret: string) {
+function cleanupExpiredPkce() {
+  const now = Date.now();
+
+  for (const [nonce, record] of pendingPkce) {
+    if (record.expiresAt < now) {
+      pendingPkce.delete(nonce);
+    }
+  }
+}
+
+function createPkcePair() {
+  const codeVerifier = randomBytes(32).toString("base64url");
+  const codeChallenge = createHash("sha256")
+    .update(codeVerifier)
+    .digest("base64url");
+
+  return { codeVerifier, codeChallenge };
+}
+
+function createState(userId: string, secret: string, nonce: string, expiresAt: number) {
   const payload = Buffer
-    .from(JSON.stringify({ userId, expiresAt: Date.now() + stateTtlMs }))
+    .from(JSON.stringify({ userId, nonce, expiresAt }))
     .toString("base64url");
   return `${payload}.${signState(payload, secret)}`;
 }
 
-function parseState(state: string, secret: string): string {
+function parseState(state: string, secret: string): { userId: string; nonce: string } {
   const [payload, signature] = state.split(".");
 
   if (!payload || !signature) {
@@ -124,10 +152,15 @@ function parseState(state: string, secret: string): string {
 
   const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
     userId?: unknown;
+    nonce?: unknown;
     expiresAt?: unknown;
   };
 
-  if (typeof parsed.userId !== "string" || typeof parsed.expiresAt !== "number") {
+  if (
+    typeof parsed.userId !== "string"
+    || typeof parsed.nonce !== "string"
+    || typeof parsed.expiresAt !== "number"
+  ) {
     throw new Error("Invalid TikTok OAuth state.");
   }
 
@@ -135,7 +168,22 @@ function parseState(state: string, secret: string): string {
     throw new Error("Expired TikTok OAuth state.");
   }
 
-  return parsed.userId;
+  return {
+    userId: parsed.userId,
+    nonce: parsed.nonce,
+  };
+}
+
+function consumeCodeVerifier(nonce: string) {
+  cleanupExpiredPkce();
+  const record = pendingPkce.get(nonce);
+  pendingPkce.delete(nonce);
+
+  if (!record) {
+    throw new Error("TikTok OAuth code verifier is missing or expired. Start the TikTok connection again.");
+  }
+
+  return record.codeVerifier;
 }
 
 function toExpiryDate(expiresIn: number | undefined) {
@@ -306,23 +354,38 @@ export function buildTikTokService(
   return {
     getConnectUrl({ userId, redirectUri }) {
       ensureTikTokConfigured(config);
+      cleanupExpiredPkce();
+      const expiresAt = Date.now() + stateTtlMs;
+      const nonce = randomBytes(16).toString("base64url");
+      const { codeVerifier, codeChallenge } = createPkcePair();
+      pendingPkce.set(nonce, { codeVerifier, expiresAt });
+
       const url = new URL(authUrl);
       url.searchParams.set("client_key", config.tiktokClientKey!);
       url.searchParams.set("response_type", "code");
       url.searchParams.set("scope", tiktokScopes.join(","));
       url.searchParams.set("redirect_uri", redirectUri);
-      url.searchParams.set("state", createState(userId, config.tiktokClientSecret!));
+      url.searchParams.set("state", createState(
+        userId,
+        config.tiktokClientSecret!,
+        nonce,
+        expiresAt,
+      ));
+      url.searchParams.set("code_challenge", codeChallenge);
+      url.searchParams.set("code_challenge_method", "S256");
 
       return url.toString();
     },
 
     async handleCallback({ code, state, redirectUri }) {
       ensureTikTokConfigured(config);
-      const userId = parseState(state, config.tiktokClientSecret!);
+      const { userId, nonce } = parseState(state, config.tiktokClientSecret!);
+      const codeVerifier = consumeCodeVerifier(nonce);
       const token = await exchangeToken(new URLSearchParams({
         client_key: config.tiktokClientKey!,
         client_secret: config.tiktokClientSecret!,
         code,
+        code_verifier: codeVerifier,
         grant_type: "authorization_code",
         redirect_uri: redirectUri,
       }));

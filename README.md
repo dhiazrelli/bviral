@@ -161,6 +161,11 @@ TikTok:  http://localhost:3001/api/v1/accounts/tiktok/callback
 Meta:    http://localhost:3001/api/v1/accounts/meta/callback
 ```
 
+The TikTok connect flow uses PKCE. The API server generates the verifier for
+each connect attempt and keeps it in memory until the OAuth callback returns, so
+restart the API and retry the connection if a callback says the verifier expired
+or is missing.
+
 For Instagram access, configure Meta/Facebook credentials in `.env`:
 
 ```text
