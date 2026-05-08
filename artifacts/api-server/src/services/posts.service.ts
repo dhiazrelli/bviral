@@ -59,6 +59,11 @@ export interface PostsService {
   cancelPost(postId: string, userId: string): Promise<void>;
 }
 
+export interface PostsServiceOptions {
+  allowUnqueuedSchedules?: boolean;
+  queueTimeoutMs?: number;
+}
+
 function getScheduleDelay(scheduledAt: Date) {
   return Math.max(0, scheduledAt.getTime() - Date.now());
 }
@@ -73,10 +78,23 @@ function assertScheduledTime(scheduledAt: Date) {
   }
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
+
+    promise
+      .then(resolve, reject)
+      .finally(() => clearTimeout(timeout));
+  });
+}
+
 export function buildPostsService(
   postsRepository: PostsRepository,
   postPublishingQueue: PostPublishingQueue,
+  options: PostsServiceOptions = {},
 ): PostsService {
+  const queueTimeoutMs = options.queueTimeoutMs ?? 3_000;
+
   return {
     listPosts(userId) {
       return postsRepository.listForUser(userId);
@@ -122,21 +140,31 @@ export function buildPostsService(
         metadata: input.metadata ?? {},
       });
 
+      const enqueue = postPublishingQueue.add("publish-post", {
+        postId: post.id,
+        userId,
+      }, {
+        delay: getScheduleDelay(scheduledAt),
+        jobId: post.id,
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 60_000,
+        },
+        removeOnComplete: 100,
+      });
+
       try {
-        await postPublishingQueue.add("publish-post", {
-          postId: post.id,
-          userId,
-        }, {
-          delay: getScheduleDelay(scheduledAt),
-          jobId: post.id,
-          attempts: 3,
-          backoff: {
-            type: "exponential",
-            delay: 60_000,
-          },
-          removeOnComplete: 100,
-        });
+        await withTimeout(
+          enqueue,
+          queueTimeoutMs,
+          "Publishing queue did not respond. Make sure Redis is running.",
+        );
       } catch (error) {
+        if (options.allowUnqueuedSchedules) {
+          return post;
+        }
+
         await postsRepository.deleteScheduledForUser(post.id, userId);
         throw error;
       }
@@ -155,7 +183,18 @@ export function buildPostsService(
         throw new PostCancellationError();
       }
 
-      await postPublishingQueue.remove(post.id);
+      try {
+        await withTimeout(
+          postPublishingQueue.remove(post.id),
+          queueTimeoutMs,
+          "Publishing queue did not respond. Make sure Redis is running.",
+        );
+      } catch (error) {
+        if (!options.allowUnqueuedSchedules) {
+          throw error;
+        }
+      }
+
       const deleted = await postsRepository.deleteScheduledForUser(post.id, userId);
 
       if (!deleted) {

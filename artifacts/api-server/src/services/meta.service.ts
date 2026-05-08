@@ -13,14 +13,11 @@ const graphUrl = `https://graph.facebook.com/${graphApiVersion}`;
 const graphVideoUrl = `https://graph-video.facebook.com/${graphApiVersion}`;
 const instagramGraphUrl = `https://graph.instagram.com/${graphApiVersion}`;
 const loginDialogUrl = `https://www.facebook.com/${graphApiVersion}/dialog/oauth`;
-const metaScopes = [
+const defaultMetaScopes = [
   "pages_show_list",
   "pages_read_engagement",
-  "pages_manage_posts",
-  "instagram_basic",
-  "instagram_content_publish",
-  "instagram_business_content_publish",
 ];
+const instagramReadScopes = new Set(["instagram_basic", "instagram_business_basic"]);
 const stateTtlMs = 10 * 60 * 1000;
 const tokenRefreshSkewMs = 24 * 60 * 60 * 1000;
 const defaultTokenTtlSeconds = 60 * 24 * 60 * 60;
@@ -113,6 +110,14 @@ function requireMetaCredentials(config: AppConfig) {
     appId: config.metaAppId,
     appSecret: config.metaAppSecret,
   };
+}
+
+function getMetaScopes(config: AppConfig) {
+  return config.metaOAuthScopes?.length ? config.metaOAuthScopes : defaultMetaScopes;
+}
+
+function hasInstagramReadScope(config: AppConfig) {
+  return getMetaScopes(config).some((scope) => instagramReadScopes.has(scope));
 }
 
 function signState(payload: string, secret: string) {
@@ -315,9 +320,18 @@ async function getMetaUser(accessToken: string) {
   });
 }
 
-async function getPageAccounts(accessToken: string) {
+async function getPageAccounts(accessToken: string, includeInstagram: boolean) {
+  const fields = [
+    "id",
+    "name",
+    "access_token",
+    "category",
+    "tasks",
+    includeInstagram ? "instagram_business_account{id,username,name}" : null,
+  ].filter(Boolean).join(",");
+
   const response = await graphGet<MetaAccountsResponse>("me/accounts", {
-    fields: "id,name,access_token,category,tasks,instagram_business_account{id,username,name}",
+    fields,
     access_token: accessToken,
   });
 
@@ -339,7 +353,7 @@ async function refreshAccountToken(
     throw new Error("Meta token refresh did not return an access token.");
   }
 
-  const pages = await getPageAccounts(longLivedToken.access_token);
+  const pages = await getPageAccounts(longLivedToken.access_token, hasInstagramReadScope(config));
   const page = findPage(pages, getMetadataId(account, "pageId"));
 
   if (!page?.access_token) {
@@ -464,7 +478,7 @@ export function buildMetaService(
       url.searchParams.set("client_id", appId);
       url.searchParams.set("redirect_uri", redirectUri);
       url.searchParams.set("state", createState(userId, appSecret));
-      url.searchParams.set("scope", metaScopes.join(","));
+      url.searchParams.set("scope", getMetaScopes(config).join(","));
       url.searchParams.set("response_type", "code");
 
       return url.toString();
@@ -487,7 +501,7 @@ export function buildMetaService(
 
       const [metaUser, pages] = await Promise.all([
         getMetaUser(longToken.access_token),
-        getPageAccounts(longToken.access_token),
+        getPageAccounts(longToken.access_token, hasInstagramReadScope(config)),
       ]);
       const page = pages.find((candidate) => candidate.access_token);
 

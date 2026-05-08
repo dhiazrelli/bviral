@@ -1,4 +1,4 @@
-import { Worker } from "bullmq";
+import { Queue, Worker } from "bullmq";
 import { createDatabase, createPool } from "@workspace/db";
 import { resolveConfig } from "../lib/config";
 import { loadEnv } from "../lib/load-env";
@@ -46,6 +46,38 @@ const platformPublisher = buildPlatformPublisher(
   metaService,
 );
 const redis = createRedisConnection(config.redisUrl);
+const queue = new Queue<PostPublishingJob>(postPublishingQueueName, {
+  connection: redis,
+});
+
+function getScheduleDelay(scheduledAt: string) {
+  return Math.max(0, new Date(scheduledAt).getTime() - Date.now());
+}
+
+async function restoreScheduledJobs() {
+  const scheduledPosts = await postsRepository.listScheduledForPublishing();
+
+  await Promise.all(scheduledPosts.map(({ post, userId }) =>
+    queue.add("publish-post", {
+      postId: post.id,
+      userId,
+    }, {
+      delay: getScheduleDelay(post.scheduledAt),
+      jobId: post.id,
+      attempts: 3,
+      backoff: {
+        type: "exponential",
+        delay: 60_000,
+      },
+      removeOnComplete: 100,
+    })
+  ));
+
+  console.info(
+    { count: scheduledPosts.length },
+    "Restored scheduled post publishing jobs",
+  );
+}
 
 const worker = new Worker<PostPublishingJob>(
   postPublishingQueueName,
@@ -56,33 +88,23 @@ const worker = new Worker<PostPublishingJob>(
       return;
     }
 
-    try {
-      const result = await platformPublisher.publish({
-        postId: post.id,
-        platform: post.platform,
-        accountId: post.accountId,
-        videoId: post.videoId,
-        userId: job.data.userId,
-        post,
-      });
+    const result = await platformPublisher.publish({
+      postId: post.id,
+      platform: post.platform,
+      accountId: post.accountId,
+      videoId: post.videoId,
+      userId: job.data.userId,
+      post,
+    });
 
-      await postsRepository.markPosted(post.id, result.externalPostId);
-    } catch (error) {
-      const message = error instanceof Error
-        ? error.message
-        : "Platform publishing failed.";
-
-      await postsRepository.markFailed(post.id, message);
-      await postsRepository.createFailureAlert({
-        message,
-        platform: post.platform,
-        accountId: post.accountId,
-        postId: post.id,
-      });
-    }
+    await postsRepository.markPosted(post.id, result.externalPostId);
   },
   { connection: redis },
 );
+
+restoreScheduledJobs().catch((error) => {
+  console.error({ err: error }, "Unable to restore scheduled post publishing jobs");
+});
 
 worker.on("completed", (job) => {
   console.info({ jobId: job.id, postId: job.data.postId }, "Post publishing job completed");
@@ -92,6 +114,13 @@ worker.on("failed", async (job, error) => {
   console.error({ jobId: job?.id, err: error }, "Post publishing job failed");
 
   if (job) {
+    const attempts = typeof job.opts.attempts === "number" ? job.opts.attempts : 1;
+    const isFinalAttempt = job.attemptsMade >= attempts;
+
+    if (!isFinalAttempt) {
+      return;
+    }
+
     const post = await postsRepository.markFailed(
       job.data.postId,
       error.message,
@@ -110,6 +139,7 @@ worker.on("failed", async (job, error) => {
 
 async function shutdown() {
   await worker.close();
+  await queue.close();
   redis.disconnect();
   await pool.end();
 }

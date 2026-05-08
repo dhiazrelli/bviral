@@ -402,7 +402,7 @@ export default function Scheduling() {
     });
   };
 
-  const handleSchedulePost = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSchedulePost = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const account = accounts.find((entry) => entry.id === composerForm.accountId);
 
@@ -415,10 +415,10 @@ export default function Scheduling() {
       return;
     }
 
-    if (!composerForm.videoId) {
+    if (!composerForm.videoId && !composerForm.uploadFile) {
       toast({
         title: "Select a video",
-        description: "Upload or select a video before scheduling.",
+        description: "Choose an uploaded video or select a local video file.",
         variant: "destructive",
       });
       return;
@@ -434,19 +434,31 @@ export default function Scheduling() {
       return;
     }
 
-    createPostMutation.mutate({
-      data: {
-        account_id: account.id,
-        video_id: composerForm.videoId,
-        platform: account.platform,
-        scheduled_at: scheduledAt.toISOString(),
-        metadata: {
-          title: composerForm.title.trim() || "BVIRAL scheduled video",
-          description: composerForm.caption.trim(),
-          caption: composerForm.caption.trim(),
+    try {
+      const videoId = composerForm.uploadFile
+        ? (await uploadVideoMutation.mutateAsync({
+          data: {
+            file: composerForm.uploadFile,
+          },
+        })).id
+        : composerForm.videoId;
+
+      await createPostMutation.mutateAsync({
+        data: {
+          account_id: account.id,
+          video_id: videoId,
+          platform: account.platform,
+          scheduled_at: scheduledAt.toISOString(),
+          metadata: {
+            title: composerForm.title.trim() || "BVIRAL scheduled video",
+            description: composerForm.caption.trim(),
+            caption: composerForm.caption.trim(),
+          },
         },
-      },
-    });
+      });
+    } catch {
+      // Mutation handlers show the specific toast.
+    }
   };
 
   if (isLoading) {
@@ -687,6 +699,153 @@ export default function Scheduling() {
           </div>
         </motion.div>
       </div>
+
+      {isComposerOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="w-full max-w-2xl rounded-2xl border border-white/[0.08] bg-card p-5 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="schedule-post-title"
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-white/[0.06] pb-4">
+              <div>
+                <h2 id="schedule-post-title" className="font-display text-lg font-bold text-white">Schedule post</h2>
+                <p className="mt-1 text-xs text-muted-foreground/55">Choose the account, video, and delivery time for the publishing worker.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setComposerOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground/60 transition hover:bg-white/[0.06] hover:text-white"
+                aria-label="Close scheduler"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSchedulePost} className="mt-5 space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50">Account</span>
+                  <select
+                    value={composerForm.accountId}
+                    onChange={(event) => setComposerForm((current) => ({ ...current, accountId: event.target.value }))}
+                    className="h-11 w-full rounded-xl border border-white/[0.08] bg-black/25 px-3 text-sm text-white outline-none transition focus:border-primary/40"
+                    required
+                  >
+                    <option value="" disabled>Select account</option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.accountName} - {platformLabels[account.platform]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50">Schedule time</span>
+                  <input
+                    type="datetime-local"
+                    value={composerForm.scheduledAt}
+                    min={toDateTimeLocalValue(new Date(Date.now() + 60_000))}
+                    onChange={(event) => setComposerForm((current) => ({ ...current, scheduledAt: event.target.value }))}
+                    className="h-11 w-full rounded-xl border border-white/[0.08] bg-black/25 px-3 text-sm text-white outline-none transition focus:border-primary/40"
+                    required
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                <label className="space-y-2">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50">Video</span>
+                  <select
+                    value={composerForm.videoId}
+                    onChange={(event) => setComposerForm((current) => ({ ...current, videoId: event.target.value }))}
+                    className="h-11 w-full rounded-xl border border-white/[0.08] bg-black/25 px-3 text-sm text-white outline-none transition focus:border-primary/40"
+                    required
+                  >
+                    <option value="" disabled>{availableVideos.length > 0 ? "Select uploaded video" : "No uploaded videos"}</option>
+                    {availableVideos.map((video) => (
+                      <option key={video.id} value={video.id}>
+                        {getVideoLabel(video)} - {video.status}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-muted-foreground/45">Select an existing upload, or choose a local file and Schedule will upload it first.</p>
+                </label>
+
+                <div className="space-y-2">
+                  <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50">Upload new</span>
+                  <div className="flex gap-2">
+                    <label className="flex h-11 min-w-0 cursor-pointer items-center rounded-xl border border-white/[0.08] bg-black/25 px-3 text-xs text-white/70 transition hover:bg-white/[0.04]">
+                      <input
+                        type="file"
+                        accept="video/*"
+                        className="hidden"
+                        onChange={(event) => setComposerForm((current) => ({ ...current, uploadFile: event.target.files?.[0] ?? null }))}
+                      />
+                      <span className="max-w-[150px] truncate">{composerForm.uploadFile?.name ?? "Choose file"}</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleUploadSelectedVideo}
+                      disabled={!composerForm.uploadFile || uploadVideoMutation.isPending}
+                      className="flex h-11 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary/12 px-3 text-xs font-semibold text-primary transition hover:bg-primary/18 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {uploadVideoMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UploadCloud className="h-3.5 w-3.5" />}
+                      Upload
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50">Title</span>
+                  <input
+                    value={composerForm.title}
+                    onChange={(event) => setComposerForm((current) => ({ ...current, title: event.target.value }))}
+                    placeholder="BVIRAL scheduled video"
+                    maxLength={100}
+                    className="h-11 w-full rounded-xl border border-white/[0.08] bg-black/25 px-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-primary/40"
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50">Caption</span>
+                  <textarea
+                    value={composerForm.caption}
+                    onChange={(event) => setComposerForm((current) => ({ ...current, caption: event.target.value }))}
+                    placeholder="Caption, hashtags, or publishing notes"
+                    rows={3}
+                    className="min-h-11 w-full resize-none rounded-xl border border-white/[0.08] bg-black/25 px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-primary/40"
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setComposerOpen(false)}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createPostMutation.isPending || uploadVideoMutation.isPending || accounts.length === 0}
+                  className="btn-primary flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {createPostMutation.isPending || uploadVideoMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  {uploadVideoMutation.isPending ? "Uploading Video" : createPostMutation.isPending ? "Scheduling" : "Schedule Post"}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      ) : null}
     </div>
   );
 }

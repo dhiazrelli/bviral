@@ -59,6 +59,9 @@ export default fp(async function repositoriesPlugin(fastify) {
   fastify.decorate("postsService", buildPostsService(
     postsRepository,
     fastify.postPublishingQueue,
+    {
+      allowUnqueuedSchedules: fastify.config.nodeEnv !== "production",
+    },
   ));
   fastify.decorate("usersRepository", buildUsersRepository(fastify.db));
   fastify.decorate("videosRepository", videosRepository);
@@ -66,6 +69,7 @@ export default fp(async function repositoriesPlugin(fastify) {
     supabaseAdmin: fastify.supabaseAdmin,
     videoProcessingQueue: fastify.videoProcessingQueue,
     videoBucket: fastify.config.supabaseVideoBucket,
+    skipProcessingQueue: fastify.config.nodeEnv !== "production",
   }));
 }, {
   name: "repositories-plugin",

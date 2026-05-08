@@ -167,9 +167,10 @@ For Instagram access, configure Meta/Facebook credentials in `.env`:
 META_APP_ID=...
 META_APP_SECRET=...
 META_REDIRECT_URI=http://localhost:3001/api/v1/accounts/meta/callback
+META_OAUTH_SCOPES=pages_show_list,pages_read_engagement
 ```
 
-The Meta flow uses Facebook Login to request Instagram/Page permissions. The connected Instagram account must be a professional Instagram account linked to a Facebook Page that the logged-in user can access.
+The Meta flow requests a small default scope set so local Facebook Login can connect pages without being blocked by unavailable permissions. For Facebook or Instagram publishing, expand `META_OAUTH_SCOPES` only after the Meta app has the matching product/use case and app review access, for example `pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish`. The connected Instagram account must be a professional Instagram account linked to a Facebook Page that the logged-in user can access.
 
 ## Push Database Schema
 
@@ -183,7 +184,7 @@ If Drizzle asks for confirmation, review the generated changes before accepting.
 
 ## Run Full Local Development
 
-Use three terminals when running the API, dashboard, and editor together.
+Use four terminals when running the API, dashboard, post publishing worker, and editor together. Redis must be running at `REDIS_URL` for scheduled publishing jobs.
 
 Terminal 1: API server
 
@@ -198,7 +199,17 @@ Terminal 2: dashboard
 pnpm run dev:dashboard
 ```
 
-Terminal 3: BVIRAL Video Editor
+Terminal 3: post publishing worker
+
+```powershell
+pnpm run dev:worker:posts
+```
+
+When the worker starts, it restores any database posts still marked `scheduled`
+back into the Redis publishing queue, including overdue posts from a previous
+local run.
+
+Terminal 4: BVIRAL Video Editor
 
 ```powershell
 pnpm run dev:video-editor
@@ -230,6 +241,7 @@ pnpm --filter @workspace/bviral-dashboard run build
 pnpm --filter @workspace/api-server run dev
 pnpm --filter @workspace/api-server run build
 pnpm --filter @workspace/db run push
+pnpm run dev:worker:posts
 pnpm run dev:video-editor
 pnpm run build:video-editor
 ```

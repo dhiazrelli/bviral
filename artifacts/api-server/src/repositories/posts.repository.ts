@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import {
   accountsTable,
   alertsTable,
@@ -51,6 +51,10 @@ export interface CreateFailureAlertPayload {
 
 export interface PostsRepository {
   listForUser(userId: string): Promise<PostResponseDto[]>;
+  listScheduledForPublishing(): Promise<Array<{
+    post: PostResponseDto;
+    userId: string;
+  }>>;
   findForUser(postId: string, userId: string): Promise<PostResponseDto | null>;
   findWithAccountForUser(postId: string, userId: string): Promise<PostResponseDto | null>;
   createScheduled(input: CreateScheduledPostPayload): Promise<PostResponseDto>;
@@ -92,6 +96,23 @@ export function buildPostsRepository(db: Database): PostsRepository {
         .orderBy(desc(postsTable.scheduledAt));
 
       return posts.map(({ post }) => serializePost(post));
+    },
+
+    async listScheduledForPublishing() {
+      const rows = await db
+        .select({
+          post: postsTable,
+          userId: accountsTable.userId,
+        })
+        .from(postsTable)
+        .innerJoin(accountsTable, eq(accountsTable.id, postsTable.accountId))
+        .where(eq(postsTable.status, "scheduled"))
+        .orderBy(asc(postsTable.scheduledAt));
+
+      return rows.map(({ post, userId }) => ({
+        post: serializePost(post),
+        userId,
+      }));
     },
 
     async findForUser(postId, userId) {

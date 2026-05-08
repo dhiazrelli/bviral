@@ -72,16 +72,36 @@ async function ensureBucket(supabaseAdmin: SupabaseClient, bucketName: string) {
   const { data, error } = await supabaseAdmin.storage.getBucket(bucketName);
 
   if (!error && data) {
+    if (!data.public) {
+      const { error: updateError } = await supabaseAdmin.storage.updateBucket(bucketName, {
+        public: true,
+      });
+
+      if (updateError) {
+        throw updateError;
+      }
+    }
+
     return;
   }
 
   const { error: createError } = await supabaseAdmin.storage.createBucket(bucketName, {
-    public: false,
+    public: true,
   });
 
   if (createError && createError.message !== "Bucket already exists") {
     throw createError;
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("Video processing queue did not respond.")), timeoutMs);
+
+    promise
+      .then(resolve, reject)
+      .finally(() => clearTimeout(timeout));
+  });
 }
 
 export function buildVideosService(
@@ -90,6 +110,7 @@ export function buildVideosService(
     supabaseAdmin: SupabaseClient | null;
     videoProcessingQueue: VideoProcessingQueue;
     videoBucket: string;
+    skipProcessingQueue?: boolean;
   },
 ): VideosService {
   return {
@@ -140,10 +161,22 @@ export function buildVideosService(
         originalUrl: publicUrl,
       });
 
-      await options.videoProcessingQueue.add("process-video", {
-        videoId: video.id,
-        userId,
-      });
+      if (options.skipProcessingQueue) {
+        return video;
+      }
+
+      try {
+        await withTimeout(
+          options.videoProcessingQueue.add("process-video", {
+            videoId: video.id,
+            userId,
+          }),
+          3_000,
+        );
+      } catch {
+        // Uploads are still usable for scheduling even when the local
+        // processing queue is not running.
+      }
 
       return video;
     },

@@ -27,6 +27,7 @@ export interface AppConfig {
   metaAppId?: string;
   metaAppSecret?: string;
   metaRedirectUri?: string;
+  metaOAuthScopes?: string[];
 }
 
 /**
@@ -92,6 +93,15 @@ function requireTrimmedString(value: string | undefined, name: string): string {
 function optionalTrimmedString(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed || undefined;
+}
+
+function optionalStringList(value: string | undefined): string[] | undefined {
+  const values = value
+    ?.split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  return values && values.length > 0 ? values : undefined;
 }
 
 function validateSupabaseUrl(value: string, name: string): string {
@@ -191,6 +201,7 @@ export function resolveConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     metaRedirectUri: optionalTrimmedString(
       env.META_REDIRECT_URI ?? env.FACEBOOK_REDIRECT_URI,
     ),
+    metaOAuthScopes: optionalStringList(env.META_OAUTH_SCOPES),
   });
 }
 

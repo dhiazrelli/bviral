@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter @workspace/bviral-dashboard run dev",
     "dev:dashboard": "pnpm --filter @workspace/bviral-dashboard run dev",
+    "dev:worker:posts": "pnpm --filter @workspace/api-server run worker:posts",
     "dev:video-editor": "pnpm -C artifacts/openvideo --ignore-workspace run dev",
     "build:video-editor": "pnpm -C artifacts/openvideo --ignore-workspace run build",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
