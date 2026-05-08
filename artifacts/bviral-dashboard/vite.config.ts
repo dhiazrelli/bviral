@@ -5,6 +5,9 @@ import path from "path";
 
 const port = Number(process.env.PORT) || 5173;
 const basePath = process.env.BASE_PATH || "/";
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET
+  || process.env.API_PROXY_TARGET
+  || "http://localhost:3001";
 
 export default defineConfig({
   base: basePath,
@@ -31,6 +34,12 @@ export default defineConfig({
     fs: {
       strict: true,
       deny: ["**/.*"],
+    },
+    proxy: {
+      "/api": {
+        target: apiProxyTarget,
+        changeOrigin: true,
+      },
     },
   },
   preview: {

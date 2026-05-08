@@ -14,12 +14,39 @@ const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 const defaultLocalApiBaseUrl = "http://localhost:3001";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
+function isBrowserTunnelOrigin() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const hostname = window.location.hostname;
+  return window.location.protocol === "https:"
+    && hostname !== "localhost"
+    && hostname !== "127.0.0.1";
+}
+
+function isLocalApiBaseUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.hostname === "localhost" || url.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
 function getApiBaseUrl() {
   if (configuredApiBaseUrl && configuredApiBaseUrl.trim()) {
-    return configuredApiBaseUrl.trim();
+    const configured = configuredApiBaseUrl.trim();
+    return isBrowserTunnelOrigin() && isLocalApiBaseUrl(configured)
+      ? ""
+      : configured;
   }
 
   if (import.meta.env.DEV) {
+    if (isBrowserTunnelOrigin()) {
+      return "";
+    }
+
     return defaultLocalApiBaseUrl;
   }
 

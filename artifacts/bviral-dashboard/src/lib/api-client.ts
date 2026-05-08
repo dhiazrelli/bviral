@@ -4,12 +4,39 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const defaultLocalApiBaseUrl = "http://localhost:3001";
 
+function isBrowserTunnelOrigin() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const hostname = window.location.hostname;
+  return window.location.protocol === "https:"
+    && hostname !== "localhost"
+    && hostname !== "127.0.0.1";
+}
+
+function isLocalApiBaseUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.hostname === "localhost" || url.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
 function resolveApiBaseUrl() {
   if (apiBaseUrl && apiBaseUrl.trim()) {
-    return apiBaseUrl.trim();
+    const configured = apiBaseUrl.trim();
+    return isBrowserTunnelOrigin() && isLocalApiBaseUrl(configured)
+      ? null
+      : configured;
   }
 
   if (import.meta.env.DEV) {
+    if (isBrowserTunnelOrigin()) {
+      return null;
+    }
+
     return defaultLocalApiBaseUrl;
   }
 

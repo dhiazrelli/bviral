@@ -166,6 +166,28 @@ each connect attempt and keeps it in memory until the OAuth callback returns, so
 restart the API and retry the connection if a callback says the verifier expired
 or is missing.
 
+TikTok does not accept `localhost` for Web redirect URIs. For local development,
+tunnel the dashboard dev server and use the proxied API callback:
+
+```powershell
+ngrok http 5173
+```
+
+Then set these values in `.env`, replacing the host with your tunnel URL:
+
+```text
+DASHBOARD_URL=https://YOUR-TUNNEL.ngrok-free.app
+TIKTOK_REDIRECT_URI=https://YOUR-TUNNEL.ngrok-free.app/api/v1/accounts/tiktok/callback
+VITE_API_PROXY_TARGET=http://localhost:3001
+```
+
+Register the exact same `TIKTOK_REDIRECT_URI` in TikTok's Login Kit redirect URI
+field. The dashboard dev server proxies `/api` to the local API server, so the
+callback still reaches the backend that created the PKCE verifier. When the
+dashboard is opened through the HTTPS tunnel, it also routes API calls through
+the same-origin `/api` proxy instead of calling `localhost:3001` from the
+browser.
+
 For Instagram access, configure Meta/Facebook credentials in `.env`:
 
 ```text
