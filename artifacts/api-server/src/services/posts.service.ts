@@ -63,6 +63,16 @@ function getScheduleDelay(scheduledAt: Date) {
   return Math.max(0, scheduledAt.getTime() - Date.now());
 }
 
+function assertScheduledTime(scheduledAt: Date) {
+  if (Number.isNaN(scheduledAt.getTime())) {
+    throw new PostValidationError("Scheduled time is invalid.");
+  }
+
+  if (scheduledAt.getTime() <= Date.now()) {
+    throw new PostValidationError("Scheduled time must be in the future.");
+  }
+}
+
 export function buildPostsService(
   postsRepository: PostsRepository,
   postPublishingQueue: PostPublishingQueue,
@@ -84,6 +94,7 @@ export function buildPostsService(
 
     async createPost(input, userId) {
       const scheduledAt = new Date(input.scheduled_at);
+      assertScheduledTime(scheduledAt);
       const accountPlatform = await postsRepository.findOwnedAccountPlatform(
         input.account_id,
         userId,
@@ -111,13 +122,24 @@ export function buildPostsService(
         metadata: input.metadata ?? {},
       });
 
-      await postPublishingQueue.add("publish-post", {
-        postId: post.id,
-        userId,
-      }, {
-        delay: getScheduleDelay(scheduledAt),
-        jobId: post.id,
-      });
+      try {
+        await postPublishingQueue.add("publish-post", {
+          postId: post.id,
+          userId,
+        }, {
+          delay: getScheduleDelay(scheduledAt),
+          jobId: post.id,
+          attempts: 3,
+          backoff: {
+            type: "exponential",
+            delay: 60_000,
+          },
+          removeOnComplete: 100,
+        });
+      } catch (error) {
+        await postsRepository.deleteScheduledForUser(post.id, userId);
+        throw error;
+      }
 
       return post;
     },

@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Readable } from "node:stream";
 import { google } from "googleapis";
-import type { AppConfig } from "../lib/config";
+import { ensureYouTubeConfigured, type AppConfig } from "../lib/config";
 import type {
   AccountResponseDto,
   AccountsRepository,
@@ -9,7 +9,10 @@ import type {
 import type { PostResponseDto } from "../repositories/posts.repository";
 import type { VideosRepository } from "../repositories/videos.repository";
 
-const youtubeScopes = ["https://www.googleapis.com/auth/youtube.upload"];
+const youtubeScopes = [
+  "https://www.googleapis.com/auth/youtube.upload",
+  "https://www.googleapis.com/auth/youtube.readonly",
+];
 const stateTtlMs = 10 * 60 * 1000;
 
 export interface YouTubeConnectInput {
@@ -109,18 +112,20 @@ export function buildYouTubeService(
 ): YouTubeService {
   return {
     getConnectUrl({ userId, redirectUri }) {
+      ensureYouTubeConfigured(config);
       const oauthClient = createOAuthClient(config, redirectUri);
       return oauthClient.generateAuthUrl({
         access_type: "offline",
         include_granted_scopes: true,
         prompt: "consent",
         scope: youtubeScopes,
-        state: createState(userId, config.youtubeClientSecret),
+        state: createState(userId, config.youtubeClientSecret!),
       });
     },
 
     async handleCallback({ code, state, redirectUri }) {
-      const userId = parseState(state, config.youtubeClientSecret);
+      ensureYouTubeConfigured(config);
+      const userId = parseState(state, config.youtubeClientSecret!);
       const oauthClient = createOAuthClient(config, redirectUri);
       const { tokens } = await oauthClient.getToken(code);
 

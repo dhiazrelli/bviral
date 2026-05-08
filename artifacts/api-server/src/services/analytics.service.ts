@@ -61,6 +61,32 @@ function requireMetaCredentials(config: AppConfig) {
   };
 }
 
+function requireYouTubeCredentials(config: AppConfig) {
+  if (!config.youtubeClientId || !config.youtubeClientSecret) {
+    throw new Error(
+      "YouTube analytics refresh is not configured. Set YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET.",
+    );
+  }
+
+  return {
+    clientId: config.youtubeClientId,
+    clientSecret: config.youtubeClientSecret,
+  };
+}
+
+function requireTikTokCredentials(config: AppConfig) {
+  if (!config.tiktokClientKey || !config.tiktokClientSecret) {
+    throw new Error(
+      "TikTok analytics refresh is not configured. Set TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET.",
+    );
+  }
+
+  return {
+    clientKey: config.tiktokClientKey,
+    clientSecret: config.tiktokClientSecret,
+  };
+}
+
 interface YouTubeTokenResponse {
   access_token?: string;
   expires_in?: number;
@@ -215,6 +241,7 @@ async function refreshYouTubeAccessToken(
   if (!account.accountRefreshToken) {
     throw new Error("YouTube refresh token is missing.");
   }
+  const credentials = requireYouTubeCredentials(config);
 
   const response = await fetch(youtubeTokenUrl, {
     method: "POST",
@@ -222,8 +249,8 @@ async function refreshYouTubeAccessToken(
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: new URLSearchParams({
-      client_id: config.youtubeClientId,
-      client_secret: config.youtubeClientSecret,
+      client_id: credentials.clientId,
+      client_secret: credentials.clientSecret,
       grant_type: "refresh_token",
       refresh_token: account.accountRefreshToken,
     }),
@@ -293,6 +320,7 @@ async function refreshTikTokAccessToken(
   if (!account.accountRefreshToken) {
     throw new Error("TikTok refresh token is missing.");
   }
+  const credentials = requireTikTokCredentials(config);
 
   const response = await fetch(tiktokTokenUrl, {
     method: "POST",
@@ -300,8 +328,8 @@ async function refreshTikTokAccessToken(
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: new URLSearchParams({
-      client_key: config.tiktokClientKey,
-      client_secret: config.tiktokClientSecret,
+      client_key: credentials.clientKey,
+      client_secret: credentials.clientSecret,
       grant_type: "refresh_token",
       refresh_token: account.accountRefreshToken,
     }),

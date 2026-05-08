@@ -1,9 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { 
-  Sparkles, Type, Crop, Maximize, Scissors, Mic, Music, 
+import {
+  Sparkles, Type, Crop, Maximize, Scissors, Mic, Music,
   Film, Image as ImageIcon, Play, Download, Wand2, Plus,
-  Upload, Layers, ExternalLink, RefreshCcw, MonitorPlay
+  Upload, Layers, ExternalLink, RefreshCcw, MonitorPlay,
 } from 'lucide-react';
 import {
   getListVideosQueryKey,
@@ -12,6 +12,7 @@ import {
 } from '@workspace/api-client-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { BrowserVideoTrimmer } from '@/components/visuals/BrowserVideoTrimmer';
 
 const tools = [
   { id: 'captions', label: 'AI Captions', icon: Type, active: true },
@@ -57,8 +58,9 @@ export default function AiVideoStudio() {
   const [uploadedAsset, setUploadedAsset] = useState<string | null>(null);
   const [isTimelinePlaying, setTimelinePlaying] = useState(false);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
-  const [workspaceMode, setWorkspaceMode] = useState<'ai' | 'editor'>('ai');
+  const [workspaceMode, setWorkspaceMode] = useState<'ai' | 'editor' | 'trim'>('ai');
   const [editorFrameKey, setEditorFrameKey] = useState(0);
+  const [editorReachable, setEditorReachable] = useState<'unknown' | 'reachable' | 'unreachable'>('unknown');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videos = videosQuery.data?.data ?? [];
   const videoEditorUrl = import.meta.env.VITE_BVIRAL_VIDEO_EDITOR_URL ?? 'http://localhost:3000/projects';
@@ -93,6 +95,30 @@ export default function AiVideoStudio() {
     });
   };
 
+  // Probe whether the BVIRAL Video Editor is actually running. This avoids
+  // a black iframe with no explanation when the user hasn't started the
+  // openvideo Next.js dev server.
+  useEffect(() => {
+    if (workspaceMode !== 'editor') return;
+    let cancelled = false;
+    setEditorReachable('unknown');
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 1500);
+    fetch(videoEditorUrl, { mode: 'no-cors', signal: controller.signal })
+      .then(() => {
+        if (!cancelled) setEditorReachable('reachable');
+      })
+      .catch(() => {
+        if (!cancelled) setEditorReachable('unreachable');
+      })
+      .finally(() => window.clearTimeout(timer));
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [workspaceMode, videoEditorUrl, editorFrameKey]);
+
   const activeCount = Object.values(activeTools).filter(Boolean).length;
 
   return (
@@ -100,20 +126,32 @@ export default function AiVideoStudio() {
       <div className="glass-card flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/12 text-primary">
-            {workspaceMode === 'editor' ? <MonitorPlay className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
+            {workspaceMode === 'editor' ? (
+              <MonitorPlay className="h-5 w-5" />
+            ) : workspaceMode === 'trim' ? (
+              <Scissors className="h-5 w-5" />
+            ) : (
+              <Sparkles className="h-5 w-5" />
+            )}
           </div>
           <div className="min-w-0">
             <h2 className="truncate text-base font-display font-bold text-white">
-              {workspaceMode === 'editor' ? 'BVIRAL Video Editor' : 'AI Studio Pipeline'}
+              {workspaceMode === 'editor'
+                ? 'BVIRAL Video Editor'
+                : workspaceMode === 'trim'
+                  ? 'Quick Trim'
+                  : 'AI Studio Pipeline'}
             </h2>
             <p className="truncate text-xs text-muted-foreground/55">
               {workspaceMode === 'editor'
                 ? 'Full browser editor for manual timeline work and exports.'
-                : 'Upload, enhance, and generate short-form video variants.'}
+                : workspaceMode === 'trim'
+                  ? 'Browser-only fallback — no Next.js editor required.'
+                  : 'Upload, enhance, and generate short-form video variants.'}
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/[0.06] bg-black/20 p-1">
+        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/[0.06] bg-black/20 p-1">
           <button
             onClick={() => setWorkspaceMode('ai')}
             className={cn(
@@ -125,6 +163,19 @@ export default function AiVideoStudio() {
           >
             <Wand2 className="h-4 w-4" />
             AI Tools
+          </button>
+          <button
+            onClick={() => setWorkspaceMode('trim')}
+            className={cn(
+              'flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition',
+              workspaceMode === 'trim'
+                ? 'bg-primary/18 text-white shadow-[0_0_20px_rgba(124,58,237,0.12)]'
+                : 'text-white/52 hover:bg-white/[0.04] hover:text-white/80',
+            )}
+            title="Browser-only trimmer — works with the BVIRAL Video Editor offline."
+          >
+            <Scissors className="h-4 w-4" />
+            Quick Trim
           </button>
           <button
             onClick={() => setWorkspaceMode('editor')}
@@ -141,7 +192,9 @@ export default function AiVideoStudio() {
         </div>
       </div>
 
-      {workspaceMode === 'editor' ? (
+      {workspaceMode === 'trim' ? (
+        <BrowserVideoTrimmer className="flex-1" />
+      ) : workspaceMode === 'editor' ? (
         <div className="glass-card flex min-h-[760px] flex-1 flex-col overflow-hidden">
           <div className="flex flex-col gap-3 border-b border-white/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
@@ -170,15 +223,49 @@ export default function AiVideoStudio() {
             </div>
           </div>
           <div className="relative min-h-0 flex-1 bg-slate-950">
-            <iframe
-              key={editorFrameKey}
-              src={videoEditorUrl}
-              title="BVIRAL Video Editor"
-              className="h-full min-h-[690px] w-full border-0 bg-slate-950"
-              allow="clipboard-read; clipboard-write; fullscreen"
-              referrerPolicy="no-referrer"
-              sandbox="allow-downloads allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-            />
+            {editorReachable === 'unreachable' ? (
+              <div className="flex h-full min-h-[690px] flex-col items-center justify-center gap-4 p-8 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-300">
+                  <MonitorPlay className="h-6 w-6" />
+                </div>
+                <div className="max-w-md space-y-2">
+                  <h4 className="text-base font-display font-bold text-white">
+                    BVIRAL Video Editor isn't running on {videoEditorUrl}
+                  </h4>
+                  <p className="text-sm text-muted-foreground/65">
+                    Start it from the project root with{' '}
+                    <code className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[12px] text-white/80">
+                      pnpm run dev:video-editor
+                    </code>
+                    , or use Quick Trim above for a browser-only editor that works without the Next.js app.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setWorkspaceMode('trim')}
+                    className="btn-primary flex items-center gap-2"
+                  >
+                    <Scissors className="h-4 w-4" /> Switch to Quick Trim
+                  </button>
+                  <button
+                    onClick={() => setEditorFrameKey((value) => value + 1)}
+                    className="btn-secondary flex items-center gap-2"
+                  >
+                    <RefreshCcw className="h-4 w-4" /> Retry connection
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <iframe
+                key={editorFrameKey}
+                src={videoEditorUrl}
+                title="BVIRAL Video Editor"
+                className="h-full min-h-[690px] w-full border-0 bg-slate-950"
+                allow="clipboard-read; clipboard-write; fullscreen"
+                referrerPolicy="no-referrer"
+                sandbox="allow-downloads allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+              />
+            )}
           </div>
         </div>
       ) : (

@@ -4,9 +4,9 @@ import {
   Users, Plus, Search, MoreHorizontal, ShieldCheck,
   ShieldAlert, RefreshCcw, Trash2,
   CheckCircle2, Clock, X, UserPlus, Database, KeyRound,
-  ExternalLink, Loader2,
+  ExternalLink, Loader2, Pencil, Lock, Check, ChevronDown,
 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   connectMetaAccount,
   connectTikTokAccount,
@@ -20,6 +20,7 @@ import {
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { updateAccountById, type UpdateAccountInput } from "@/lib/accounts-api";
 
 type AccountStatus = "connected" | "expired";
 type OAuthPlatform = "youtube" | "tiktok" | "meta";
@@ -244,6 +245,9 @@ export default function Accounts() {
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [connectingPlatform, setConnectingPlatform] = useState<OAuthPlatform | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [manualOpen, setManualOpen] = useState(false);
   const [manualForm, setManualForm] = useState({
     platform: "youtube" as AccountPlatform,
     accountName: "",
@@ -252,6 +256,44 @@ export default function Accounts() {
     tokenExpiry: "",
     metadata: "",
   });
+
+  const renameMutation = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateAccountInput }) =>
+      updateAccountById(id, input),
+    onSuccess: async (_data, variables) => {
+      await queryClient.invalidateQueries({ queryKey: getListAccountsQueryKey() });
+      setRenamingId(null);
+      toast({
+        title: "Account renamed",
+        description: `Updated label for account ${variables.id.slice(0, 8)}.`,
+      });
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: "Rename failed",
+        description: error instanceof Error ? error.message : "Unable to rename account.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const startRename = (account: Account) => {
+    setRenamingId(account.id);
+    setRenameDraft(account.accountName);
+  };
+
+  const commitRename = (id: string) => {
+    const next = renameDraft.trim();
+    if (!next) {
+      toast({
+        title: "Name required",
+        description: "Enter a non-empty account name.",
+        variant: "destructive",
+      });
+      return;
+    }
+    renameMutation.mutate({ id, input: { accountName: next } });
+  };
 
   const accounts = accountsQuery.data?.data ?? [];
   const filteredAccounts = useMemo(() => accounts.filter((account) => {
@@ -443,8 +485,48 @@ export default function Accounts() {
                         {getInitials(account.accountName)}
                       </div>
                       <div className="min-w-0">
-                        <h3 className="text-white font-bold text-[13px] truncate">{account.accountName}</h3>
-                        <p className="text-[11px] text-muted-foreground/40 truncate">{handle}</p>
+                        {renamingId === account.id ? (
+                          <form
+                            onClick={(event) => event.stopPropagation()}
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              commitRename(account.id);
+                            }}
+                            className="flex items-center gap-1.5"
+                          >
+                            <input
+                              autoFocus
+                              value={renameDraft}
+                              onChange={(event) => setRenameDraft(event.target.value)}
+                              className="bg-white/[0.04] border border-white/[0.1] rounded-md px-2 py-1 text-[12px] text-white focus:outline-none focus:border-primary/40 w-full"
+                              placeholder="Account label"
+                              disabled={renameMutation.isPending}
+                            />
+                            <button
+                              type="submit"
+                              disabled={renameMutation.isPending}
+                              className="p-1 rounded-md bg-primary/15 text-primary hover:bg-primary/25 disabled:opacity-50"
+                              aria-label="Save rename"
+                            >
+                              {renameMutation.isPending
+                                ? <Loader2 className="w-3 h-3 animate-spin" />
+                                : <Check className="w-3 h-3" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setRenamingId(null)}
+                              className="p-1 rounded-md hover:bg-white/[0.06] text-muted-foreground/60"
+                              aria-label="Cancel rename"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </form>
+                        ) : (
+                          <>
+                            <h3 className="text-white font-bold text-[13px] truncate">{account.accountName}</h3>
+                            <p className="text-[11px] text-muted-foreground/40 truncate">{handle}</p>
+                          </>
+                        )}
                       </div>
                     </div>
                     <button
@@ -506,6 +588,12 @@ export default function Accounts() {
                         className="overflow-hidden"
                       >
                         <div className="flex gap-2 mt-4 pt-4 border-t border-white/[0.04]">
+                          <button
+                            onClick={(event) => { event.stopPropagation(); startRename(account); }}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.06] rounded-lg text-[10px] text-white/70 font-medium transition-colors cursor-pointer"
+                          >
+                            <Pencil className="w-3 h-3" /> Rename
+                          </button>
                           <button
                             onClick={(event) => { event.stopPropagation(); accountsQuery.refetch(); }}
                             className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.06] rounded-lg text-[10px] text-white/70 font-medium transition-colors cursor-pointer"
@@ -609,11 +697,40 @@ export default function Accounts() {
 
               <div className="my-5 flex items-center gap-3">
                 <div className="h-px flex-1 bg-white/[0.06]" />
-                <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/35">Manual</span>
+                <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/35">Or advanced</span>
                 <div className="h-px flex-1 bg-white/[0.06]" />
               </div>
 
-              <form onSubmit={handleManualConnect} className="space-y-3">
+              <button
+                type="button"
+                onClick={() => setManualOpen((current) => !current)}
+                className="w-full rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] p-3 text-left transition-colors flex items-center gap-3"
+              >
+                <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-white/85">Manual token entry</p>
+                  <p className="text-[11px] text-muted-foreground/55 mt-0.5">
+                    Paste tokens you obtained out-of-band. Encrypted at rest with AES-256-GCM.
+                  </p>
+                </div>
+                <ChevronDown
+                  className={cn(
+                    "w-4 h-4 text-muted-foreground/45 shrink-0 transition-transform",
+                    manualOpen && "rotate-180",
+                  )}
+                />
+              </button>
+
+              <AnimatePresence initial={false}>
+                {manualOpen && (
+                  <motion.form
+                    onSubmit={handleManualConnect}
+                    className="space-y-3 overflow-hidden"
+                    initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                    animate={{ height: "auto", opacity: 1, marginTop: 12 }}
+                    exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                    transition={{ duration: 0.18 }}
+                  >
                 <div className="grid grid-cols-2 gap-3">
                   <label className="space-y-1.5">
                     <span className="text-[10px] font-medium text-muted-foreground/50">Platform</span>
@@ -684,7 +801,7 @@ export default function Accounts() {
                   <div className="flex items-start gap-3">
                     <KeyRound className="w-4 h-4 mt-0.5 text-primary" />
                     <p className="text-xs text-muted-foreground/45">
-                      Manual accounts are saved through the API and can coexist with OAuth-connected accounts.
+                      Tokens are encrypted at rest in the database. Prefer OAuth above when available.
                     </p>
                   </div>
                 </div>
@@ -700,7 +817,9 @@ export default function Accounts() {
                     Add Account
                   </button>
                 </div>
-              </form>
+                  </motion.form>
+                )}
+              </AnimatePresence>
             </motion.div>
           </>
         )}

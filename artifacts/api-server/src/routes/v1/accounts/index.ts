@@ -4,7 +4,9 @@ import {
   AccountNotFoundError,
   accountParamsSchema,
   createAccountBodySchema,
+  updateAccountBodySchema,
 } from "../../../services/accounts.service";
+import { IntegrationNotConfiguredError } from "../../../lib/config";
 import { z } from "zod";
 
 const youtubeCallbackQuerySchema = z.object({
@@ -66,6 +68,11 @@ function sendIntegrationError(reply: FastifyReply, error: unknown, fallback: str
   });
 }
 
+function isIntegrationNotConfigured(error: unknown): error is IntegrationNotConfiguredError {
+  return error instanceof IntegrationNotConfiguredError
+    || (error instanceof Error && error.name === "IntegrationNotConfiguredError");
+}
+
 function getYouTubeRedirectUri(fastify: FastifyInstance, request: FastifyRequest) {
   return fastify.config.youtubeRedirectUri
     ?? `${request.protocol}://${request.hostname}/api/v1/accounts/youtube/callback`;
@@ -81,6 +88,22 @@ function getMetaRedirectUri(fastify: FastifyInstance, request: FastifyRequest) {
     ?? `${request.protocol}://${request.hostname}/api/v1/accounts/meta/callback`;
 }
 
+function getDashboardUrl(fastify: FastifyInstance) {
+  const dashboardUrl = fastify.config.dashboardUrl
+    ?? fastify.config.corsOrigins[0]
+    ?? (fastify.config.nodeEnv === "production" ? null : "http://localhost:5173");
+
+  return dashboardUrl ? dashboardUrl.replace(/\/+$/, "") : "";
+}
+
+function getAccountsRedirectUrl(fastify: FastifyInstance, provider: OAuthProvider) {
+  const query = new URLSearchParams({ [provider]: "connected" });
+  const dashboardUrl = getDashboardUrl(fastify);
+  return `${dashboardUrl}/accounts?${query.toString()}`;
+}
+
+type OAuthProvider = "youtube" | "tiktok" | "meta";
+
 export default async function accountsRoutes(fastify: FastifyInstance) {
   fastify.get("/youtube/connect", {
     schema: {
@@ -94,21 +117,30 @@ export default async function accountsRoutes(fastify: FastifyInstance) {
         },
         302: { type: "null" },
         401: { $ref: "errorResponse#" },
+        503: { $ref: "errorResponse#" },
         500: { $ref: "errorResponse#" },
       },
     },
   }, async (request, reply) => {
-    const userId = getCurrentUserId(request);
-    const url = fastify.youtubeService.getConnectUrl({
-      userId,
-      redirectUri: getYouTubeRedirectUri(fastify, request),
-    });
+    try {
+      const userId = getCurrentUserId(request);
+      const url = fastify.youtubeService.getConnectUrl({
+        userId,
+        redirectUri: getYouTubeRedirectUri(fastify, request),
+      });
 
-    if (wantsJsonResponse(request)) {
-      return { url };
+      if (wantsJsonResponse(request)) {
+        return { url };
+      }
+
+      return reply.redirect(url);
+    } catch (error) {
+      if (isIntegrationNotConfigured(error)) {
+        sendIntegrationError(reply, error, "YouTube integration is not configured.");
+        return;
+      }
+      throw error;
     }
-
-    return reply.redirect(url);
   });
 
   fastify.get("/youtube/callback", {
@@ -128,7 +160,7 @@ export default async function accountsRoutes(fastify: FastifyInstance) {
         redirectUri: getYouTubeRedirectUri(fastify, request),
       });
 
-      return reply.redirect("/accounts?youtube=connected");
+      return reply.redirect(getAccountsRedirectUrl(fastify, "youtube"));
     } catch (error) {
       if (error instanceof ZodError) {
         sendValidationError(reply, error);
@@ -155,21 +187,30 @@ export default async function accountsRoutes(fastify: FastifyInstance) {
         },
         302: { type: "null" },
         401: { $ref: "errorResponse#" },
+        503: { $ref: "errorResponse#" },
         500: { $ref: "errorResponse#" },
       },
     },
   }, async (request, reply) => {
-    const userId = getCurrentUserId(request);
-    const url = fastify.tiktokService.getConnectUrl({
-      userId,
-      redirectUri: getTikTokRedirectUri(fastify, request),
-    });
+    try {
+      const userId = getCurrentUserId(request);
+      const url = fastify.tiktokService.getConnectUrl({
+        userId,
+        redirectUri: getTikTokRedirectUri(fastify, request),
+      });
 
-    if (wantsJsonResponse(request)) {
-      return { url };
+      if (wantsJsonResponse(request)) {
+        return { url };
+      }
+
+      return reply.redirect(url);
+    } catch (error) {
+      if (isIntegrationNotConfigured(error)) {
+        sendIntegrationError(reply, error, "TikTok integration is not configured.");
+        return;
+      }
+      throw error;
     }
-
-    return reply.redirect(url);
   });
 
   fastify.get("/tiktok/callback", {
@@ -198,7 +239,7 @@ export default async function accountsRoutes(fastify: FastifyInstance) {
         redirectUri: getTikTokRedirectUri(fastify, request),
       });
 
-      return reply.redirect("/accounts?tiktok=connected");
+      return reply.redirect(getAccountsRedirectUrl(fastify, "tiktok"));
     } catch (error) {
       if (error instanceof ZodError) {
         sendValidationError(reply, error);
@@ -274,7 +315,7 @@ export default async function accountsRoutes(fastify: FastifyInstance) {
         redirectUri: getMetaRedirectUri(fastify, request),
       });
 
-      return reply.redirect("/accounts?meta=connected");
+      return reply.redirect(getAccountsRedirectUrl(fastify, "meta"));
     } catch (error) {
       if (error instanceof ZodError) {
         sendValidationError(reply, error);
@@ -347,6 +388,39 @@ export default async function accountsRoutes(fastify: FastifyInstance) {
       const userId = getCurrentUserId(request);
 
       return await fastify.accountsService.getAccount(id, userId);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        sendValidationError(reply, error);
+        return;
+      }
+
+      if (error instanceof AccountNotFoundError) {
+        sendNotFound(reply);
+        return;
+      }
+
+      throw error;
+    }
+  });
+
+  fastify.patch("/:id", {
+    schema: {
+      response: {
+        200: { $ref: "account#" },
+        400: { $ref: "errorResponse#" },
+        401: { $ref: "errorResponse#" },
+        404: { $ref: "errorResponse#" },
+        500: { $ref: "errorResponse#" },
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const { id } = accountParamsSchema.parse(request.params);
+      const body = updateAccountBodySchema.parse(request.body);
+      const userId = getCurrentUserId(request);
+
+      const updated = await fastify.accountsService.updateAccount(id, userId, body);
+      return updated;
     } catch (error) {
       if (error instanceof ZodError) {
         sendValidationError(reply, error);

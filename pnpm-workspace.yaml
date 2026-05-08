@@ -1,6 +1,6 @@
 packages:
   - artifacts/*
-  - '!artifacts/opencut'
+  - '!artifacts/openvideo'
   - lib/*
   - lib/integrations/*
   - scripts

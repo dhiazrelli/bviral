@@ -250,6 +250,32 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateAccount
+      tags: [accounts]
+      summary: Update connected account
+      description: Updates the display name or metadata of a connected account owned by the current user.
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAccountRequest"
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteAccount
       tags: [accounts]
@@ -656,6 +682,17 @@ components:
         - platform
         - accountName
         - accessToken
+    UpdateAccountRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        accountName:
+          type: string
+          minLength: 1
+          maxLength: 255
+        metadata:
+          type: object
+          additionalProperties: true
     VideoStatus:
       type: string
       enum:

@@ -18,7 +18,7 @@ artifacts/
   api-server/          Fastify API server
   bviral-dashboard/    Main React/Vite dashboard
   mockup-sandbox/      UI/mockup sandbox
-  opencut/             Vendored BVIRAL Video Editor, based on OpenCut
+  openvideo/           Vendored BVIRAL Video Editor, based on the OpenVideo React editor
 
 lib/
   api-client-react/    Generated API client
@@ -34,7 +34,7 @@ scripts/               Utility scripts
 - Node.js 24
 - pnpm
 - PostgreSQL database URL for the API server
-- The vendored video editor uses its own nested pnpm workspace in `artifacts/opencut`
+- The vendored video editor uses its own Next.js app in `artifacts/openvideo`
 
 The dashboard can run without a database because the UI currently uses mocked/demo data. The API server requires `DATABASE_URL`.
 
@@ -62,12 +62,12 @@ The root `dev` script only starts the dashboard.
 
 ## Run the BVIRAL Video Editor
 
-The AI Studio includes a local browser video editor, vendored in `artifacts/opencut` and branded as **BVIRAL Video Editor**. It is implemented as a separate Next.js app so the heavier video timeline, canvas rendering, media storage, and export pipeline stay isolated from the main dashboard bundle.
+The AI Studio includes a local browser video editor, vendored in `artifacts/openvideo` and branded as **BVIRAL Video Editor**. It is implemented as a separate Next.js app so the heavier video timeline, canvas rendering, media storage, and export pipeline stay isolated from the main dashboard bundle.
 
 Install the editor dependencies from the project root if needed:
 
 ```powershell
-pnpm --dir artifacts/opencut install
+pnpm -C artifacts/openvideo install --ignore-workspace
 ```
 
 Start the editor:
@@ -97,8 +97,9 @@ $env:VITE_BVIRAL_VIDEO_EDITOR_URL="http://localhost:3000/projects"
 Notes:
 
 - The visible editor UI is branded as BVIRAL Video Editor with the BVIRAL logo.
-- OpenCut source/license files are preserved in the vendored app, but the embedded user-facing editor surfaces were rebranded.
-- Automatic transcription is disabled in this local build to avoid the heavy browser AI model/runtime dependency; manual editing, timeline work, text/captions, media import, and export remain the primary workflow.
+- The editor is isolated from the dashboard bundle, so it does not slow the normal dashboard route unless the editor tab/iframe is opened.
+- The editor is dual-licensed by its upstream project. Review `artifacts/openvideo/LICENSE` before production or commercial distribution.
+- AI features such as transcription, voiceover, stock search, or chat assistance require the matching keys in `artifacts/openvideo/.env.sample`; timeline editing, browser media import, local project storage, and export are the primary baseline workflow.
 - The editor stores projects and media in the browser using local storage/IndexedDB/OPFS-style browser storage, so users should keep source files available until export is complete.
 
 ## Run the API Server
@@ -138,7 +139,37 @@ Use that value as `DATABASE_URL`:
 $env:DATABASE_URL="postgresql://postgres.PROJECT_REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres"
 ```
 
-Avoid committing real credentials. Local `.env` files are ignored by git, but this project does not currently auto-load `.env` files, so set environment variables in the terminal before running commands.
+Avoid committing real credentials. Local `.env` files are ignored by git. The API server auto-loads the first `.env` file it finds in the current directory, `artifacts/api-server`, or the workspace root.
+
+## Account OAuth Setup
+
+The Accounts page can connect YouTube, TikTok, and Meta/Facebook accounts. In local development, the API uses the configured `ADMIN_TOKEN` to attach a local BVIRAL admin user when the dashboard does not have a Supabase login session yet. Production still requires a real Supabase bearer token.
+
+Provider credentials are optional at boot. If a provider is missing credentials, its connect route returns `503` with the missing environment variables instead of crashing the API.
+
+OAuth callbacks redirect back to the dashboard after a successful provider connection. For local development, set:
+
+```text
+DASHBOARD_URL=http://localhost:5173
+```
+
+Required redirect URIs for local provider dashboards:
+
+```text
+YouTube: http://localhost:3001/api/v1/accounts/youtube/callback
+TikTok:  http://localhost:3001/api/v1/accounts/tiktok/callback
+Meta:    http://localhost:3001/api/v1/accounts/meta/callback
+```
+
+For Instagram access, configure Meta/Facebook credentials in `.env`:
+
+```text
+META_APP_ID=...
+META_APP_SECRET=...
+META_REDIRECT_URI=http://localhost:3001/api/v1/accounts/meta/callback
+```
+
+The Meta flow uses Facebook Login to request Instagram/Page permissions. The connected Instagram account must be a professional Instagram account linked to a Facebook Page that the logged-in user can access.
 
 ## Push Database Schema
 
@@ -208,4 +239,4 @@ pnpm run build:video-editor
 - Keep the current Fastify API unless the backend grows large enough to justify a framework migration.
 - Supabase is used as hosted PostgreSQL; Fastify remains the backend server.
 - The dashboard and API are separate apps inside the same workspace.
-- The vendored video editor is excluded from the parent pnpm workspace and has its own `pnpm-workspace.yaml` under `artifacts/opencut`.
+- The vendored video editor is excluded from the parent pnpm workspace and is managed through `pnpm -C artifacts/openvideo --ignore-workspace ...`.

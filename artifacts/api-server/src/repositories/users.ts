@@ -22,6 +22,10 @@ export interface CreateUserPayload {
   role: "admin" | "member";
 }
 
+export interface EnsureDevelopmentUserPayload extends CreateUserPayload {
+  id: string;
+}
+
 export interface UsersRepository {
   list(input: ListUsersQuery): Promise<{
     data: UserResponseDto[];
@@ -33,6 +37,7 @@ export interface UsersRepository {
   }>;
   findById(userId: string): Promise<UserResponseDto | null>;
   create(input: CreateUserPayload): Promise<UserResponseDto>;
+  ensureDevelopmentUser(input: EnsureDevelopmentUserPayload): Promise<UserResponseDto>;
 }
 
 function serializeUser(user: UserRecord): UserResponseDto {
@@ -111,6 +116,37 @@ export function buildUsersRepository(db: Database): UsersRepository {
       };
 
       const [user] = await db.insert(usersTable).values(payload).returning();
+      return serializeUser(user);
+    },
+
+    async ensureDevelopmentUser(input) {
+      const payload: NewUserRecord = {
+        id: input.id,
+        email: input.email,
+        fullName: input.fullName,
+        role: input.role,
+      };
+
+      const [inserted] = await db
+        .insert(usersTable)
+        .values(payload)
+        .onConflictDoNothing({ target: usersTable.id })
+        .returning();
+
+      if (inserted) {
+        return serializeUser(inserted);
+      }
+
+      const [user] = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, input.id))
+        .limit(1);
+
+      if (!user) {
+        throw new Error("Development user could not be loaded.");
+      }
+
       return serializeUser(user);
     },
   };

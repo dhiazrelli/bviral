@@ -7,20 +7,31 @@ import {
   Clock,
   Filter,
   Layers,
+  Loader2,
   MoreHorizontal,
   Play,
   Plus,
   RefreshCcw,
   ShieldAlert,
   Sparkles,
+  Trash2,
   UploadCloud,
+  X,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   type Account,
   type AccountPlatform,
   type Post,
+  type Video,
+  getListPostsQueryKey,
+  getListVideosQueryKey,
+  useCreatePost,
+  useDeletePost,
   useListAccounts,
   useListPosts,
+  useListVideos,
+  useUploadVideo,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -50,6 +61,15 @@ const statusConfig = {
 };
 
 type PipelineFilter = "All" | "Active" | "Attention";
+
+interface ComposerForm {
+  accountId: string;
+  videoId: string;
+  scheduledAt: string;
+  title: string;
+  caption: string;
+  uploadFile: File | null;
+}
 
 interface AccountLane {
   account: Account;
@@ -103,6 +123,40 @@ function getStringMetadata(post: Post | null, key: string) {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
+}
+
+function toDateTimeLocalValue(date: Date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function getDefaultScheduledAt() {
+  const date = new Date(Date.now() + 30 * 60_000);
+  date.setSeconds(0, 0);
+  return toDateTimeLocalValue(date);
+}
+
+function createInitialComposerForm(accounts: Account[], videos: Video[]): ComposerForm {
+  return {
+    accountId: accounts[0]?.id ?? "",
+    videoId: videos[0]?.id ?? "",
+    scheduledAt: getDefaultScheduledAt(),
+    title: "",
+    caption: "",
+    uploadFile: null,
+  };
+}
+
+function getVideoLabel(video: Video) {
+  const url = video.processedUrl ?? video.originalUrl;
+
+  try {
+    const pathname = new URL(url).pathname;
+    const filename = pathname.split("/").filter(Boolean).at(-1);
+    return filename ? decodeURIComponent(filename) : video.id.slice(0, 8);
+  } catch {
+    return video.id.slice(0, 8);
+  }
 }
 
 function MiniCalendar({ scheduledPosts }: { scheduledPosts: Post[] }) {
@@ -191,15 +245,82 @@ function LoadingScheduling() {
 export default function Scheduling() {
   const accountsQuery = useListAccounts();
   const postsQuery = useListPosts();
+  const videosQuery = useListVideos();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [pipelineFilter, setPipelineFilter] = useState<PipelineFilter>("All");
+  const [isComposerOpen, setComposerOpen] = useState(false);
   const accounts = accountsQuery.data?.data ?? [];
   const posts = postsQuery.data?.data ?? [];
+  const videos = videosQuery.data?.data ?? [];
+  const availableVideos = videos.filter((video) => video.status !== "failed");
+  const [composerForm, setComposerForm] = useState<ComposerForm>(() => createInitialComposerForm(accounts, availableVideos));
   const scheduledPosts = posts.filter((post) => post.status === "scheduled");
-  const isLoading = accountsQuery.isLoading || postsQuery.isLoading;
-  const isError = accountsQuery.isError || postsQuery.isError;
-  const error = accountsQuery.error ?? postsQuery.error;
+  const isLoading = accountsQuery.isLoading || postsQuery.isLoading || videosQuery.isLoading;
+  const isError = accountsQuery.isError || postsQuery.isError || videosQuery.isError;
+  const error = accountsQuery.error ?? postsQuery.error ?? videosQuery.error;
+  const createPostMutation = useCreatePost({
+    mutation: {
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });
+        setComposerOpen(false);
+        setComposerForm(createInitialComposerForm(accounts, availableVideos));
+        toast({
+          title: "Post scheduled",
+          description: "The publishing job was added to the queue.",
+        });
+      },
+      onError: (error) => {
+        toast({
+          title: "Unable to schedule post",
+          description: getErrorMessage(error),
+          variant: "destructive",
+        });
+      },
+    },
+  });
+  const uploadVideoMutation = useUploadVideo({
+    mutation: {
+      onSuccess: async (video) => {
+        await queryClient.invalidateQueries({ queryKey: getListVideosQueryKey() });
+        setComposerForm((current) => ({
+          ...current,
+          videoId: video.id,
+          uploadFile: null,
+        }));
+        toast({
+          title: "Video uploaded",
+          description: "The upload is selected for this scheduled post.",
+        });
+      },
+      onError: (error) => {
+        toast({
+          title: "Video upload failed",
+          description: getErrorMessage(error),
+          variant: "destructive",
+        });
+      },
+    },
+  });
+  const deletePostMutation = useDeletePost({
+    mutation: {
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });
+        toast({
+          title: "Scheduled post cancelled",
+          description: "The delayed publishing job was removed.",
+        });
+      },
+      onError: (error) => {
+        toast({
+          title: "Unable to cancel post",
+          description: getErrorMessage(error),
+          variant: "destructive",
+        });
+      },
+    },
+  });
 
   const lanes: AccountLane[] = useMemo(() => accounts.map((account) => {
     const accountPosts = posts.filter((post) => post.accountId === account.id);
@@ -256,6 +377,78 @@ export default function Scheduling() {
     });
   };
 
+  const openComposer = () => {
+    setComposerForm((current) => ({
+      ...createInitialComposerForm(accounts, availableVideos),
+      accountId: selectedAccountId ?? current.accountId ?? accounts[0]?.id ?? "",
+    }));
+    setComposerOpen(true);
+  };
+
+  const handleUploadSelectedVideo = () => {
+    if (!composerForm.uploadFile) {
+      toast({
+        title: "Choose a video file",
+        description: "Select a local video before uploading.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    uploadVideoMutation.mutate({
+      data: {
+        file: composerForm.uploadFile,
+      },
+    });
+  };
+
+  const handleSchedulePost = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const account = accounts.find((entry) => entry.id === composerForm.accountId);
+
+    if (!account) {
+      toast({
+        title: "Select an account",
+        description: "Connect or select an account before scheduling.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!composerForm.videoId) {
+      toast({
+        title: "Select a video",
+        description: "Upload or select a video before scheduling.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const scheduledAt = new Date(composerForm.scheduledAt);
+    if (Number.isNaN(scheduledAt.getTime()) || scheduledAt.getTime() <= Date.now()) {
+      toast({
+        title: "Choose a future time",
+        description: "Scheduled posts must be set for a future date and time.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createPostMutation.mutate({
+      data: {
+        account_id: account.id,
+        video_id: composerForm.videoId,
+        platform: account.platform,
+        scheduled_at: scheduledAt.toISOString(),
+        metadata: {
+          title: composerForm.title.trim() || "BVIRAL scheduled video",
+          description: composerForm.caption.trim(),
+          caption: composerForm.caption.trim(),
+        },
+      },
+    });
+  };
+
   if (isLoading) {
     return <LoadingScheduling />;
   }
@@ -301,7 +494,7 @@ export default function Scheduling() {
             <UploadCloud className="w-4 h-4" /> Bulk CSV
           </button>
           <button
-            onClick={() => toast({ title: "Composer", description: "Use the posts API flow to create scheduled posts." })}
+            onClick={openComposer}
             className="btn-primary flex items-center gap-2"
           >
             <Plus className="w-4 h-4" /> New Post
@@ -474,10 +667,14 @@ export default function Scheduling() {
                     </span>
                   </div>
                   <button
-                    onClick={() => toast({ title: "Post details", description: activePost ? `Post ${activePost.id.slice(0, 8)} selected.` : "No scheduled post selected." })}
-                    className="w-full py-2.5 mt-2 border border-white/[0.08] hover:bg-white/[0.04] hover:border-white/[0.12] rounded-xl text-white/80 text-xs font-semibold transition-all cursor-pointer"
+                    onClick={() => activePost
+                      ? deletePostMutation.mutate({ id: activePost.id })
+                      : toast({ title: "No scheduled post", description: "There is no queued post to cancel." })}
+                    disabled={!activePost || deletePostMutation.isPending}
+                    className="w-full py-2.5 mt-2 border border-red-400/20 hover:bg-red-400/10 hover:border-red-400/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-red-200 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
-                    View Post Details
+                    {deletePostMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    Cancel Scheduled Post
                   </button>
                 </div>
               </div>

@@ -5,6 +5,12 @@ import {
   type Database,
   type NewAccountRecord,
 } from "@workspace/db";
+import {
+  decryptOptionalToken,
+  decryptToken,
+  encryptOptionalToken,
+  encryptToken,
+} from "../lib/token-encryption";
 
 export type AccountPlatform =
   | "facebook"
@@ -38,12 +44,22 @@ export interface CreateAccountPayload {
   metadata?: Record<string, unknown>;
 }
 
+export interface UpdateAccountPayload {
+  accountName?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface AccountsRepository {
   listForUser(userId: string): Promise<AccountResponseDto[]>;
   findForUser(accountId: string, userId: string): Promise<AccountResponseDto | null>;
   findSecretForUser(accountId: string, userId: string): Promise<AccountSecretRecord | null>;
   create(input: CreateAccountPayload): Promise<AccountResponseDto>;
   upsertConnectedAccount(input: CreateAccountPayload): Promise<AccountResponseDto>;
+  updateForUser(
+    accountId: string,
+    userId: string,
+    input: UpdateAccountPayload,
+  ): Promise<AccountResponseDto | null>;
   updateTokens(
     accountId: string,
     input: {
@@ -70,8 +86,10 @@ function serializeAccount(account: AccountRecord): AccountResponseDto {
 function serializeSecretAccount(account: AccountRecord): AccountSecretRecord {
   return {
     ...serializeAccount(account),
-    accessToken: account.accessToken,
-    refreshToken: account.refreshToken ?? null,
+    // Tokens are stored encrypted at rest (AES-256-GCM). Decrypt only here,
+    // when a service explicitly needs the raw value to call the platform API.
+    accessToken: decryptToken(account.accessToken),
+    refreshToken: decryptOptionalToken(account.refreshToken ?? null),
   };
 }
 
@@ -102,6 +120,19 @@ function getPlatformIdentity(account: {
 }
 
 export function buildAccountsRepository(db: Database): AccountsRepository {
+  async function findForUser(accountId: string, userId: string) {
+    const [account] = await db
+      .select()
+      .from(accountsTable)
+      .where(and(
+        eq(accountsTable.id, accountId),
+        eq(accountsTable.userId, userId),
+      ))
+      .limit(1);
+
+    return account ? serializeAccount(account) : null;
+  }
+
   return {
     async listForUser(userId) {
       const accounts = await db
@@ -113,18 +144,7 @@ export function buildAccountsRepository(db: Database): AccountsRepository {
       return accounts.map(serializeAccount);
     },
 
-    async findForUser(accountId, userId) {
-      const [account] = await db
-        .select()
-        .from(accountsTable)
-        .where(and(
-          eq(accountsTable.id, accountId),
-          eq(accountsTable.userId, userId),
-        ))
-        .limit(1);
-
-      return account ? serializeAccount(account) : null;
-    },
+    findForUser,
 
     async findSecretForUser(accountId, userId) {
       const [account] = await db
@@ -143,8 +163,8 @@ export function buildAccountsRepository(db: Database): AccountsRepository {
       const payload: NewAccountRecord = {
         platform: input.platform,
         accountName: input.accountName,
-        accessToken: input.accessToken,
-        refreshToken: input.refreshToken ?? null,
+        accessToken: encryptToken(input.accessToken),
+        refreshToken: encryptOptionalToken(input.refreshToken ?? null),
         tokenExpiry: input.tokenExpiry ?? null,
         userId: input.userId,
         metadata: input.metadata ?? {},
@@ -158,8 +178,8 @@ export function buildAccountsRepository(db: Database): AccountsRepository {
       const payload: NewAccountRecord = {
         platform: input.platform,
         accountName: input.accountName,
-        accessToken: input.accessToken,
-        refreshToken: input.refreshToken ?? null,
+        accessToken: encryptToken(input.accessToken),
+        refreshToken: encryptOptionalToken(input.refreshToken ?? null),
         tokenExpiry: input.tokenExpiry ?? null,
         userId: input.userId,
         metadata: input.metadata ?? {},
@@ -192,12 +212,41 @@ export function buildAccountsRepository(db: Database): AccountsRepository {
       return serializeAccount(account);
     },
 
+    async updateForUser(accountId, userId, input) {
+      const updates: Partial<NewAccountRecord> = {};
+
+      if (typeof input.accountName === "string" && input.accountName.trim()) {
+        updates.accountName = input.accountName.trim();
+      }
+
+      if (input.metadata !== undefined) {
+        updates.metadata = input.metadata;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return findForUser(accountId, userId);
+      }
+
+      const [account] = await db
+        .update(accountsTable)
+        .set(updates)
+        .where(and(
+          eq(accountsTable.id, accountId),
+          eq(accountsTable.userId, userId),
+        ))
+        .returning();
+
+      return account ? serializeAccount(account) : null;
+    },
+
     async updateTokens(accountId, input) {
       await db
         .update(accountsTable)
         .set({
-          accessToken: input.accessToken,
-          refreshToken: input.refreshToken ?? undefined,
+          accessToken: encryptToken(input.accessToken),
+          refreshToken: input.refreshToken === undefined
+            ? undefined
+            : encryptOptionalToken(input.refreshToken),
           tokenExpiry: input.tokenExpiry ?? null,
         })
         .where(eq(accountsTable.id, accountId));

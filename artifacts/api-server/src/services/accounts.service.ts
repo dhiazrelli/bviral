@@ -26,8 +26,19 @@ export const createAccountBodySchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
+export const updateAccountBodySchema = z
+  .object({
+    accountName: z.string().trim().min(1).max(255).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  })
+  .refine(
+    (value) => value.accountName !== undefined || value.metadata !== undefined,
+    { message: "Provide at least one field to update." },
+  );
+
 export type AccountParams = z.infer<typeof accountParamsSchema>;
 export type CreateAccountBody = z.infer<typeof createAccountBodySchema>;
+export type UpdateAccountBody = z.infer<typeof updateAccountBodySchema>;
 
 export class AccountNotFoundError extends Error {
   readonly name = "AccountNotFoundError";
@@ -41,6 +52,11 @@ export interface AccountsService {
   listAccounts(userId: string): Promise<AccountResponseDto[]>;
   getAccount(accountId: string, userId: string): Promise<AccountResponseDto>;
   connectAccount(input: CreateAccountBody, userId: string): Promise<AccountResponseDto>;
+  updateAccount(
+    accountId: string,
+    userId: string,
+    input: UpdateAccountBody,
+  ): Promise<AccountResponseDto>;
   disconnectAccount(accountId: string, userId: string): Promise<void>;
 }
 
@@ -78,6 +94,19 @@ export function buildAccountsService(
       };
 
       return accountsRepository.create(payload);
+    },
+
+    async updateAccount(accountId, userId, input) {
+      const updated = await accountsRepository.updateForUser(accountId, userId, {
+        accountName: input.accountName,
+        metadata: input.metadata,
+      });
+
+      if (!updated) {
+        throw new AccountNotFoundError();
+      }
+
+      return updated;
     },
 
     async disconnectAccount(accountId, userId) {

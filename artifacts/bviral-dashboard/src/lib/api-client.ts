@@ -2,8 +2,21 @@ import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const defaultLocalApiBaseUrl = "http://localhost:3001";
 
-setBaseUrl(apiBaseUrl && apiBaseUrl.trim() ? apiBaseUrl : null);
+function resolveApiBaseUrl() {
+  if (apiBaseUrl && apiBaseUrl.trim()) {
+    return apiBaseUrl.trim();
+  }
+
+  if (import.meta.env.DEV) {
+    return defaultLocalApiBaseUrl;
+  }
+
+  return null;
+}
+
+setBaseUrl(resolveApiBaseUrl());
 
 function readSupabaseToken() {
   if (typeof window === "undefined") {

@@ -27,6 +27,9 @@ export interface AuthenticatedUser {
   databaseUser: UserResponseDto | null;
 }
 
+const developmentUserId = "00000000-0000-4000-8000-000000000001";
+const developmentUserEmail = "local-admin@bviral.dev";
+
 function getHeaderValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -144,6 +147,30 @@ function isPublicRoute(request: FastifyRequest) {
     );
 }
 
+function canUseDevelopmentAuth(request: FastifyRequest) {
+  return request.server.config.nodeEnv !== "production"
+    && Boolean(request.server.config.adminToken);
+}
+
+async function attachDevelopmentUser(request: FastifyRequest) {
+  const databaseUser = await request.server.usersRepository.ensureDevelopmentUser({
+    id: developmentUserId,
+    email: developmentUserEmail,
+    fullName: "BVIRAL Local Admin",
+    role: "admin",
+  });
+
+  request.currentUser = {
+    id: databaseUser.id,
+    email: databaseUser.email,
+    role: "admin",
+    jwtRole: "development",
+    appMetadata: { developmentAuth: true },
+    userMetadata: {},
+    databaseUser,
+  };
+}
+
 export default fp(async function authPlugin(fastify) {
   fastify.decorateRequest("currentUser", null);
 
@@ -155,6 +182,11 @@ export default fp(async function authPlugin(fastify) {
     const token = getBearerToken(request);
 
     if (!token) {
+      if (canUseDevelopmentAuth(request)) {
+        await attachDevelopmentUser(request);
+        return;
+      }
+
       sendAuthError(reply, 401, "Authorization bearer token is required.");
       return;
     }

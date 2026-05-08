@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { AppConfig } from "../lib/config";
+import { ensureTikTokConfigured, type AppConfig } from "../lib/config";
 import type {
   AccountResponseDto,
   AccountSecretRecord,
@@ -267,9 +267,11 @@ async function refreshAccessToken(
     throw new Error("TikTok refresh token is missing.");
   }
 
+  ensureTikTokConfigured(config);
+
   const body = new URLSearchParams({
-    client_key: config.tiktokClientKey,
-    client_secret: config.tiktokClientSecret,
+    client_key: config.tiktokClientKey!,
+    client_secret: config.tiktokClientSecret!,
     grant_type: "refresh_token",
     refresh_token: account.refreshToken,
   });
@@ -303,21 +305,23 @@ export function buildTikTokService(
 ): TikTokService {
   return {
     getConnectUrl({ userId, redirectUri }) {
+      ensureTikTokConfigured(config);
       const url = new URL(authUrl);
-      url.searchParams.set("client_key", config.tiktokClientKey);
+      url.searchParams.set("client_key", config.tiktokClientKey!);
       url.searchParams.set("response_type", "code");
       url.searchParams.set("scope", tiktokScopes.join(","));
       url.searchParams.set("redirect_uri", redirectUri);
-      url.searchParams.set("state", createState(userId, config.tiktokClientSecret));
+      url.searchParams.set("state", createState(userId, config.tiktokClientSecret!));
 
       return url.toString();
     },
 
     async handleCallback({ code, state, redirectUri }) {
-      const userId = parseState(state, config.tiktokClientSecret);
+      ensureTikTokConfigured(config);
+      const userId = parseState(state, config.tiktokClientSecret!);
       const token = await exchangeToken(new URLSearchParams({
-        client_key: config.tiktokClientKey,
-        client_secret: config.tiktokClientSecret,
+        client_key: config.tiktokClientKey!,
+        client_secret: config.tiktokClientSecret!,
         code,
         grant_type: "authorization_code",
         redirect_uri: redirectUri,

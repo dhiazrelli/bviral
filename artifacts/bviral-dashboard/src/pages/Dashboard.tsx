@@ -38,6 +38,7 @@ import {
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { Hero3D } from "@/components/visuals/Hero3D";
 
 const platformLabels: Record<AccountPlatform, string> = {
   facebook: "Facebook",
@@ -221,12 +222,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 pb-10">
-      <motion.section
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: "easeOut" }}
-        className="glass-card overflow-hidden p-6 lg:p-7"
-      >
+      <Hero3D>
         <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
           <div>
             <div className="surface-label mb-4">
@@ -312,7 +308,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-      </motion.section>
+      </Hero3D>
 
       <motion.div variants={listVariants} initial="hidden" animate="show" className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         {metrics.map((metric, index) => (
