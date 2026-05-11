@@ -52,6 +52,7 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "catalog:",
+    "motion": "^12.23.0",
     "input-otp": "^1.4.2",
     "lucide-react": "catalog:",
     "next-themes": "^0.4.6",
@@ -72,6 +73,11 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "motion": "^12.38.0"
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
+    "@supabase/supabase-js": "^2.102.0",
+    "@types/three": "^0.177.0",
+    "motion": "^12.38.0",
+    "three": "^0.177.0"
   }
 }
