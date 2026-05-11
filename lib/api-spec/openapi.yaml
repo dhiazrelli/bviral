@@ -22,6 +22,8 @@ tags:
     description: Cross-platform analytics operations
   - name: alerts
     description: Alert and notification operations
+  - name: admin
+    description: Admin-only operations (requires admin role)
 security:
   - bearerAuth: []
 paths:
@@ -495,6 +497,108 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/creators:
+    get:
+      operationId: listCreators
+      tags: [admin]
+      summary: List content creators
+      description: Returns all content_creator users with aggregated stats. Admin only.
+      responses:
+        "200":
+          description: Creators list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatorsCollection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/admin/creators/{id}:
+    get:
+      operationId: getCreator
+      tags: [admin]
+      summary: Get creator detail
+      description: Returns a creator's profile, account metadata, and aggregated analytics. Admin only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Creator detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatorDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/creators/{id}/schedule:
+    get:
+      operationId: getCreatorSchedule
+      tags: [admin]
+      summary: Get creator schedule
+      description: Returns the scheduled posts for a creator. Admin only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Creator schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostsCollection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/bviral-accounts:
+    get:
+      operationId: listBviralAccounts
+      tags: [admin]
+      summary: List BViral company accounts
+      description: Returns all accounts owned by BViral company. Admin only.
+      responses:
+        "200":
+          description: BViral accounts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountMetadataCollection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createBviralAccount
+      tags: [admin]
+      summary: Connect a BViral company account
+      description: Creates a company-owned account. Admin only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBviralAccountRequest"
+      responses:
+        "201":
+          description: Created account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 components:
   securitySchemes:
     bearerAuth:
@@ -575,7 +679,7 @@ components:
       type: string
       enum:
         - admin
-        - team
+        - content_creator
     AuthMe:
       type: object
       additionalProperties: false
@@ -1107,3 +1211,136 @@ components:
         - statusCode
         - error
         - message
+    AccountOwnerKind:
+      type: string
+      enum:
+        - user
+        - bviral_company
+    AccountMetadata:
+      type: object
+      additionalProperties: false
+      description: Account metadata visible to admins — no token fields.
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          $ref: "#/components/schemas/AccountPlatform"
+        accountName:
+          type: string
+        tokenExpiry:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        ownerKind:
+          $ref: "#/components/schemas/AccountOwnerKind"
+        userId:
+          oneOf:
+            - type: string
+              format: uuid
+            - type: "null"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - platform
+        - accountName
+        - tokenExpiry
+        - ownerKind
+        - userId
+        - createdAt
+    AccountMetadataCollection:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountMetadata"
+      required:
+        - data
+    CreatorSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        fullName:
+          type: string
+        connectedAccountsCount:
+          type: integer
+        unresolvedAlertsCount:
+          type: integer
+        lastActiveAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - fullName
+        - connectedAccountsCount
+        - unresolvedAlertsCount
+        - lastActiveAt
+    CreatorsCollection:
+      type: object
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreatorSummary"
+      required:
+        - data
+    CreatorDetail:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        fullName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountMetadata"
+        analytics:
+          $ref: "#/components/schemas/AnalyticsOverview"
+      required:
+        - id
+        - email
+        - fullName
+        - createdAt
+        - accounts
+        - analytics
+    CreateBviralAccountRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        platform:
+          $ref: "#/components/schemas/AccountPlatform"
+        accountName:
+          type: string
+          minLength: 1
+        accessToken:
+          type: string
+          minLength: 1
+        refreshToken:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - platform
+        - accountName
+        - accessToken
