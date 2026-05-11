@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   BarChart3,
   Clock,
+  Filter,
   Play,
   RefreshCcw,
   ShieldAlert,
@@ -22,11 +23,14 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useQuery } from "@tanstack/react-query";
 import {
   type AccountPlatform,
   type AnalyticsOverview,
   useGetAnalyticsOverview,
 } from "@workspace/api-client-react";
+import { useAuth } from "@/lib/auth-context";
+import { cn } from "@/lib/utils";
 
 const platformLabels: Record<AccountPlatform, string> = {
   facebook: "Facebook",
@@ -153,6 +157,25 @@ function buildBarData(analytics: AnalyticsOverview) {
   }));
 }
 
+interface AdminFilters {
+  creatorId: string;
+  platform: AccountPlatform | "";
+  from: string;
+  to: string;
+}
+
+async function fetchFilteredAnalytics(filters: AdminFilters): Promise<AnalyticsOverview> {
+  const params = new URLSearchParams();
+  if (filters.creatorId) params.set("creatorId", filters.creatorId);
+  if (filters.platform) params.set("platform", filters.platform);
+  if (filters.from) params.set("from", new Date(filters.from).toISOString());
+  if (filters.to) params.set("to", new Date(filters.to).toISOString());
+  const url = `/api/v1/analytics?${params.toString()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Failed to fetch analytics");
+  return res.json() as Promise<AnalyticsOverview>;
+}
+
 function LoadingPanel() {
   return (
     <div className="space-y-5 animate-pulse">
@@ -175,9 +198,27 @@ function LoadingPanel() {
 }
 
 export default function Analytics() {
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   const [dateRange, setDateRange] = useState("Last 30 Days");
-  const analyticsQuery = useGetAnalyticsOverview();
-  const analytics = normalizeAnalytics(analyticsQuery.data);
+  const [adminFilters, setAdminFilters] = useState<AdminFilters>({
+    creatorId: "",
+    platform: "",
+    from: "",
+    to: "",
+  });
+  const [showFilters, setShowFilters] = useState(false);
+
+  const creatorAnalyticsQuery = useQuery({
+    queryKey: ["analytics", "filtered", adminFilters],
+    queryFn: () => fetchFilteredAnalytics(adminFilters),
+    enabled: isAdmin,
+  });
+
+  const defaultAnalyticsQuery = useGetAnalyticsOverview();
+
+  const analyticsQuery = isAdmin ? creatorAnalyticsQuery : defaultAnalyticsQuery;
+  const analytics = normalizeAnalytics(analyticsQuery.data as AnalyticsOverview | undefined);
   const lineData = useMemo(() => buildLineData(analytics), [analytics]);
   const barData = useMemo(() => buildBarData(analytics), [analytics]);
   const maxPlatformViews = Math.max(...analytics.byPlatform.map((platform) => platform.views), 1);
@@ -217,6 +258,66 @@ export default function Analytics() {
           </select>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="glass-card rounded-2xl">
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className="flex w-full items-center gap-2 px-5 py-3.5 text-left text-[12px] font-semibold text-white/60 transition hover:text-white/80"
+          >
+            <Filter className="h-3.5 w-3.5" />
+            Admin Filters
+            <span className={cn("ml-auto text-white/30 transition-transform", showFilters && "rotate-180")}>
+              ▾
+            </span>
+          </button>
+          {showFilters && (
+            <div className="grid grid-cols-1 gap-4 border-t border-white/6 px-5 pb-5 pt-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/36">Creator ID</label>
+                <input
+                  type="text"
+                  placeholder="UUID"
+                  value={adminFilters.creatorId}
+                  onChange={(e) => setAdminFilters((f) => ({ ...f, creatorId: e.target.value }))}
+                  className="input-field w-full"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/36">Platform</label>
+                <select
+                  value={adminFilters.platform}
+                  onChange={(e) => setAdminFilters((f) => ({ ...f, platform: e.target.value as AccountPlatform | "" }))}
+                  className="input-field w-full"
+                >
+                  <option value="">All platforms</option>
+                  {(["facebook", "instagram", "tiktok", "youtube", "snapchat"] as const).map((p) => (
+                    <option key={p} value={p}>{platformLabels[p]}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/36">From</label>
+                <input
+                  type="date"
+                  value={adminFilters.from}
+                  onChange={(e) => setAdminFilters((f) => ({ ...f, from: e.target.value }))}
+                  className="input-field w-full"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/36">To</label>
+                <input
+                  type="date"
+                  value={adminFilters.to}
+                  onChange={(e) => setAdminFilters((f) => ({ ...f, to: e.target.value }))}
+                  className="input-field w-full"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {analyticsQuery.isLoading && <LoadingPanel />}
 
