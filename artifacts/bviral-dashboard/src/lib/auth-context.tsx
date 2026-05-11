@@ -14,7 +14,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   role: AppRole | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: string | null; role: AppRole | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -81,14 +81,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setLoading(false);
-      return { error: error.message };
+      return { error: error.message, role: null };
     }
 
-    return { error: null };
+    // Resolve role immediately so the caller can navigate without waiting for
+    // the onAuthStateChange → resolveSession async chain to complete.
+    const resolvedRole = data.session ? await fetchUserRole(data.session) : null;
+    return { error: null, role: resolvedRole };
   }, []);
 
   const signOut = useCallback(async () => {

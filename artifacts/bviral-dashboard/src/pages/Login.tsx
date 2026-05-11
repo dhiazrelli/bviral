@@ -12,7 +12,7 @@ import bviralLogo from "../../../../bviral.png";
 
 export default function Login() {
   const [, navigate] = useLocation();
-  const { signIn, role } = useAuth();
+  const { signIn } = useAuth();
   const reducedMotion = useReducedMotion();
 
   const [email, setEmail] = useState("");
@@ -25,7 +25,7 @@ export default function Login() {
     setError(null);
     setLoading(true);
 
-    const { error: signInError } = await signIn(email, password);
+    const { error: signInError, role: resolvedRole } = await signIn(email, password);
 
     if (signInError) {
       setError(signInError);
@@ -33,7 +33,7 @@ export default function Login() {
       return;
     }
 
-    if (role === "admin") {
+    if (resolvedRole === "admin") {
       navigate("/admin/creators");
     } else {
       navigate("/");

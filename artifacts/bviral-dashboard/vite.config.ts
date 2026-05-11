@@ -11,6 +11,8 @@ const apiProxyTarget = process.env.VITE_API_PROXY_TARGET
 
 export default defineConfig({
   base: basePath,
+  // .env lives at the monorepo root, two directories above this package
+  envDir: path.resolve(import.meta.dirname, "..", ".."),
   plugins: [
     react(),
     tailwindcss(),
