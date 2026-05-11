@@ -5,10 +5,14 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+    "seed:roles": "tsx ./src/seed-roles.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
+    "@supabase/supabase-js": "^2.102.0",
     "@types/node": "catalog:",
+    "@workspace/db": "workspace:*",
+    "drizzle-orm": "catalog:",
     "tsx": "catalog:"
   }
 }
