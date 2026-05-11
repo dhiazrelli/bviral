@@ -9,17 +9,23 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-export const userRoleValues = ["admin", "member"] as const;
+export const userRoleValues = ["admin", "content_creator"] as const;
 export const userRoleEnum = pgEnum("user_role", userRoleValues);
 
 export const usersTable = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   fullName: varchar("full_name", { length: 120 }).notNull(),
-  role: userRoleEnum("role").default("member").notNull(),
+  role: userRoleEnum("role").default("content_creator").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
+  pgPolicy("admins_full_access_users", {
+    for: "all",
+    to: authenticatedRole,
+    using: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+    withCheck: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+  }),
   pgPolicy("users_select_own", {
     for: "select",
     to: authenticatedRole,

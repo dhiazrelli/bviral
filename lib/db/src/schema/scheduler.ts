@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { authUid, authenticatedRole } from "drizzle-orm/supabase";
 import {
+  check,
   integer,
   jsonb,
   numeric,
@@ -40,6 +41,9 @@ export const alertTypeEnum = pgEnum("alert_type", alertTypeValues);
 export const alertStatusValues = ["unresolved", "resolved"] as const;
 export const alertStatusEnum = pgEnum("alert_status", alertStatusValues);
 
+export const accountOwnerKindValues = ["user", "bviral_company"] as const;
+export const accountOwnerKindEnum = pgEnum("account_owner_kind", accountOwnerKindValues);
+
 export const accountsTable = pgTable("accounts", {
   id: uuid("id").defaultRandom().primaryKey(),
   platform: platformEnum("platform").notNull(),
@@ -47,7 +51,8 @@ export const accountsTable = pgTable("accounts", {
   accessToken: text("access_token").notNull(),
   refreshToken: text("refresh_token"),
   tokenExpiry: timestamp("token_expiry", { withTimezone: true }),
-  userId: uuid("user_id").notNull().references(() => usersTable.id, {
+  ownerKind: accountOwnerKindEnum("owner_kind").default("bviral_company").notNull(),
+  userId: uuid("user_id").references(() => usersTable.id, {
     onDelete: "cascade",
   }),
   metadata: jsonb("metadata")
@@ -56,6 +61,16 @@ export const accountsTable = pgTable("accounts", {
     .notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
+  check(
+    "accounts_owner_check",
+    sql`(${table.ownerKind} = 'user' AND ${table.userId} IS NOT NULL) OR (${table.ownerKind} = 'bviral_company' AND ${table.userId} IS NULL)`,
+  ),
+  pgPolicy("admins_full_access_accounts", {
+    for: "all",
+    to: authenticatedRole,
+    using: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+    withCheck: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+  }),
   pgPolicy("accounts_select_own", {
     for: "select",
     to: authenticatedRole,
@@ -90,6 +105,12 @@ export const videosTable = pgTable("videos", {
   status: videoStatusEnum("status").default("uploaded").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
+  pgPolicy("admins_full_access_videos", {
+    for: "all",
+    to: authenticatedRole,
+    using: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+    withCheck: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+  }),
   pgPolicy("videos_select_own", {
     for: "select",
     to: authenticatedRole,
@@ -146,6 +167,12 @@ export const postsTable = pgTable("posts", {
   const ownsPost = sql`${ownsAccount} and ${ownsVideo}`;
 
   return [
+    pgPolicy("admins_full_access_posts", {
+      for: "all",
+      to: authenticatedRole,
+      using: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+      withCheck: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+    }),
     pgPolicy("posts_select_own", {
       for: "select",
       to: authenticatedRole,
@@ -196,6 +223,12 @@ export const analyticsTable = pgTable("analytics", {
   )`;
 
   return [
+    pgPolicy("admins_full_access_analytics", {
+      for: "all",
+      to: authenticatedRole,
+      using: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+      withCheck: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+    }),
     pgPolicy("analytics_select_own", {
       for: "select",
       to: authenticatedRole,
@@ -257,6 +290,12 @@ export const alertsTable = pgTable("alerts", {
   )`;
 
   return [
+    pgPolicy("admins_full_access_alerts", {
+      for: "all",
+      to: authenticatedRole,
+      using: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+      withCheck: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+    }),
     pgPolicy("alerts_select_own", {
       for: "select",
       to: authenticatedRole,
@@ -281,6 +320,7 @@ export const alertsTable = pgTable("alerts", {
   ];
 }).enableRLS();
 
+export type AccountOwnerKind = (typeof accountOwnerKindValues)[number];
 export type AccountRecord = typeof accountsTable.$inferSelect;
 export type NewAccountRecord = typeof accountsTable.$inferInsert;
 export type VideoRecord = typeof videosTable.$inferSelect;
