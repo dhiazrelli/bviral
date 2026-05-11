@@ -1,42 +1,49 @@
 import React, { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useAuth } from "@/lib/auth-context";
 import {
+  BarChart3,
   BellRing,
+  Building2,
   CalendarClock,
   ChevronLeft,
   ChevronRight,
   Command,
   HelpCircle,
   LayoutDashboard,
+  LogOut,
   Menu,
   Search,
   Settings,
+  Shield,
   Sparkles,
   Users,
   Wand2,
   X,
-  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useListAccounts, useListAlerts } from "@workspace/api-client-react";
 import bviralLogo from "../../../../../bviral.png";
 
-const navItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard, section: "overview" },
-  { path: "/scheduling", label: "Scheduling", icon: CalendarClock, section: "overview" },
-  { path: "/ai-video-studio", label: "AI Studio", icon: Wand2, section: "creation" },
-  { path: "/analytics", label: "Analytics", icon: BarChart3, section: "creation" },
-  { path: "/alerts", label: "Alerts", icon: BellRing, section: "operations" },
-  { path: "/accounts", label: "Accounts", icon: Users, section: "operations" },
-  { path: "/settings", label: "Settings", icon: Settings, section: "operations" },
+const baseNavItems = [
+  { path: "/", label: "Dashboard", icon: LayoutDashboard, section: "overview", adminOnly: false },
+  { path: "/scheduling", label: "Scheduling", icon: CalendarClock, section: "overview", adminOnly: false },
+  { path: "/ai-video-studio", label: "AI Studio", icon: Wand2, section: "creation", adminOnly: false },
+  { path: "/analytics", label: "Analytics", icon: BarChart3, section: "creation", adminOnly: false },
+  { path: "/alerts", label: "Alerts", icon: BellRing, section: "operations", adminOnly: false },
+  { path: "/accounts", label: "Accounts", icon: Users, section: "operations", adminOnly: false },
+  { path: "/settings", label: "Settings", icon: Settings, section: "operations", adminOnly: false },
+  { path: "/admin/creators", label: "Creators", icon: Shield, section: "admin", adminOnly: true },
+  { path: "/admin/bviral-accounts", label: "BViral Accounts", icon: Building2, section: "admin", adminOnly: true },
 ];
 
 const sectionLabels: Record<string, string> = {
   overview: "Overview",
   creation: "Creation",
   operations: "Operations",
+  admin: "Admin",
 };
 
 const pageDescriptions: Record<string, string> = {
@@ -49,8 +56,8 @@ const pageDescriptions: Record<string, string> = {
   "/settings": "Tune automations, workspace defaults, and security controls.",
 };
 
-function getCurrentItem(pathname: string) {
-  return navItems.find((item) => item.path === pathname) ?? navItems[0];
+function getCurrentItem(pathname: string, items: typeof baseNavItems) {
+  return items.find((item) => item.path === pathname) ?? items[0];
 }
 
 function NavItem({
@@ -60,7 +67,7 @@ function NavItem({
   badge,
   onNavigate,
 }: {
-  item: (typeof navItems)[number];
+  item: (typeof baseNavItems)[number];
   active: boolean;
   collapsed: boolean;
   badge?: number;
@@ -124,12 +131,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState("");
   const shouldReduceMotion = useReducedMotion();
   const { toast } = useToast();
+  const { user, role, signOut } = useAuth();
   const alertsQuery = useListAlerts();
   const accountsQuery = useListAccounts();
   const alerts = alertsQuery.data?.data ?? [];
   const accounts = accountsQuery.data?.data ?? [];
   const alertCount = alerts.filter((alert) => alert.status === "unresolved").length;
   const accountCount = accounts.length;
+
+  const navItems = baseNavItems.filter((item) => !item.adminOnly || role === "admin");
 
   const groupedNavItems = navItems.reduce((acc, item) => {
     if (!acc[item.section]) {
@@ -140,7 +150,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return acc;
   }, {} as Record<string, typeof navItems>);
 
-  const currentItem = getCurrentItem(location);
+  const currentItem = getCurrentItem(location, navItems);
   const currentDescription = pageDescriptions[location] ?? pageDescriptions["/"];
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -153,7 +163,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         value.toLowerCase().includes(query),
       ),
     );
-  }, [searchQuery]);
+  }, [searchQuery, navItems]);
 
   const handleQuickNavigate = (path: string, label: string) => {
     navigate(path);
@@ -356,14 +366,21 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 <BellRing className="h-4.5 w-4.5" />
                 {alertCount > 0 ? <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-primary" /> : null}
               </button>
-              <div className="flex items-center gap-3 rounded-[1.2rem] border border-white/8 bg-white/[0.04] px-3 py-2">
+              <div className="flex items-center gap-2 rounded-[1.2rem] border border-white/8 bg-white/[0.04] px-3 py-2">
                 <div className="text-right">
-                  <p className="text-[13px] font-semibold text-white">Admin User</p>
-                  <p className="text-[11px] text-white/44">Operator</p>
+                  <p className="text-[13px] font-semibold text-white">{user?.email?.split("@")[0] ?? "Operator"}</p>
+                  <p className="text-[11px] text-white/44">{role === "admin" ? "Admin" : "Creator"}</p>
                 </div>
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent font-bold text-slate-950">
-                  AU
+                  {(user?.email?.[0] ?? "U").toUpperCase()}
                 </div>
+                <button
+                  onClick={() => signOut().then(() => navigate("/login"))}
+                  className="rounded-xl border border-white/8 bg-white/[0.04] p-2 text-white/50 transition hover:bg-white/[0.08] hover:text-white"
+                  title="Sign out"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           </div>
@@ -469,6 +486,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                         : "border-white/8 bg-white/[0.03] text-white/72 hover:border-white/12 hover:bg-white/[0.05]",
                     )}
                   >
+
                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.05]">
                       <item.icon className="h-4 w-4" />
                     </div>
