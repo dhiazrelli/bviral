@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import {
   accountsTable,
   type AccountRecord,
@@ -24,7 +24,8 @@ export interface AccountResponseDto {
   platform: AccountPlatform;
   accountName: string;
   tokenExpiry: string | null;
-  userId: string;
+  ownerKind: "user" | "bviral_company";
+  userId: string | null;
   metadata: Record<string, unknown>;
   createdAt: string;
 }
@@ -40,8 +41,19 @@ export interface CreateAccountPayload {
   accessToken: string;
   refreshToken?: string | null;
   tokenExpiry?: Date | null;
-  userId: string;
+  ownerKind?: "user" | "bviral_company";
+  userId?: string | null;
   metadata?: Record<string, unknown>;
+}
+
+export interface AccountMetadataDto {
+  id: string;
+  platform: AccountPlatform;
+  accountName: string;
+  tokenExpiry: string | null;
+  ownerKind: "user" | "bviral_company";
+  userId: string | null;
+  createdAt: string;
 }
 
 export interface UpdateAccountPayload {
@@ -51,6 +63,8 @@ export interface UpdateAccountPayload {
 
 export interface AccountsRepository {
   listForUser(userId: string): Promise<AccountResponseDto[]>;
+  listBviralAccounts(): Promise<AccountMetadataDto[]>;
+  listForCreator(creatorId: string): Promise<AccountMetadataDto[]>;
   findForUser(accountId: string, userId: string): Promise<AccountResponseDto | null>;
   findSecretForUser(accountId: string, userId: string): Promise<AccountSecretRecord | null>;
   create(input: CreateAccountPayload): Promise<AccountResponseDto>;
@@ -77,7 +91,8 @@ function serializeAccount(account: AccountRecord): AccountResponseDto {
     platform: account.platform,
     accountName: account.accountName,
     tokenExpiry: account.tokenExpiry?.toISOString() ?? null,
-    userId: account.userId,
+    ownerKind: account.ownerKind,
+    userId: account.userId ?? null,
     metadata: account.metadata,
     createdAt: account.createdAt.toISOString(),
   };
@@ -119,6 +134,18 @@ function getPlatformIdentity(account: {
   }
 }
 
+function serializeAccountMetadata(account: AccountRecord): AccountMetadataDto {
+  return {
+    id: account.id,
+    platform: account.platform,
+    accountName: account.accountName,
+    tokenExpiry: account.tokenExpiry?.toISOString() ?? null,
+    ownerKind: account.ownerKind,
+    userId: account.userId ?? null,
+    createdAt: account.createdAt.toISOString(),
+  };
+}
+
 export function buildAccountsRepository(db: Database): AccountsRepository {
   async function findForUser(accountId: string, userId: string) {
     const [account] = await db
@@ -144,6 +171,26 @@ export function buildAccountsRepository(db: Database): AccountsRepository {
       return accounts.map(serializeAccount);
     },
 
+    async listBviralAccounts() {
+      const accounts = await db
+        .select()
+        .from(accountsTable)
+        .where(isNull(accountsTable.userId))
+        .orderBy(desc(accountsTable.createdAt));
+
+      return accounts.map(serializeAccountMetadata);
+    },
+
+    async listForCreator(creatorId) {
+      const accounts = await db
+        .select()
+        .from(accountsTable)
+        .where(eq(accountsTable.userId, creatorId))
+        .orderBy(desc(accountsTable.createdAt));
+
+      return accounts.map(serializeAccountMetadata);
+    },
+
     findForUser,
 
     async findSecretForUser(accountId, userId) {
@@ -166,7 +213,8 @@ export function buildAccountsRepository(db: Database): AccountsRepository {
         accessToken: encryptToken(input.accessToken),
         refreshToken: encryptOptionalToken(input.refreshToken ?? null),
         tokenExpiry: input.tokenExpiry ?? null,
-        userId: input.userId,
+        ownerKind: input.ownerKind ?? (input.userId ? "user" : "bviral_company"),
+        userId: input.userId ?? null,
         metadata: input.metadata ?? {},
       };
 
@@ -181,18 +229,21 @@ export function buildAccountsRepository(db: Database): AccountsRepository {
         accessToken: encryptToken(input.accessToken),
         refreshToken: encryptOptionalToken(input.refreshToken ?? null),
         tokenExpiry: input.tokenExpiry ?? null,
-        userId: input.userId,
+        ownerKind: input.ownerKind ?? (input.userId ? "user" : "bviral_company"),
+        userId: input.userId ?? null,
         metadata: input.metadata ?? {},
       };
 
-      const existingAccounts = await db
-        .select()
-        .from(accountsTable)
-        .where(and(
-          eq(accountsTable.userId, input.userId),
-          eq(accountsTable.platform, input.platform),
-        ))
-        .orderBy(desc(accountsTable.createdAt));
+      const existingAccounts = input.userId
+        ? await db
+          .select()
+          .from(accountsTable)
+          .where(and(
+            eq(accountsTable.userId, input.userId),
+            eq(accountsTable.platform, input.platform),
+          ))
+          .orderBy(desc(accountsTable.createdAt))
+        : [];
       const inputIdentity = getPlatformIdentity(input);
       const existing = existingAccounts.find((account) => (
         getPlatformIdentity(account) === inputIdentity

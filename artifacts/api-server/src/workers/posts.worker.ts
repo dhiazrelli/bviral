@@ -57,7 +57,10 @@ function getScheduleDelay(scheduledAt: string) {
 async function restoreScheduledJobs() {
   const scheduledPosts = await postsRepository.listScheduledForPublishing();
 
-  await Promise.all(scheduledPosts.map(({ post, userId }) =>
+  await Promise.all(
+    scheduledPosts
+      .filter((row): row is typeof row & { userId: string } => row.userId !== null)
+      .map(({ post, userId }) =>
     queue.add("publish-post", {
       postId: post.id,
       userId,

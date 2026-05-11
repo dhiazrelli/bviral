@@ -5,7 +5,7 @@ export interface UserResponseDto {
   id: string;
   email: string;
   fullName: string;
-  role: "admin" | "member";
+  role: "admin" | "content_creator";
   createdAt: string;
   updatedAt: string;
 }
@@ -19,7 +19,7 @@ export interface ListUsersQuery {
 export interface CreateUserPayload {
   email: string;
   fullName: string;
-  role: "admin" | "member";
+  role: "admin" | "content_creator";
 }
 
 export interface EnsureDevelopmentUserPayload extends CreateUserPayload {

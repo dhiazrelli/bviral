@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { AppConfig } from "../lib/config";
 import type { AccountsRepository } from "../repositories/accounts.repository";
 import type {
+  AnalyticsFilterParams,
   AnalyticsOverviewDto,
   AnalyticsRepository,
   AnalyticsSnapshotDto,
@@ -34,8 +35,19 @@ export interface AnalyticsRefreshSummary {
   failed: number;
 }
 
+export const analyticsFilterQuerySchema = z.object({
+  videoId: z.string().uuid().optional(),
+  creatorId: z.string().uuid().optional(),
+  platform: z.enum(["facebook", "instagram", "tiktok", "youtube", "snapchat"]).optional(),
+  from: z.string().datetime({ offset: true }).optional(),
+  to: z.string().datetime({ offset: true }).optional(),
+});
+
+export type AnalyticsFilterQuery = z.infer<typeof analyticsFilterQuerySchema>;
+
 export interface AnalyticsService {
   getOverview(userId: string): Promise<AnalyticsOverviewDto>;
+  getOverviewFiltered(filters: AnalyticsFilterParams): Promise<AnalyticsOverviewDto>;
   getPostAnalytics(postId: string, userId: string): Promise<PostAnalyticsDto>;
   refreshPostedPostAnalytics(): Promise<AnalyticsRefreshSummary>;
 }
@@ -515,6 +527,10 @@ export function buildAnalyticsService(
   return {
     getOverview(userId) {
       return analyticsRepository.getOverviewForUser(userId);
+    },
+
+    getOverviewFiltered(filters) {
+      return analyticsRepository.getOverviewFiltered(filters);
     },
 
     async getPostAnalytics(postId, userId) {

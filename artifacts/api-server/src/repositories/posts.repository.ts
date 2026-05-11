@@ -53,7 +53,7 @@ export interface PostsRepository {
   listForUser(userId: string): Promise<PostResponseDto[]>;
   listScheduledForPublishing(): Promise<Array<{
     post: PostResponseDto;
-    userId: string;
+    userId: string | null;
   }>>;
   findForUser(postId: string, userId: string): Promise<PostResponseDto | null>;
   findWithAccountForUser(postId: string, userId: string): Promise<PostResponseDto | null>;
@@ -111,7 +111,7 @@ export function buildPostsRepository(db: Database): PostsRepository {
 
       return rows.map(({ post, userId }) => ({
         post: serializePost(post),
-        userId,
+        userId: userId ?? null,
       }));
     },
 

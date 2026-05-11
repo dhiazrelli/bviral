@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { ZodError } from "zod";
 import {
   AnalyticsNotFoundError,
+  analyticsFilterQuerySchema,
   analyticsPostParamsSchema,
 } from "../../../services/analytics.service";
 
@@ -38,10 +39,28 @@ export default async function analyticsRoutes(fastify: FastifyInstance) {
         500: { $ref: "errorResponse#" },
       },
     },
-  }, async (request) => {
-    const userId = getCurrentUserId(request);
+  }, async (request, reply) => {
+    const user = request.currentUser;
 
-    return fastify.analyticsService.getOverview(userId);
+    if (!user) {
+      throw new Error("Authenticated user was not attached to the request.");
+    }
+
+    if (user.role === "admin") {
+      try {
+        const filters = analyticsFilterQuerySchema.parse(request.query);
+        return await fastify.analyticsService.getOverviewFiltered(filters);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          sendValidationError(reply, error.issues[0]?.message ?? "Query validation failed.");
+          return;
+        }
+
+        throw error;
+      }
+    }
+
+    return fastify.analyticsService.getOverview(getCurrentUserId(request));
   });
 
   fastify.get("/:post_id", {

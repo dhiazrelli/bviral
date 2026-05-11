@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 import {
   accountsTable,
   analyticsTable,
@@ -6,6 +6,7 @@ import {
   type Database,
   type NewAnalyticsRecord,
   postsTable,
+  videosTable,
 } from "@workspace/db";
 import type { AccountPlatform } from "./accounts.repository";
 
@@ -76,7 +77,7 @@ export interface PostAnalyticsDto {
 
 export interface PostedPostForAnalytics {
   postId: string;
-  userId: string;
+  userId: string | null;
   accountId: string;
   platform: AccountPlatform;
   externalPostId: string;
@@ -95,8 +96,17 @@ export interface InsertAnalyticsSnapshotInput {
   revenue?: number;
 }
 
+export interface AnalyticsFilterParams {
+  videoId?: string;
+  creatorId?: string;
+  platform?: AccountPlatform;
+  from?: string;
+  to?: string;
+}
+
 export interface AnalyticsRepository {
   getOverviewForUser(userId: string): Promise<AnalyticsOverviewDto>;
+  getOverviewFiltered(filters: AnalyticsFilterParams): Promise<AnalyticsOverviewDto>;
   getPostAnalyticsForUser(postId: string, userId: string): Promise<PostAnalyticsDto | null>;
   listPostedPostsForRefresh(): Promise<PostedPostForAnalytics[]>;
   insertSnapshot(input: InsertAnalyticsSnapshotInput): Promise<AnalyticsSnapshotDto>;
@@ -246,6 +256,44 @@ export function buildAnalyticsRepository(db: Database): AnalyticsRepository {
         .innerJoin(postsTable, eq(postsTable.id, analyticsTable.postId))
         .innerJoin(accountsTable, eq(accountsTable.id, postsTable.accountId))
         .where(eq(accountsTable.userId, userId))
+        .orderBy(desc(analyticsTable.fetchedAt));
+
+      return createOverview(rows);
+    },
+
+    async getOverviewFiltered(filters) {
+      const conditions: SQL[] = [];
+
+      if (filters.videoId) {
+        conditions.push(eq(postsTable.videoId, filters.videoId));
+      }
+
+      if (filters.creatorId) {
+        conditions.push(eq(accountsTable.userId, filters.creatorId));
+      }
+
+      if (filters.platform) {
+        conditions.push(eq(postsTable.platform, filters.platform));
+      }
+
+      if (filters.from) {
+        conditions.push(sql`${analyticsTable.fetchedAt} >= ${filters.from}::timestamptz`);
+      }
+
+      if (filters.to) {
+        conditions.push(sql`${analyticsTable.fetchedAt} <= ${filters.to}::timestamptz`);
+      }
+
+      const rows = await db
+        .select({
+          analytics: analyticsTable,
+          platform: postsTable.platform,
+          externalPostId: postsTable.externalPostId,
+        })
+        .from(analyticsTable)
+        .innerJoin(postsTable, eq(postsTable.id, analyticsTable.postId))
+        .innerJoin(accountsTable, eq(accountsTable.id, postsTable.accountId))
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(analyticsTable.fetchedAt));
 
       return createOverview(rows);

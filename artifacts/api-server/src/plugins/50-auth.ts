@@ -2,7 +2,7 @@ import fp from "fastify-plugin";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { UserResponseDto } from "../repositories/users";
 
-export type AuthRole = "admin" | "team";
+export type AuthRole = "admin" | "content_creator";
 export type AuthRouteHandler = (
   request: FastifyRequest,
   reply: FastifyReply,
@@ -81,7 +81,7 @@ function resolveRole(
     return "admin";
   }
 
-  return "team";
+  return "content_creator";
 }
 
 async function verifySupabaseToken(
