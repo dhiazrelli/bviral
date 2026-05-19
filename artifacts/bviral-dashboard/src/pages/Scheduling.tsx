@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Calendar as CalendarIcon,
@@ -10,16 +10,19 @@ import {
   FileText,
   Filter,
   Layers,
+  ListFilter,
   Loader2,
   MoreHorizontal,
   Play,
   Plus,
   RefreshCcw,
+  Search,
   ShieldAlert,
   Sparkles,
   Trash2,
   UploadCloud,
   X,
+  XCircle,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -449,6 +452,94 @@ export default function Scheduling() {
     },
   });
 
+  // --- Scheduled Posts list (search + filters + pagination) ---
+  type PostStatusFilter = "all" | "scheduled" | "posted" | "failed" | "cancelled";
+  type PostPlatformFilter = "all" | AccountPlatform;
+  const POSTS_PER_PAGE = 6;
+  const [postSearch, setPostSearch] = useState("");
+  const [postStatusFilter, setPostStatusFilter] = useState<PostStatusFilter>("scheduled");
+  const [postPlatformFilter, setPostPlatformFilter] = useState<PostPlatformFilter>("all");
+  const [postAccountFilter, setPostAccountFilter] = useState<string>("all");
+  const [postPage, setPostPage] = useState(1);
+
+  const accountById = useMemo(() => {
+    const map = new Map<string, Account>();
+    for (const account of accounts) map.set(account.id, account);
+    return map;
+  }, [accounts]);
+
+  const filteredPosts = useMemo(() => {
+    const query = postSearch.trim().toLowerCase();
+    return posts
+      .filter((post) => {
+        if (postStatusFilter !== "all" && post.status !== postStatusFilter) return false;
+        if (postPlatformFilter !== "all" && post.platform !== postPlatformFilter) return false;
+        if (postAccountFilter !== "all" && post.accountId !== postAccountFilter) return false;
+        if (query) {
+          const title = (getStringMetadata(post, "title") ?? "").toLowerCase();
+          const caption = (getStringMetadata(post, "caption") ?? getStringMetadata(post, "description") ?? "").toLowerCase();
+          const accountName = (accountById.get(post.accountId)?.accountName ?? "").toLowerCase();
+          if (!title.includes(query) && !caption.includes(query) && !accountName.includes(query)) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        // Upcoming first for scheduled; otherwise newest first.
+        if (postStatusFilter === "scheduled") {
+          return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+        }
+        return new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime();
+      });
+  }, [posts, accountById, postSearch, postStatusFilter, postPlatformFilter, postAccountFilter]);
+
+  useEffect(() => {
+    setPostPage(1);
+  }, [postSearch, postStatusFilter, postPlatformFilter, postAccountFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPosts.length / POSTS_PER_PAGE));
+  const currentPostPage = Math.min(postPage, totalPages);
+  const paginatedPosts = filteredPosts.slice(
+    (currentPostPage - 1) * POSTS_PER_PAGE,
+    currentPostPage * POSTS_PER_PAGE,
+  );
+  const hasActivePostFilters =
+    postSearch.trim().length > 0
+    || postStatusFilter !== "scheduled"
+    || postPlatformFilter !== "all"
+    || postAccountFilter !== "all";
+
+  const resetPostFilters = () => {
+    setPostSearch("");
+    setPostStatusFilter("scheduled");
+    setPostPlatformFilter("all");
+    setPostAccountFilter("all");
+  };
+
+  const postStatusStyles: Record<PostStatusFilter, { color: string; dot: string; label: string }> = {
+    all: { color: "", dot: "", label: "All" },
+    scheduled: { color: "text-primary bg-primary/10 border-primary/20", dot: "bg-primary", label: "Scheduled" },
+    posted: { color: "text-emerald-300 bg-emerald-400/10 border-emerald-400/20", dot: "bg-emerald-400", label: "Posted" },
+    failed: { color: "text-red-300 bg-red-400/10 border-red-400/20", dot: "bg-red-400", label: "Failed" },
+    cancelled: { color: "text-muted-foreground bg-white/[0.04] border-white/[0.08]", dot: "bg-white/40", label: "Cancelled" },
+  };
+
+  const visiblePageNumbers = useMemo(() => {
+    const pages: (number | "ellipsis")[] = [];
+    const maxButtons = 5;
+    if (totalPages <= maxButtons) {
+      for (let i = 1; i <= totalPages; i += 1) pages.push(i);
+      return pages;
+    }
+    pages.push(1);
+    const start = Math.max(2, currentPostPage - 1);
+    const end = Math.min(totalPages - 1, currentPostPage + 1);
+    if (start > 2) pages.push("ellipsis");
+    for (let i = start; i <= end; i += 1) pages.push(i);
+    if (end < totalPages - 1) pages.push("ellipsis");
+    pages.push(totalPages);
+    return pages;
+  }, [totalPages, currentPostPage]);
+
   const lanes: AccountLane[] = useMemo(() => accounts.map((account) => {
     const accountPosts = posts.filter((post) => post.accountId === account.id);
     const scheduled = accountPosts.filter((post) => post.status === "scheduled");
@@ -844,6 +935,210 @@ export default function Scheduling() {
           </button>
         </div>
       </div>
+
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="glass-card flex flex-col">
+        <div className="p-4 border-b border-white/[0.04] flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center border border-primary/10">
+                <ListFilter className="w-3.5 h-3.5 text-primary" />
+              </div>
+              <h2 className="font-display font-bold text-white text-sm">Scheduled Posts</h2>
+              <span className="text-[11px] text-muted-foreground/50">
+                {filteredPosts.length} {filteredPosts.length === 1 ? "result" : "results"}
+              </span>
+            </div>
+            {hasActivePostFilters ? (
+              <button
+                type="button"
+                onClick={resetPostFilters}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-semibold text-white/70 transition hover:bg-white/[0.06] hover:text-white"
+              >
+                <XCircle className="w-3 h-3" /> Clear filters
+              </button>
+            ) : null}
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,1fr))]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
+              <input
+                type="search"
+                value={postSearch}
+                onChange={(event) => setPostSearch(event.target.value)}
+                placeholder="Search by account, title, or caption..."
+                className="h-9 w-full rounded-lg border border-white/[0.08] bg-black/25 pl-8 pr-3 text-xs text-white outline-none transition placeholder:text-white/30 focus:border-primary/40"
+              />
+            </div>
+
+            <Select value={postStatusFilter} onValueChange={(value) => setPostStatusFilter(value as PostStatusFilter)}>
+              <SelectTrigger className="h-9 w-full rounded-lg border border-white/[0.08] bg-black/25 px-3 text-xs text-white">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="posted">Posted</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={postPlatformFilter} onValueChange={(value) => setPostPlatformFilter(value as PostPlatformFilter)}>
+              <SelectTrigger className="h-9 w-full rounded-lg border border-white/[0.08] bg-black/25 px-3 text-xs text-white">
+                <SelectValue placeholder="Platform" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All platforms</SelectItem>
+                {(Object.keys(platformLabels) as AccountPlatform[]).map((platform) => (
+                  <SelectItem key={platform} value={platform}>{platformLabels[platform]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={postAccountFilter} onValueChange={setPostAccountFilter}>
+              <SelectTrigger className="h-9 w-full rounded-lg border border-white/[0.08] bg-black/25 px-3 text-xs text-white">
+                <SelectValue placeholder="Account" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All accounts</SelectItem>
+                {accounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>{account.accountName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="overflow-auto">
+          {paginatedPosts.length === 0 ? (
+            <div className="px-4 py-12 text-center">
+              <p className="text-white/60 font-medium text-sm">No posts match these filters.</p>
+              <p className="text-muted-foreground/40 text-xs mt-1">
+                {posts.length === 0 ? "Schedule your first post to see it here." : "Try clearing filters or widening the status."}
+              </p>
+            </div>
+          ) : (
+            <table className="w-full text-left text-[13px]">
+              <thead className="bg-black/20 text-muted-foreground/50">
+                <tr>
+                  <th className="p-3 pl-5 font-medium text-[11px] uppercase tracking-wider">Account</th>
+                  <th className="p-3 font-medium text-[11px] uppercase tracking-wider">Platform</th>
+                  <th className="p-3 font-medium text-[11px] uppercase tracking-wider">Title / Caption</th>
+                  <th className="p-3 font-medium text-[11px] uppercase tracking-wider">Scheduled</th>
+                  <th className="p-3 font-medium text-[11px] uppercase tracking-wider">Status</th>
+                  <th className="p-3 pr-5 font-medium text-[11px] uppercase tracking-wider text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.02]">
+                {paginatedPosts.map((post) => {
+                  const account = accountById.get(post.accountId);
+                  const title = getStringMetadata(post, "title");
+                  const caption = getStringMetadata(post, "caption") ?? getStringMetadata(post, "description");
+                  const statusStyle = postStatusStyles[post.status as PostStatusFilter] ?? postStatusStyles.scheduled;
+                  const canCancel = post.status === "scheduled";
+                  return (
+                    <tr
+                      key={post.id}
+                      onClick={() => account && setSelectedAccountId(account.id)}
+                      className="hover:bg-white/[0.02] cursor-pointer transition-colors"
+                    >
+                      <td className="p-3 pl-5 font-semibold text-white/90 whitespace-nowrap">
+                        {account?.accountName ?? <span className="text-muted-foreground/50">Unknown</span>}
+                      </td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${platformColors[post.platform]}`}>
+                          {platformLabels[post.platform]}
+                        </span>
+                      </td>
+                      <td className="p-3 min-w-[200px] max-w-[340px]">
+                        <p className="text-white/85 text-xs font-medium truncate">{title ?? "Untitled post"}</p>
+                        {caption ? (
+                          <p className="text-muted-foreground/50 text-[11px] truncate mt-0.5">{caption}</p>
+                        ) : null}
+                      </td>
+                      <td className="p-3 text-white/75 font-mono text-[11px] whitespace-nowrap">
+                        {formatDateTime(post.scheduledAt)}
+                      </td>
+                      <td className="p-3">
+                        <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border w-fit ${statusStyle.color}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`} />
+                          {statusStyle.label}
+                        </span>
+                      </td>
+                      <td className="p-3 pr-5 text-right">
+                        {canCancel ? (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              deletePostMutation.mutate({ id: post.id });
+                            }}
+                            disabled={deletePostMutation.isPending}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-red-400/20 bg-red-400/[0.06] px-2 py-1 text-[10px] font-semibold text-red-200 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Trash2 className="w-3 h-3" /> Cancel
+                          </button>
+                        ) : (
+                          <span className="text-muted-foreground/40 text-[10px]">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {totalPages > 1 ? (
+          <div className="px-4 py-3 border-t border-white/[0.04] flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[11px] text-muted-foreground/55">
+              Page <span className="text-white/80 font-semibold">{currentPostPage}</span> of {totalPages}
+              <span className="mx-2 text-muted-foreground/30">·</span>
+              Showing {(currentPostPage - 1) * POSTS_PER_PAGE + 1}
+              –{Math.min(currentPostPage * POSTS_PER_PAGE, filteredPosts.length)} of {filteredPosts.length}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setPostPage((page) => Math.max(1, page - 1))}
+                disabled={currentPostPage === 1}
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 text-[11px] font-semibold text-white/70 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft className="w-3 h-3" /> Prev
+              </button>
+              {visiblePageNumbers.map((page, index) =>
+                page === "ellipsis" ? (
+                  <span key={`ellipsis-${index}`} className="px-1 text-[11px] text-muted-foreground/40">…</span>
+                ) : (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setPostPage(page)}
+                    className={cn(
+                      "h-7 min-w-7 rounded-md border px-2 text-[11px] font-semibold transition",
+                      page === currentPostPage
+                        ? "border-primary/40 bg-primary/15 text-primary"
+                        : "border-white/[0.08] bg-white/[0.03] text-white/70 hover:bg-white/[0.06] hover:text-white",
+                    )}
+                  >
+                    {page}
+                  </button>
+                ),
+              )}
+              <button
+                type="button"
+                onClick={() => setPostPage((page) => Math.min(totalPages, page + 1))}
+                disabled={currentPostPage === totalPages}
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 text-[11px] font-semibold text-white/70 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </motion.div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.75fr)_minmax(360px,1fr)] gap-4">
         <div className="flex flex-col gap-4 min-w-0">
