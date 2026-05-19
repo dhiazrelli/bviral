@@ -532,3 +532,125 @@ export const CreateBviralAccountBody = zod.object({
 })
 
 
+/**
+ * Runs the virality model on an uploaded video and returns the predicted views, viral tier, SHAP attributions, and an LLM analysis.
+ * @summary Predict virality for an uploaded video
+ */
+export const PredictViralityBody = zod.object({
+  "videoId": zod.string().uuid()
+})
+
+export const predictViralityResponsePredictedViewsEstimateMin = 0;
+
+export const predictViralityResponseLlmAnalysisHookScoreMin = 0;
+export const predictViralityResponseLlmAnalysisHookScoreMax = 10;
+
+export const predictViralityResponseLlmAnalysisClarityScoreMin = 0;
+export const predictViralityResponseLlmAnalysisClarityScoreMax = 10;
+
+export const predictViralityResponseLlmAnalysisQualityScoreMin = 0;
+export const predictViralityResponseLlmAnalysisQualityScoreMax = 10;
+
+
+
+export const PredictViralityResponse = zod.object({
+  "video": zod.string(),
+  "predicted_views_estimate": zod.number().min(predictViralityResponsePredictedViewsEstimateMin),
+  "viral_tier": zod.string(),
+  "shap_pushing_up": zod.array(zod.object({
+  "msg": zod.string(),
+  "impact": zod.number()
+})),
+  "shap_dragging_down": zod.array(zod.object({
+  "msg": zod.string(),
+  "impact": zod.number()
+})),
+  "llm_analysis": zod.object({
+  "video_summary": zod.string(),
+  "hook_score": zod.number().min(predictViralityResponseLlmAnalysisHookScoreMin).max(predictViralityResponseLlmAnalysisHookScoreMax),
+  "clarity_score": zod.number().min(predictViralityResponseLlmAnalysisClarityScoreMin).max(predictViralityResponseLlmAnalysisClarityScoreMax),
+  "quality_score": zod.number().min(predictViralityResponseLlmAnalysisQualityScoreMin).max(predictViralityResponseLlmAnalysisQualityScoreMax),
+  "hook_type": zod.string(),
+  "tone": zod.string(),
+  "emotion": zod.string(),
+  "content_category": zod.string(),
+  "engagement_triggers": zod.array(zod.string()),
+  "strengths": zod.array(zod.string()),
+  "weaknesses": zod.array(zod.string()),
+  "improvement_suggestion": zod.string()
+}),
+  "hook_transcript": zod.string()
+})
+
+
+/**
+ * Enqueues a Whisper-backed caption generation job. Poll /v1/ai/jobs/{jobId} for status.
+ * @summary Generate captions for a video
+ */
+export const GenerateCaptionsBody = zod.object({
+  "videoId": zod.string().uuid(),
+  "style": zod.enum(['stroke', 'yellow', 'pill']).optional()
+})
+
+
+/**
+ * Enqueues a video enhancement job. Poll /v1/ai/jobs/{jobId} for status.
+ * @summary Enhance a video (4K upscale, face restore)
+ */
+export const enhanceVideoBodyUpscaleDefault = false;
+export const enhanceVideoBodyFaceRestoreDefault = false;
+
+export const EnhanceVideoBody = zod.object({
+  "videoId": zod.string().uuid(),
+  "upscale": zod.boolean().default(enhanceVideoBodyUpscaleDefault),
+  "faceRestore": zod.boolean().default(enhanceVideoBodyFaceRestoreDefault)
+})
+
+
+/**
+ * Submits a text-to-video generation to LTX Studio. Subject to a hard duration cap and per-user daily quota.
+ * @summary Generate a short video from a text prompt with LTX Studio
+ */
+export const generateLtxBodyPromptMax = 2000;
+
+export const generateLtxBodyStyleMax = 200;
+
+export const generateLtxBodyDurationSecMin = 2;
+export const generateLtxBodyDurationSecMax = 10;
+
+
+
+export const GenerateLtxBody = zod.object({
+  "prompt": zod.string().min(1).max(generateLtxBodyPromptMax),
+  "style": zod.string().max(generateLtxBodyStyleMax).optional(),
+  "durationSec": zod.number().min(generateLtxBodyDurationSecMin).max(generateLtxBodyDurationSecMax),
+  "resolution": zod.enum(['1080x1920', '1920x1080', '1440x2560']).optional()
+})
+
+
+/**
+ * Returns the current status of an AI job (captions, enhance, or LTX generation).
+ * @summary Get AI job status
+ */
+export const GetAiJobParams = zod.object({
+  "jobId": zod.coerce.string()
+})
+
+export const getAiJobResponseProgressMin = 0;
+export const getAiJobResponseProgressMax = 100;
+
+
+
+export const GetAiJobResponse = zod.object({
+  "jobId": zod.string(),
+  "kind": zod.enum(['captions', 'enhance', 'ltx']),
+  "status": zod.enum(['queued', 'running', 'done', 'failed']),
+  "progress": zod.number().min(getAiJobResponseProgressMin).max(getAiJobResponseProgressMax).nullable(),
+  "resultUrl": zod.string().nullable(),
+  "videoId": zod.string().uuid().nullable(),
+  "error": zod.string().nullable(),
+  "createdAt": zod.date(),
+  "updatedAt": zod.date()
+})
+
+

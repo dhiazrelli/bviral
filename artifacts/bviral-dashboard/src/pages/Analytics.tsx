@@ -33,6 +33,7 @@ import {
 } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
+import { StyledSelect } from "@/components/ui/styled-select";
 
 const platformLabels: Record<AccountPlatform, string> = {
   facebook: "Facebook",
@@ -357,29 +358,34 @@ export default function Analytics() {
           <p className="page-subtitle ml-[52px]">Deep dive into cross-platform performance.</p>
         </div>
 
-        <div className="flex flex-wrap gap-2 glass-card p-1.5 rounded-xl ml-[52px] md:ml-0">
-          <select
+        <div className="flex flex-wrap items-center gap-2 ml-[52px] md:ml-0">
+          <StyledSelect<AccountPlatform | "all">
+            size="sm"
+            ariaLabel="Platform filter"
             value={platformFilter}
-            onChange={(event) => setPlatformFilter(event.target.value as AccountPlatform | "all")}
-            className="bg-transparent text-xs text-white/60 px-2.5 py-1.5 focus:outline-none cursor-pointer rounded-lg hover:bg-white/[0.04]"
-          >
-            <option className="bg-card" value="all">All Platforms</option>
-            <option className="bg-card" value="instagram">Instagram</option>
-            <option className="bg-card" value="tiktok">TikTok</option>
-            <option className="bg-card" value="youtube">YouTube</option>
-            <option className="bg-card" value="facebook">Facebook</option>
-            <option className="bg-card" value="snapchat">Snapchat</option>
-          </select>
-          <div className="w-px h-5 bg-white/[0.06] self-center" />
-          <select
+            onValueChange={setPlatformFilter}
+            className="w-[160px]"
+            options={[
+              { value: "all", label: "All Platforms" },
+              { value: "instagram", label: "Instagram" },
+              { value: "tiktok", label: "TikTok" },
+              { value: "youtube", label: "YouTube" },
+              { value: "facebook", label: "Facebook" },
+              { value: "snapchat", label: "Snapchat" },
+            ]}
+          />
+          <StyledSelect
+            size="sm"
+            ariaLabel="Date range"
             value={dateRange}
-            onChange={(event) => setDateRange(event.target.value)}
-            className="bg-transparent text-xs text-primary font-semibold px-2.5 py-1.5 focus:outline-none cursor-pointer rounded-lg hover:bg-white/[0.04]"
-          >
-            <option className="bg-card">Last 7 Days</option>
-            <option className="bg-card">Last 30 Days</option>
-            <option className="bg-card">This Year</option>
-          </select>
+            onValueChange={setDateRange}
+            className="w-[160px]"
+            options={[
+              { value: "Last 7 Days", label: "Last 7 Days" },
+              { value: "Last 30 Days", label: "Last 30 Days" },
+              { value: "This Year", label: "This Year" },
+            ]}
+          />
         </div>
       </div>
 
@@ -409,16 +415,18 @@ export default function Analytics() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/36">Platform</label>
-                <select
+                <StyledSelect<AccountPlatform | "">
+                  ariaLabel="Admin platform filter"
                   value={adminFilters.platform}
-                  onChange={(e) => setAdminFilters((f) => ({ ...f, platform: e.target.value as AccountPlatform | "" }))}
-                  className="input-field w-full"
-                >
-                  <option value="">All platforms</option>
-                  {(["facebook", "instagram", "tiktok", "youtube", "snapchat"] as const).map((p) => (
-                    <option key={p} value={p}>{platformLabels[p]}</option>
-                  ))}
-                </select>
+                  onValueChange={(v) => setAdminFilters((f) => ({ ...f, platform: v }))}
+                  options={[
+                    { value: "", label: "All platforms" },
+                    ...(["facebook", "instagram", "tiktok", "youtube", "snapchat"] as const).map((p) => ({
+                      value: p,
+                      label: platformLabels[p],
+                    })),
+                  ]}
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/36">From</label>

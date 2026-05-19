@@ -1,6 +1,6 @@
-import { ArrowLeft, CheckCircle2, Clock, Globe, Link2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, CheckCircle2, Clock, Globe } from "lucide-react";
 import { useLocation } from "wouter";
+import { useGetCreator } from "@workspace/api-client-react";
 
 const platformLabels: Record<string, string> = {
   facebook: "Facebook",
@@ -9,45 +9,6 @@ const platformLabels: Record<string, string> = {
   youtube: "YouTube",
   snapchat: "Snapchat",
 };
-
-interface AccountMeta {
-  id: string;
-  platform: string;
-  accountName: string;
-  tokenExpiry: string | null;
-  ownerKind: "user" | "bviral_company";
-  userId: string | null;
-  createdAt: string;
-}
-
-interface CreatorDetailData {
-  id: string;
-  email: string;
-  fullName: string;
-  createdAt: string;
-  accounts: AccountMeta[];
-  analytics: {
-    totals: {
-      views: number;
-      likes: number;
-      comments: number;
-      shares: number;
-      revenue: number;
-      posts: number;
-      engagementRate: number;
-    };
-  };
-}
-
-async function fetchCreatorDetail(id: string): Promise<CreatorDetailData> {
-  const res = await fetch(`/api/v1/admin/creators/${id}`);
-
-  if (!res.ok) {
-    throw new Error("Creator not found");
-  }
-
-  return res.json() as Promise<CreatorDetailData>;
-}
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
@@ -61,10 +22,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 export default function CreatorDetail({ id }: { id: string }) {
   const [, navigate] = useLocation();
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["admin", "creators", id],
-    queryFn: () => fetchCreatorDetail(id),
-  });
+  const { data, isLoading, error } = useGetCreator(id);
 
   if (isLoading) {
     return (

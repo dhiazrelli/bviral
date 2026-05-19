@@ -1,6 +1,12 @@
 import { useState } from "react";
-import { Building2, CheckCircle2, Clock, Plus, X } from "lucide-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Building2, CheckCircle2, Clock, Plus } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  getListBviralAccountsQueryKey,
+  useCreateBviralAccount,
+  useListBviralAccounts,
+  type AccountPlatform,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type Platform = "facebook" | "instagram" | "tiktok" | "youtube" | "snapchat";
+type Platform = AccountPlatform;
 
 const PLATFORMS: Platform[] = ["facebook", "instagram", "tiktok", "youtube", "snapchat"];
 
@@ -31,36 +37,6 @@ const platformLabels: Record<Platform, string> = {
   snapchat: "Snapchat",
 };
 
-interface AccountMeta {
-  id: string;
-  platform: Platform;
-  accountName: string;
-  tokenExpiry: string | null;
-  ownerKind: "user" | "bviral_company";
-  userId: string | null;
-  createdAt: string;
-}
-
-async function fetchBviralAccounts(): Promise<{ data: AccountMeta[] }> {
-  const res = await fetch("/api/v1/admin/bviral-accounts");
-  if (!res.ok) throw new Error("Failed to load accounts");
-  return res.json() as Promise<{ data: AccountMeta[] }>;
-}
-
-async function createBviralAccount(payload: {
-  platform: Platform;
-  accountName: string;
-  accessToken: string;
-}): Promise<AccountMeta> {
-  const res = await fetch("/api/v1/admin/bviral-accounts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error("Failed to create account");
-  return res.json() as Promise<AccountMeta>;
-}
-
 function ConnectDialog({ onSuccess }: { onSuccess: () => void }) {
   const [open, setOpen] = useState(false);
   const [platform, setPlatform] = useState<Platform>("youtube");
@@ -68,17 +44,18 @@ function ConnectDialog({ onSuccess }: { onSuccess: () => void }) {
   const [accessToken, setAccessToken] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const mutation = useMutation({
-    mutationFn: createBviralAccount,
-    onSuccess: () => {
-      setOpen(false);
-      setAccountName("");
-      setAccessToken("");
-      setError(null);
-      onSuccess();
-    },
-    onError: (err: Error) => {
-      setError(err.message);
+  const mutation = useCreateBviralAccount({
+    mutation: {
+      onSuccess: () => {
+        setOpen(false);
+        setAccountName("");
+        setAccessToken("");
+        setError(null);
+        onSuccess();
+      },
+      onError: (err) => {
+        setError(err instanceof Error ? err.message : "Failed to create account");
+      },
     },
   });
 
@@ -129,7 +106,7 @@ function ConnectDialog({ onSuccess }: { onSuccess: () => void }) {
           </div>
           {error ? <p className="text-[13px] text-destructive">{error}</p> : null}
           <Button
-            onClick={() => mutation.mutate({ platform, accountName, accessToken })}
+            onClick={() => mutation.mutate({ data: { platform, accountName, accessToken } })}
             disabled={!accountName.trim() || !accessToken.trim() || mutation.isPending}
             className="w-full"
           >
@@ -144,15 +121,12 @@ function ConnectDialog({ onSuccess }: { onSuccess: () => void }) {
 export default function BviralAccounts() {
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["admin", "bviral-accounts"],
-    queryFn: fetchBviralAccounts,
-  });
+  const { data, isLoading } = useListBviralAccounts();
 
   const accounts = data?.data ?? [];
 
   const handleSuccess = () => {
-    void queryClient.invalidateQueries({ queryKey: ["admin", "bviral-accounts"] });
+    void queryClient.invalidateQueries({ queryKey: getListBviralAccountsQueryKey() });
   };
 
   return (

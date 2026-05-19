@@ -36,6 +36,13 @@
       "when": 1779142919761,
       "tag": "0004_little_miss_america",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1779200000000,
+      "tag": "0005_video_content_hash",
+      "breakpoints": true
     }
   ]
 }

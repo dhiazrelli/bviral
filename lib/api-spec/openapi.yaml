@@ -24,6 +24,8 @@ tags:
     description: Alert and notification operations
   - name: admin
     description: Admin-only operations (requires admin role)
+  - name: ai
+    description: AI tools — virality predictor, caption generator, video enhancement, LTX text-to-video
 security:
   - bearerAuth: []
 paths:
@@ -599,6 +601,123 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /v1/ai/virality/predict:
+    post:
+      operationId: predictVirality
+      tags: [ai]
+      summary: Predict virality for an uploaded video
+      description: Runs the virality model on an uploaded video and returns the predicted views, viral tier, SHAP attributions, and an LLM analysis.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ViralityPredictRequest"
+      responses:
+        "200":
+          description: Virality prediction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ViralityPrediction"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/ai/captions/generate:
+    post:
+      operationId: generateCaptions
+      tags: [ai]
+      summary: Generate captions for a video
+      description: Enqueues a Whisper-backed caption generation job. Poll /v1/ai/jobs/{jobId} for status.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CaptionsGenerateRequest"
+      responses:
+        "202":
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiJobAcceptedResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/ai/enhance:
+    post:
+      operationId: enhanceVideo
+      tags: [ai]
+      summary: Enhance a video (4K upscale, face restore)
+      description: Enqueues a video enhancement job. Poll /v1/ai/jobs/{jobId} for status.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnhanceRequest"
+      responses:
+        "202":
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiJobAcceptedResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/ai/generate/ltx:
+    post:
+      operationId: generateLtx
+      tags: [ai]
+      summary: Generate a short video from a text prompt with LTX Studio
+      description: Submits a text-to-video generation to LTX Studio. Subject to a hard duration cap and per-user daily quota.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LtxGenerateRequest"
+      responses:
+        "202":
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LtxGenerateResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/ai/jobs/{jobId}:
+    get:
+      operationId: getAiJob
+      tags: [ai]
+      summary: Get AI job status
+      description: Returns the current status of an AI job (captions, enhance, or LTX generation).
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: AI job status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiJobStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   securitySchemes:
     bearerAuth:
@@ -663,6 +782,18 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     NotFound:
       description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    TooManyRequests:
+      description: Quota or rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ServiceUnavailable:
+      description: An external service required for this request is not configured
       content:
         application/json:
           schema:
@@ -1350,3 +1481,225 @@ components:
         - platform
         - accountName
         - accessToken
+    ViralityShapEntry:
+      type: object
+      additionalProperties: false
+      properties:
+        msg:
+          type: string
+        impact:
+          type: number
+      required:
+        - msg
+        - impact
+    ViralityLlmAnalysis:
+      type: object
+      additionalProperties: false
+      properties:
+        video_summary:
+          type: string
+        hook_score:
+          type: integer
+          minimum: 0
+          maximum: 10
+        clarity_score:
+          type: integer
+          minimum: 0
+          maximum: 10
+        quality_score:
+          type: integer
+          minimum: 0
+          maximum: 10
+        hook_type:
+          type: string
+        tone:
+          type: string
+        emotion:
+          type: string
+        content_category:
+          type: string
+        engagement_triggers:
+          type: array
+          items:
+            type: string
+        strengths:
+          type: array
+          items:
+            type: string
+        weaknesses:
+          type: array
+          items:
+            type: string
+        improvement_suggestion:
+          type: string
+      required:
+        - video_summary
+        - hook_score
+        - clarity_score
+        - quality_score
+        - hook_type
+        - tone
+        - emotion
+        - content_category
+        - engagement_triggers
+        - strengths
+        - weaknesses
+        - improvement_suggestion
+    ViralityPrediction:
+      type: object
+      additionalProperties: false
+      properties:
+        video:
+          type: string
+        predicted_views_estimate:
+          type: integer
+          minimum: 0
+        viral_tier:
+          type: string
+        shap_pushing_up:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViralityShapEntry"
+        shap_dragging_down:
+          type: array
+          items:
+            $ref: "#/components/schemas/ViralityShapEntry"
+        llm_analysis:
+          $ref: "#/components/schemas/ViralityLlmAnalysis"
+        hook_transcript:
+          type: string
+      required:
+        - video
+        - predicted_views_estimate
+        - viral_tier
+        - shap_pushing_up
+        - shap_dragging_down
+        - llm_analysis
+        - hook_transcript
+    ViralityPredictRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        videoId:
+          type: string
+          format: uuid
+      required:
+        - videoId
+    CaptionsGenerateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        videoId:
+          type: string
+          format: uuid
+        style:
+          type: string
+          enum: [stroke, yellow, pill]
+      required:
+        - videoId
+    EnhanceRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        videoId:
+          type: string
+          format: uuid
+        upscale:
+          type: boolean
+          default: false
+        faceRestore:
+          type: boolean
+          default: false
+      required:
+        - videoId
+    LtxGenerateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        prompt:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        style:
+          type: string
+          maxLength: 200
+        durationSec:
+          type: integer
+          minimum: 2
+          maximum: 10
+        resolution:
+          type: string
+          enum: ["1080x1920", "1920x1080", "1440x2560"]
+      required:
+        - prompt
+        - durationSec
+    LtxGenerateResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, done, failed]
+        estimatedCostUsd:
+          type: number
+      required:
+        - jobId
+        - status
+        - estimatedCostUsd
+    AiJobAcceptedResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, done, failed]
+      required:
+        - jobId
+        - status
+    AiJobStatus:
+      type: object
+      additionalProperties: false
+      properties:
+        jobId:
+          type: string
+        kind:
+          type: string
+          enum: [captions, enhance, ltx]
+        status:
+          type: string
+          enum: [queued, running, done, failed]
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+        resultUrl:
+          type: string
+          nullable: true
+        videoId:
+          type: string
+          format: uuid
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - jobId
+        - kind
+        - status
+        - progress
+        - resultUrl
+        - videoId
+        - error
+        - createdAt
+        - updatedAt

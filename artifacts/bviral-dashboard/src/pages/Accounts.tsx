@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { updateAccountById, type UpdateAccountInput } from "@/lib/accounts-api";
+import { StyledSelect } from "@/components/ui/styled-select";
 
 type AccountStatus = "connected" | "expired";
 type OAuthPlatform = "youtube" | "tiktok" | "meta";
@@ -734,15 +735,16 @@ export default function Accounts() {
                 <div className="grid grid-cols-2 gap-3">
                   <label className="space-y-1.5">
                     <span className="text-[10px] font-medium text-muted-foreground/50">Platform</span>
-                    <select
+                    <StyledSelect<AccountPlatform>
+                      size="sm"
+                      ariaLabel="Account platform"
                       value={manualForm.platform}
-                      onChange={(event) => setManualForm((current) => ({ ...current, platform: event.target.value as AccountPlatform }))}
-                      className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg py-2 px-3 text-xs text-white focus:outline-none focus:border-primary/30"
-                    >
-                      {manualPlatformOptions.map((platform) => (
-                        <option key={platform} value={platform}>{platformLabels[platform]}</option>
-                      ))}
-                    </select>
+                      onValueChange={(v) => setManualForm((current) => ({ ...current, platform: v }))}
+                      options={manualPlatformOptions.map((platform) => ({
+                        value: platform,
+                        label: platformLabels[platform],
+                      }))}
+                    />
                   </label>
                   <label className="space-y-1.5">
                     <span className="text-[10px] font-medium text-muted-foreground/50">Token Expiry</span>

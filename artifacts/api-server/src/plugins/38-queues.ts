@@ -2,6 +2,11 @@ import { Queue } from "bullmq";
 import fp from "fastify-plugin";
 import { createRedisConnection } from "../lib/redis";
 import {
+  type AiJobData,
+  type AiProcessingQueue,
+  aiProcessingQueueName,
+} from "../lib/ai-processing-queue";
+import {
   analyticsRefreshCronPattern,
   type AnalyticsRefreshJob,
   analyticsRefreshJobId,
@@ -24,6 +29,7 @@ export default fp(async function queuesPlugin(fastify) {
   let analyticsQueue: Queue<AnalyticsRefreshJob> | null = null;
   let videoQueue: Queue<VideoProcessingJob> | null = null;
   let postQueue: Queue<PostPublishingJob> | null = null;
+  let aiQueue: Queue<AiJobData> | null = null;
 
   const getAnalyticsQueue = () => {
     analyticsQueue ??= new Queue(analyticsRefreshQueueName, {
@@ -47,6 +53,14 @@ export default fp(async function queuesPlugin(fastify) {
     });
 
     return postQueue;
+  };
+
+  const getAiQueue = () => {
+    aiQueue ??= new Queue<AiJobData>(aiProcessingQueueName, {
+      connection: createRedisConnection(fastify.config.redisUrl),
+    });
+
+    return aiQueue;
   };
 
   const analyticsRefreshQueue: AnalyticsRefreshQueue = {
@@ -89,14 +103,26 @@ export default fp(async function queuesPlugin(fastify) {
     },
   };
 
+  const aiProcessingQueue: AiProcessingQueue = {
+    add(data) {
+      return getAiQueue().add(data.kind, data, { jobId: data.jobId });
+    },
+
+    async close() {
+      await aiQueue?.close();
+    },
+  };
+
   fastify.decorate("analyticsRefreshQueue", analyticsRefreshQueue);
   fastify.decorate("videoProcessingQueue", videoProcessingQueue);
   fastify.decorate("postPublishingQueue", postPublishingQueue);
+  fastify.decorate("aiProcessingQueue", aiProcessingQueue);
 
   fastify.addHook("onClose", async () => {
     await analyticsRefreshQueue.close();
     await videoProcessingQueue.close();
     await postPublishingQueue.close();
+    await aiProcessingQueue.close();
   });
 }, {
   name: "queues-plugin",

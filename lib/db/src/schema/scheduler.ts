@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { authUid, authenticatedRole } from "drizzle-orm/supabase";
 import {
   check,
+  index,
   integer,
   jsonb,
   numeric,
@@ -101,11 +102,13 @@ export const videosTable = pgTable("videos", {
   }),
   originalUrl: text("original_url").notNull(),
   originalFilename: varchar("original_filename", { length: 255 }),
+  contentHash: varchar("content_hash", { length: 64 }),
   processedUrl: text("processed_url"),
   duration: integer("duration"),
   status: videoStatusEnum("status").default("uploaded").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
+  index("videos_user_content_hash_idx").on(table.userId, table.contentHash),
   pgPolicy("admins_full_access_videos", {
     for: "all",
     to: authenticatedRole,

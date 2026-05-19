@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import type { MultipartFile } from "@fastify/multipart";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -40,10 +40,15 @@ export class VideoUploadValidationError extends Error {
 export class DuplicateVideoFilenameError extends Error {
   readonly name = "DuplicateVideoFilenameError";
   readonly existing: VideoResponseDto;
+  readonly matchedBy: "content" | "filename";
 
-  constructor(existing: VideoResponseDto) {
-    super(`A video named "${existing.originalFilename}" already exists for this user.`);
+  constructor(existing: VideoResponseDto, matchedBy: "content" | "filename" = "filename") {
+    const reason = matchedBy === "content"
+      ? "the same file content is already in your library"
+      : `a video named "${existing.originalFilename}" already exists for this user`;
+    super(`Upload skipped — ${reason}.`);
     this.existing = existing;
+    this.matchedBy = matchedBy;
   }
 }
 
@@ -154,15 +159,15 @@ export function buildVideosService(
       assertVideoFile(file);
 
       const originalFilename = sanitizeOriginalFilename(file.filename);
+      const buffer = await file.toBuffer();
+      const contentHash = createHash("sha256").update(buffer).digest("hex");
 
-      if (originalFilename) {
-        const existing = await videosRepository.findByOriginalFilenameForUser(userId, originalFilename);
-        if (existing) {
-          throw new DuplicateVideoFilenameError(existing);
-        }
+      // Primary dedupe: by content hash. Catches renamed copies of the same file.
+      const existingByHash = await videosRepository.findByContentHashForUser(userId, contentHash);
+      if (existingByHash) {
+        throw new DuplicateVideoFilenameError(existingByHash, "content");
       }
 
-      const buffer = await file.toBuffer();
       const extension = sanitizeExtension(file.filename);
       const storagePath = `${userId}/original/${randomUUID()}${extension}`;
 
@@ -187,6 +192,7 @@ export function buildVideosService(
         userId,
         originalUrl: publicUrl,
         originalFilename,
+        contentHash,
       });
 
       if (options.skipProcessingQueue) {

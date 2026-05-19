@@ -1,36 +1,14 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Shield, Users, AlertTriangle } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useListCreators } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
-
-interface CreatorSummary {
-  id: string;
-  email: string;
-  fullName: string;
-  connectedAccountsCount: number;
-  unresolvedAlertsCount: number;
-  lastActiveAt: string;
-}
-
-async function fetchCreators(): Promise<{ data: CreatorSummary[] }> {
-  const res = await fetch("/api/v1/admin/creators");
-
-  if (!res.ok) {
-    throw new Error("Failed to load creators");
-  }
-
-  return res.json() as Promise<{ data: CreatorSummary[] }>;
-}
 
 export default function Creators() {
   const [, navigate] = useLocation();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["admin", "creators"],
-    queryFn: fetchCreators,
-  });
+  const { data, isLoading, error } = useListCreators();
 
   if (isLoading) {
     return (

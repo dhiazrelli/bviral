@@ -28,6 +28,12 @@ export interface AppConfig {
   metaAppSecret?: string;
   metaRedirectUri?: string;
   metaOAuthScopes?: string[];
+  ltxApiKey?: string;
+  ltxApiBaseUrl: string;
+  ltxDefaultModel: string;
+  ltxDefaultResolution: string;
+  ltxMaxDurationSec: number;
+  ltxDailyGenerationCap: number;
 }
 
 /**
@@ -202,6 +208,12 @@ export function resolveConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       env.META_REDIRECT_URI ?? env.FACEBOOK_REDIRECT_URI,
     ),
     metaOAuthScopes: optionalStringList(env.META_OAUTH_SCOPES),
+    ltxApiKey: optionalTrimmedString(env.LTXV_API_KEY ?? env.LTX_API_KEY),
+    ltxApiBaseUrl: env.LTX_API_BASE_URL?.trim() || "https://api.ltx.video/v1",
+    ltxDefaultModel: env.LTX_DEFAULT_MODEL?.trim() || "ltx-2-3-fast",
+    ltxDefaultResolution: env.LTX_DEFAULT_RESOLUTION?.trim() || "1080x1920",
+    ltxMaxDurationSec: parsePositiveNumber(env.LTX_MAX_DURATION_SEC, 10, "LTX_MAX_DURATION_SEC"),
+    ltxDailyGenerationCap: parsePositiveNumber(env.LTX_DAILY_GENERATION_CAP, 5, "LTX_DAILY_GENERATION_CAP"),
   });
 }
 

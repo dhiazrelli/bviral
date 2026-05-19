@@ -321,6 +321,164 @@ export interface CreateBviralAccountRequest {
   metadata?: CreateBviralAccountRequestMetadata;
 }
 
+export interface ViralityShapEntry {
+  msg: string;
+  impact: number;
+}
+
+export interface ViralityLlmAnalysis {
+  video_summary: string;
+  /**
+     * @minimum 0
+     * @maximum 10
+     */
+  hook_score: number;
+  /**
+     * @minimum 0
+     * @maximum 10
+     */
+  clarity_score: number;
+  /**
+     * @minimum 0
+     * @maximum 10
+     */
+  quality_score: number;
+  hook_type: string;
+  tone: string;
+  emotion: string;
+  content_category: string;
+  engagement_triggers: string[];
+  strengths: string[];
+  weaknesses: string[];
+  improvement_suggestion: string;
+}
+
+export interface ViralityPrediction {
+  video: string;
+  /** @minimum 0 */
+  predicted_views_estimate: number;
+  viral_tier: string;
+  shap_pushing_up: ViralityShapEntry[];
+  shap_dragging_down: ViralityShapEntry[];
+  llm_analysis: ViralityLlmAnalysis;
+  hook_transcript: string;
+}
+
+export interface ViralityPredictRequest {
+  videoId: string;
+}
+
+export type CaptionsGenerateRequestStyle = typeof CaptionsGenerateRequestStyle[keyof typeof CaptionsGenerateRequestStyle];
+
+
+export const CaptionsGenerateRequestStyle = {
+  stroke: 'stroke',
+  yellow: 'yellow',
+  pill: 'pill',
+} as const;
+
+export interface CaptionsGenerateRequest {
+  videoId: string;
+  style?: CaptionsGenerateRequestStyle;
+}
+
+export interface EnhanceRequest {
+  videoId: string;
+  upscale?: boolean;
+  faceRestore?: boolean;
+}
+
+export type LtxGenerateRequestResolution = typeof LtxGenerateRequestResolution[keyof typeof LtxGenerateRequestResolution];
+
+
+export const LtxGenerateRequestResolution = {
+  '1080x1920': '1080x1920',
+  '1920x1080': '1920x1080',
+  '1440x2560': '1440x2560',
+} as const;
+
+export interface LtxGenerateRequest {
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  prompt: string;
+  /** @maxLength 200 */
+  style?: string;
+  /**
+     * @minimum 2
+     * @maximum 10
+     */
+  durationSec: number;
+  resolution?: LtxGenerateRequestResolution;
+}
+
+export type LtxGenerateResponseStatus = typeof LtxGenerateResponseStatus[keyof typeof LtxGenerateResponseStatus];
+
+
+export const LtxGenerateResponseStatus = {
+  queued: 'queued',
+  running: 'running',
+  done: 'done',
+  failed: 'failed',
+} as const;
+
+export interface LtxGenerateResponse {
+  jobId: string;
+  status: LtxGenerateResponseStatus;
+  estimatedCostUsd: number;
+}
+
+export type AiJobAcceptedResponseStatus = typeof AiJobAcceptedResponseStatus[keyof typeof AiJobAcceptedResponseStatus];
+
+
+export const AiJobAcceptedResponseStatus = {
+  queued: 'queued',
+  running: 'running',
+  done: 'done',
+  failed: 'failed',
+} as const;
+
+export interface AiJobAcceptedResponse {
+  jobId: string;
+  status: AiJobAcceptedResponseStatus;
+}
+
+export type AiJobStatusKind = typeof AiJobStatusKind[keyof typeof AiJobStatusKind];
+
+
+export const AiJobStatusKind = {
+  captions: 'captions',
+  enhance: 'enhance',
+  ltx: 'ltx',
+} as const;
+
+export type AiJobStatusStatus = typeof AiJobStatusStatus[keyof typeof AiJobStatusStatus];
+
+
+export const AiJobStatusStatus = {
+  queued: 'queued',
+  running: 'running',
+  done: 'done',
+  failed: 'failed',
+} as const;
+
+export interface AiJobStatus {
+  jobId: string;
+  kind: AiJobStatusKind;
+  status: AiJobStatusStatus;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  progress: number | null;
+  resultUrl: string | null;
+  videoId: string | null;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /**
  * Invalid request
  */
@@ -340,6 +498,16 @@ export type ConflictResponse = ErrorResponse;
  * Resource not found
  */
 export type NotFoundResponse = ErrorResponse;
+
+/**
+ * Quota or rate limit exceeded
+ */
+export type TooManyRequestsResponse = ErrorResponse;
+
+/**
+ * An external service required for this request is not configured
+ */
+export type ServiceUnavailableResponse = ErrorResponse;
 
 export type HandleYouTubeAccountCallbackParams = {
 code: string;

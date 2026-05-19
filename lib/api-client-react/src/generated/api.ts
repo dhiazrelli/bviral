@@ -23,29 +23,39 @@ import type {
   Account,
   AccountMetadataCollection,
   AccountsCollection,
+  AiJobAcceptedResponse,
+  AiJobStatus,
   AlertsCollection,
   AnalyticsOverview,
   AuthMe,
   BadRequestResponse,
+  CaptionsGenerateRequest,
   ConflictResponse,
   CreateAccountRequest,
   CreateBviralAccountRequest,
   CreatePostRequest,
   CreatorDetail,
   CreatorsCollection,
+  EnhanceRequest,
   HandleMetaAccountCallbackParams,
   HandleTikTokAccountCallbackParams,
   HandleYouTubeAccountCallbackParams,
   HealthStatus,
+  LtxGenerateRequest,
+  LtxGenerateResponse,
   NotFoundResponse,
   Post,
   PostAnalytics,
   PostsCollection,
+  ServiceUnavailableResponse,
+  TooManyRequestsResponse,
   UnauthorizedResponse,
   UpdateAccountRequest,
   UploadVideoRequest,
   Video,
-  VideosCollection
+  VideosCollection,
+  ViralityPredictRequest,
+  ViralityPrediction
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -2294,4 +2304,370 @@ export const useCreateBviralAccount = <TError = ErrorType<BadRequestResponse | U
       > => {
       return useMutation(getCreateBviralAccountMutationOptions(options));
     }
+
+/**
+ * Runs the virality model on an uploaded video and returns the predicted views, viral tier, SHAP attributions, and an LLM analysis.
+ * @summary Predict virality for an uploaded video
+ */
+export const getPredictViralityUrl = () => {
+
+
+
+
+  return `/api/v1/ai/virality/predict`
+}
+
+export const predictVirality = async (viralityPredictRequest: ViralityPredictRequest, options?: RequestInit): Promise<ViralityPrediction> => {
+
+  return customFetch<ViralityPrediction>(getPredictViralityUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      viralityPredictRequest,)
+  }
+);}
+
+
+
+
+export const getPredictViralityMutationOptions = <TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof predictVirality>>, TError,{data: BodyType<ViralityPredictRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof predictVirality>>, TError,{data: BodyType<ViralityPredictRequest>}, TContext> => {
+
+const mutationKey = ['predictVirality'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof predictVirality>>, {data: BodyType<ViralityPredictRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  predictVirality(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PredictViralityMutationResult = NonNullable<Awaited<ReturnType<typeof predictVirality>>>
+    export type PredictViralityMutationBody = BodyType<ViralityPredictRequest>
+    export type PredictViralityMutationError = ErrorType<UnauthorizedResponse | NotFoundResponse>
+
+    /**
+ * @summary Predict virality for an uploaded video
+ */
+export const usePredictVirality = <TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof predictVirality>>, TError,{data: BodyType<ViralityPredictRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof predictVirality>>,
+        TError,
+        {data: BodyType<ViralityPredictRequest>},
+        TContext
+      > => {
+      return useMutation(getPredictViralityMutationOptions(options));
+    }
+
+/**
+ * Enqueues a Whisper-backed caption generation job. Poll /v1/ai/jobs/{jobId} for status.
+ * @summary Generate captions for a video
+ */
+export const getGenerateCaptionsUrl = () => {
+
+
+
+
+  return `/api/v1/ai/captions/generate`
+}
+
+export const generateCaptions = async (captionsGenerateRequest: CaptionsGenerateRequest, options?: RequestInit): Promise<AiJobAcceptedResponse> => {
+
+  return customFetch<AiJobAcceptedResponse>(getGenerateCaptionsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      captionsGenerateRequest,)
+  }
+);}
+
+
+
+
+export const getGenerateCaptionsMutationOptions = <TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateCaptions>>, TError,{data: BodyType<CaptionsGenerateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof generateCaptions>>, TError,{data: BodyType<CaptionsGenerateRequest>}, TContext> => {
+
+const mutationKey = ['generateCaptions'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generateCaptions>>, {data: BodyType<CaptionsGenerateRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  generateCaptions(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GenerateCaptionsMutationResult = NonNullable<Awaited<ReturnType<typeof generateCaptions>>>
+    export type GenerateCaptionsMutationBody = BodyType<CaptionsGenerateRequest>
+    export type GenerateCaptionsMutationError = ErrorType<UnauthorizedResponse | NotFoundResponse>
+
+    /**
+ * @summary Generate captions for a video
+ */
+export const useGenerateCaptions = <TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateCaptions>>, TError,{data: BodyType<CaptionsGenerateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof generateCaptions>>,
+        TError,
+        {data: BodyType<CaptionsGenerateRequest>},
+        TContext
+      > => {
+      return useMutation(getGenerateCaptionsMutationOptions(options));
+    }
+
+/**
+ * Enqueues a video enhancement job. Poll /v1/ai/jobs/{jobId} for status.
+ * @summary Enhance a video (4K upscale, face restore)
+ */
+export const getEnhanceVideoUrl = () => {
+
+
+
+
+  return `/api/v1/ai/enhance`
+}
+
+export const enhanceVideo = async (enhanceRequest: EnhanceRequest, options?: RequestInit): Promise<AiJobAcceptedResponse> => {
+
+  return customFetch<AiJobAcceptedResponse>(getEnhanceVideoUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      enhanceRequest,)
+  }
+);}
+
+
+
+
+export const getEnhanceVideoMutationOptions = <TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enhanceVideo>>, TError,{data: BodyType<EnhanceRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof enhanceVideo>>, TError,{data: BodyType<EnhanceRequest>}, TContext> => {
+
+const mutationKey = ['enhanceVideo'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof enhanceVideo>>, {data: BodyType<EnhanceRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  enhanceVideo(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EnhanceVideoMutationResult = NonNullable<Awaited<ReturnType<typeof enhanceVideo>>>
+    export type EnhanceVideoMutationBody = BodyType<EnhanceRequest>
+    export type EnhanceVideoMutationError = ErrorType<UnauthorizedResponse | NotFoundResponse>
+
+    /**
+ * @summary Enhance a video (4K upscale, face restore)
+ */
+export const useEnhanceVideo = <TError = ErrorType<UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enhanceVideo>>, TError,{data: BodyType<EnhanceRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof enhanceVideo>>,
+        TError,
+        {data: BodyType<EnhanceRequest>},
+        TContext
+      > => {
+      return useMutation(getEnhanceVideoMutationOptions(options));
+    }
+
+/**
+ * Submits a text-to-video generation to LTX Studio. Subject to a hard duration cap and per-user daily quota.
+ * @summary Generate a short video from a text prompt with LTX Studio
+ */
+export const getGenerateLtxUrl = () => {
+
+
+
+
+  return `/api/v1/ai/generate/ltx`
+}
+
+export const generateLtx = async (ltxGenerateRequest: LtxGenerateRequest, options?: RequestInit): Promise<LtxGenerateResponse> => {
+
+  return customFetch<LtxGenerateResponse>(getGenerateLtxUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      ltxGenerateRequest,)
+  }
+);}
+
+
+
+
+export const getGenerateLtxMutationOptions = <TError = ErrorType<UnauthorizedResponse | TooManyRequestsResponse | ServiceUnavailableResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateLtx>>, TError,{data: BodyType<LtxGenerateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof generateLtx>>, TError,{data: BodyType<LtxGenerateRequest>}, TContext> => {
+
+const mutationKey = ['generateLtx'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generateLtx>>, {data: BodyType<LtxGenerateRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  generateLtx(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GenerateLtxMutationResult = NonNullable<Awaited<ReturnType<typeof generateLtx>>>
+    export type GenerateLtxMutationBody = BodyType<LtxGenerateRequest>
+    export type GenerateLtxMutationError = ErrorType<UnauthorizedResponse | TooManyRequestsResponse | ServiceUnavailableResponse>
+
+    /**
+ * @summary Generate a short video from a text prompt with LTX Studio
+ */
+export const useGenerateLtx = <TError = ErrorType<UnauthorizedResponse | TooManyRequestsResponse | ServiceUnavailableResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateLtx>>, TError,{data: BodyType<LtxGenerateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof generateLtx>>,
+        TError,
+        {data: BodyType<LtxGenerateRequest>},
+        TContext
+      > => {
+      return useMutation(getGenerateLtxMutationOptions(options));
+    }
+
+/**
+ * Returns the current status of an AI job (captions, enhance, or LTX generation).
+ * @summary Get AI job status
+ */
+export const getGetAiJobUrl = (jobId: string,) => {
+
+
+
+
+  return `/api/v1/ai/jobs/${jobId}`
+}
+
+export const getAiJob = async (jobId: string, options?: RequestInit): Promise<AiJobStatus> => {
+
+  return customFetch<AiJobStatus>(getGetAiJobUrl(jobId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAiJobQueryKey = (jobId: string,) => {
+    return [
+    `/api/v1/ai/jobs/${jobId}`
+    ] as const;
+    }
+
+
+export const getGetAiJobQueryOptions = <TData = Awaited<ReturnType<typeof getAiJob>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(jobId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiJob>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAiJobQueryKey(jobId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAiJob>>> = ({ signal }) => getAiJob(jobId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(jobId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAiJob>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAiJobQueryResult = NonNullable<Awaited<ReturnType<typeof getAiJob>>>
+export type GetAiJobQueryError = ErrorType<UnauthorizedResponse | NotFoundResponse>
+
+
+/**
+ * @summary Get AI job status
+ */
+
+export function useGetAiJob<TData = Awaited<ReturnType<typeof getAiJob>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(
+ jobId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiJob>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAiJobQueryOptions(jobId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 

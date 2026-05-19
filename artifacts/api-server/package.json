@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "worker:posts": "tsx src/workers/posts.worker.ts",
     "worker:videos": "tsx src/workers/videos.worker.ts",
-    "worker:analytics": "tsx src/workers/analytics.worker.ts"
+    "worker:analytics": "tsx src/workers/analytics.worker.ts",
+    "worker:ai": "tsx src/workers/ai.worker.ts"
   },
   "dependencies": {
     "@fastify/autoload": "^6.3.1",

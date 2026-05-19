@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { StyledSelect } from '@/components/ui/styled-select';
 
 type SettingsSection = 'profile' | 'notifications' | 'security' | 'api-keys' | 'automation' | 'appearance';
 type SessionRecord = { id: number; device: string; location: string; time: string; active: boolean };
@@ -83,6 +84,8 @@ export default function Settings() {
   const [autoSchedule, setAutoSchedule] = useState(true);
   const [aiCaptions, setAiCaptions] = useState(true);
   const [autoRetry, setAutoRetry] = useState(true);
+  const [timezone, setTimezone] = useState('UTC-5');
+  const [videoQuality, setVideoQuality] = useState('1080p');
   const [smartTiming, setSmartTiming] = useState(true);
 
   // Appearance
@@ -187,12 +190,17 @@ export default function Settings() {
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-muted-foreground/40 uppercase tracking-[0.15em] mb-2">Timezone</label>
-                <select className="input-field appearance-none cursor-pointer">
-                  <option>UTC-5 (Eastern Time)</option>
-                  <option>UTC-8 (Pacific Time)</option>
-                  <option>UTC+0 (GMT)</option>
-                  <option>UTC+1 (CET)</option>
-                </select>
+                <StyledSelect
+                  ariaLabel="Timezone"
+                  value={timezone}
+                  onValueChange={setTimezone}
+                  options={[
+                    { value: 'UTC-5', label: 'UTC-5 (Eastern Time)' },
+                    { value: 'UTC-8', label: 'UTC-8 (Pacific Time)' },
+                    { value: 'UTC+0', label: 'UTC+0 (GMT)' },
+                    { value: 'UTC+1', label: 'UTC+1 (CET)' },
+                  ]}
+                />
               </div>
             </div>
 
@@ -340,11 +348,16 @@ export default function Settings() {
 
             <div className="pt-4">
               <label className="block text-[11px] font-bold text-muted-foreground/40 uppercase tracking-[0.15em] mb-2">Default Video Quality</label>
-              <select className="input-field appearance-none cursor-pointer">
-                <option>1080p (Recommended)</option>
-                <option>720p (Faster processing)</option>
-                <option>4K (Premium quality)</option>
-              </select>
+              <StyledSelect
+                ariaLabel="Default video quality"
+                value={videoQuality}
+                onValueChange={setVideoQuality}
+                options={[
+                  { value: '1080p', label: '1080p (Recommended)' },
+                  { value: '720p', label: '720p (Faster processing)' },
+                  { value: '4K', label: '4K (Premium quality)' },
+                ]}
+              />
             </div>
           </div>
         );

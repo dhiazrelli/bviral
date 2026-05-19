@@ -23,6 +23,7 @@ export interface CreateUploadedVideoPayload {
   userId: string;
   originalUrl: string;
   originalFilename?: string | null;
+  contentHash?: string | null;
   duration?: number | null;
 }
 
@@ -30,6 +31,7 @@ export interface VideosRepository {
   listForUser(userId: string): Promise<VideoResponseDto[]>;
   findForUser(videoId: string, userId: string): Promise<VideoResponseDto | null>;
   findByOriginalFilenameForUser(userId: string, originalFilename: string): Promise<VideoResponseDto | null>;
+  findByContentHashForUser(userId: string, contentHash: string): Promise<VideoResponseDto | null>;
   createUploaded(input: CreateUploadedVideoPayload): Promise<VideoResponseDto>;
   updateStatus(videoId: string, status: VideoStatus): Promise<VideoResponseDto | null>;
 }
@@ -86,11 +88,26 @@ export function buildVideosRepository(db: Database): VideosRepository {
       return video ? serializeVideo(video) : null;
     },
 
+    async findByContentHashForUser(userId, contentHash) {
+      const [video] = await db
+        .select()
+        .from(videosTable)
+        .where(and(
+          eq(videosTable.userId, userId),
+          eq(videosTable.contentHash, contentHash),
+        ))
+        .orderBy(desc(videosTable.createdAt))
+        .limit(1);
+
+      return video ? serializeVideo(video) : null;
+    },
+
     async createUploaded(input) {
       const payload: NewVideoRecord = {
         userId: input.userId,
         originalUrl: input.originalUrl,
         originalFilename: input.originalFilename ?? null,
+        contentHash: input.contentHash ?? null,
         duration: input.duration ?? null,
         status: "uploaded",
       };

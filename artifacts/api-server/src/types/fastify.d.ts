@@ -1,11 +1,14 @@
 import type { Database } from "@workspace/db";
 import type { Pool } from "pg";
 import type { AppConfig } from "../lib/config";
+import type { AiJobStore } from "../lib/ai-job-store";
+import type { AiProcessingQueue } from "../lib/ai-processing-queue";
 import type { AnalyticsRefreshQueue } from "../lib/analytics-refresh-queue";
 import type { PostPublishingQueue } from "../lib/post-publishing-queue";
 import type { VideoProcessingQueue } from "../lib/video-processing-queue";
 import type { AccountsRepository } from "../repositories/accounts.repository";
 import type { AccountsService } from "../services/accounts.service";
+import type { AiService } from "../services/ai.service";
 import type { AlertsRepository } from "../repositories/alerts.repository";
 import type { AlertsService } from "../services/alerts.service";
 import type { AnalyticsRepository } from "../repositories/analytics.repository";
@@ -33,8 +36,11 @@ declare module "fastify" {
     analyticsRefreshQueue: AnalyticsRefreshQueue;
     videoProcessingQueue: VideoProcessingQueue;
     postPublishingQueue: PostPublishingQueue;
+    aiProcessingQueue: AiProcessingQueue;
+    aiJobStore: AiJobStore;
     accountsRepository: AccountsRepository;
     accountsService: AccountsService;
+    aiService: AiService;
     alertsRepository: AlertsRepository;
     alertsService: AlertsService;
     analyticsRepository: AnalyticsRepository;
