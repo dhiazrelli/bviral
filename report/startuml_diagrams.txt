@@ -1,0 +1,601 @@
+============================================================
+  BViral Control Center — UML Diagrams (PlantUML Syntax)
+  Use these in StarUML or any PlantUML renderer to generate
+  the diagrams, then export as PNG and place in report/figures/
+============================================================
+
+============================================================
+DIAGRAM 1: Global Use Case — Content Creator
+============================================================
+
+  @startuml
+  left to right direction
+  skinparam packageStyle rectangle
+
+  actor "Content Creator" as CC
+  actor "System Worker" as SW
+
+  rectangle "BViral Control Center" {
+    usecase "Login / Authenticate" as UC_AUTH
+    usecase "View Dashboard" as UC_DASH
+    usecase "Manage Accounts" as UC_ACC
+    usecase "Schedule Posts" as UC_SCHED
+    usecase "Monitor Analytics" as UC_ANALYTICS
+    usecase "Use AI Video Studio" as UC_AI
+    usecase "Manage Alerts" as UC_ALERTS
+    usecase "Configure Settings" as UC_SETTINGS
+    usecase "Publish Post" as UC_PUBLISH
+    usecase "Refresh Tokens" as UC_REFRESH
+  }
+
+  CC --> UC_AUTH
+  CC --> UC_DASH
+  CC --> UC_ACC
+  CC --> UC_SCHED
+  CC --> UC_ANALYTICS
+  CC --> UC_AI
+  CC --> UC_ALERTS
+  CC --> UC_SETTINGS
+
+  SW --> UC_PUBLISH
+  SW --> UC_REFRESH
+
+  UC_DASH ..> UC_AUTH : <<include>>
+  UC_ACC ..> UC_AUTH : <<include>>
+  UC_SCHED ..> UC_AUTH : <<include>>
+  UC_ANALYTICS ..> UC_AUTH : <<include>>
+  UC_AI ..> UC_AUTH : <<include>>
+  UC_ALERTS ..> UC_AUTH : <<include>>
+  @enduml
+
+
+============================================================
+DIAGRAM 2: Use Case — Account Management
+============================================================
+
+@startuml
+left to right direction
+
+actor "Content Creator" as CC
+
+rectangle "Account Management" {
+  usecase "Connect YouTube Account" as UC1
+  usecase "Connect TikTok Account" as UC2
+  usecase "Connect Meta Account" as UC3
+  usecase "View Connected Accounts" as UC4
+  usecase "Disconnect Account" as UC5
+  usecase "OAuth 2.0 Authorization" as UC6
+  usecase "PKCE Verification" as UC7
+  usecase "Encrypt & Store Tokens" as UC8
+}
+
+CC --> UC1
+CC --> UC2
+CC --> UC3
+CC --> UC4
+CC --> UC5
+
+UC1 ..> UC6 : <<include>>
+UC2 ..> UC6 : <<include>>
+UC2 ..> UC7 : <<include>>
+UC3 ..> UC6 : <<include>>
+UC6 ..> UC8 : <<include>>
+UC4 ..> UC5 : <<extend>>
+@enduml
+
+
+============================================================
+DIAGRAM 3: Use Case — Post Scheduling
+============================================================
+
+@startuml
+left to right direction
+
+actor "Content Creator" as CC
+actor "System Worker" as SW
+
+rectangle "Post Scheduling" {
+  usecase "Create Scheduled Post" as UC1
+  usecase "View Scheduled Posts" as UC2
+  usecase "Cancel Post" as UC3
+  usecase "Reschedule Post" as UC4
+  usecase "Select Video" as UC5
+  usecase "Choose Platform & Account" as UC6
+  usecase "Set Schedule Time" as UC7
+  usecase "Publish to Platform" as UC8
+  usecase "Update Post Status" as UC9
+  usecase "Create Alert on Failure" as UC10
+}
+
+CC --> UC1
+CC --> UC2
+CC --> UC3
+CC --> UC4
+
+UC1 ..> UC5 : <<include>>
+UC1 ..> UC6 : <<include>>
+UC1 ..> UC7 : <<include>>
+
+SW --> UC8
+UC8 ..> UC9 : <<include>>
+UC8 ..> UC10 : <<extend>>
+
+UC2 ..> UC3 : <<extend>>
+UC2 ..> UC4 : <<extend>>
+@enduml
+
+
+============================================================
+DIAGRAM 4: Use Case — Analytics Monitoring
+============================================================
+
+@startuml
+left to right direction
+
+actor "Content Creator" as CC
+
+rectangle "Analytics Monitoring" {
+  usecase "View Aggregated Metrics" as UC1
+  usecase "Filter by Platform" as UC2
+  usecase "Filter by Time Period" as UC3
+  usecase "View Performance Charts" as UC4
+  usecase "View Revenue Data" as UC5
+  usecase "Export Analytics Report" as UC6
+}
+
+CC --> UC1
+CC --> UC2
+CC --> UC3
+CC --> UC4
+CC --> UC5
+
+UC1 ..> UC2 : <<extend>>
+UC1 ..> UC3 : <<extend>>
+UC4 ..> UC6 : <<extend>>
+@enduml
+
+
+============================================================
+DIAGRAM 5: Use Case — AI Video Studio
+============================================================
+
+@startuml
+left to right direction
+
+actor "Content Creator" as CC
+
+rectangle "AI Video Studio" {
+  usecase "Upload Video" as UC1
+  usecase "Analyze Video Quality" as UC2
+  usecase "Apply Classical Filters" as UC3
+  usecase "Run AI Enhancement" as UC4
+  usecase "Real-ESRGAN Super-Resolution" as UC5
+  usecase "GFPGAN Face Restoration" as UC6
+  usecase "Preview Before/After" as UC7
+  usecase "View Quality Metrics" as UC8
+  usecase "Export Enhanced Video" as UC9
+  usecase "Open Video Editor" as UC10
+}
+
+CC --> UC1
+CC --> UC3
+CC --> UC4
+CC --> UC7
+CC --> UC9
+CC --> UC10
+
+UC1 ..> UC2 : <<include>>
+UC4 ..> UC5 : <<include>>
+UC4 ..> UC6 : <<extend>>
+UC7 ..> UC8 : <<include>>
+@enduml
+
+
+============================================================
+DIAGRAM 6: Use Case — Alert Management
+============================================================
+
+@startuml
+left to right direction
+
+actor "Content Creator" as CC
+
+rectangle "Alert Management" {
+  usecase "View Alerts List" as UC1
+  usecase "View Alert Details" as UC2
+  usecase "Resolve Alert" as UC3
+  usecase "Filter by Type" as UC4
+  usecase "Filter by Platform" as UC5
+  usecase "Filter by Status" as UC6
+}
+
+CC --> UC1
+CC --> UC2
+CC --> UC3
+
+UC1 ..> UC4 : <<extend>>
+UC1 ..> UC5 : <<extend>>
+UC1 ..> UC6 : <<extend>>
+UC1 ..> UC2 : <<extend>>
+UC2 ..> UC3 : <<extend>>
+@enduml
+
+
+============================================================
+DIAGRAM 7: Class Diagram
+============================================================
+
+@startuml
+skinparam classAttributeIconSize 0
+
+enum Platform {
+  facebook
+  instagram
+  tiktok
+  youtube
+  snapchat
+}
+
+enum VideoStatus {
+  uploaded
+  processing
+  ready
+  failed
+}
+
+enum PostStatus {
+  scheduled
+  posted
+  failed
+}
+
+enum AlertType {
+  error
+  copyright
+  success
+}
+
+enum AlertStatus {
+  unresolved
+  resolved
+}
+
+enum UserRole {
+  admin
+  member
+}
+
+class User {
+  +id: UUID <<PK>>
+  +email: VARCHAR(255) <<UNIQUE>>
+  +fullName: VARCHAR(120)
+  +role: UserRole
+  +createdAt: TIMESTAMP
+  +updatedAt: TIMESTAMP
+}
+
+class Account {
+  +id: UUID <<PK>>
+  +platform: Platform
+  +accountName: VARCHAR(255)
+  +accessToken: TEXT <<AES-256>>
+  +refreshToken: TEXT
+  +tokenExpiry: TIMESTAMP
+  +userId: UUID <<FK>>
+  +metadata: JSONB
+  +createdAt: TIMESTAMP
+}
+
+class Video {
+  +id: UUID <<PK>>
+  +userId: UUID <<FK>>
+  +originalUrl: TEXT
+  +processedUrl: TEXT
+  +duration: INTEGER
+  +status: VideoStatus
+  +createdAt: TIMESTAMP
+}
+
+class Post {
+  +id: UUID <<PK>>
+  +videoId: UUID <<FK>>
+  +accountId: UUID <<FK>>
+  +platform: Platform
+  +scheduledAt: TIMESTAMP
+  +postedAt: TIMESTAMP
+  +status: PostStatus
+  +externalPostId: VARCHAR(255)
+  +errorMessage: TEXT
+  +metadata: JSONB
+  +createdAt: TIMESTAMP
+}
+
+class Analytics {
+  +id: UUID <<PK>>
+  +postId: UUID <<FK>>
+  +views: INTEGER
+  +likes: INTEGER
+  +comments: INTEGER
+  +shares: INTEGER
+  +revenue: NUMERIC(12,2)
+  +fetchedAt: TIMESTAMP
+}
+
+class Alert {
+  +id: UUID <<PK>>
+  +type: AlertType
+  +status: AlertStatus
+  +message: TEXT
+  +platform: Platform
+  +accountId: UUID <<FK>>
+  +postId: UUID <<FK>>
+  +createdAt: TIMESTAMP
+}
+
+User "1" --> "0..*" Account : owns
+User "1" --> "0..*" Video : uploads
+Account "1" --> "0..*" Post : publishes through
+Video "1" --> "0..*" Post : is posted as
+Post "1" --> "0..*" Analytics : has metrics
+Account "0..1" <-- "0..*" Alert : references
+Post "0..1" <-- "0..*" Alert : references
+@enduml
+
+
+============================================================
+DIAGRAM 8: Sequence Diagram — OAuth Account Connection
+============================================================
+
+@startuml
+actor "Content Creator" as U
+participant "Dashboard\n(React)" as D
+participant "API Server\n(Fastify)" as API
+participant "Platform\nOAuth Server" as P
+database "PostgreSQL\n(Supabase)" as DB
+
+U -> D : Click "Connect YouTube"
+D -> API : GET /api/v1/accounts/youtube/connect
+API -> API : Generate OAuth URL\n+ state + scopes
+API --> D : 302 Redirect to OAuth URL
+D -> P : Redirect to consent screen
+U -> P : Grant permissions
+P --> D : Redirect to callback\nwith authorization code
+D -> API : GET /api/v1/accounts/youtube/callback?code=xxx
+API -> P : POST token exchange\n(code → access_token + refresh_token)
+P --> API : Return tokens
+API -> API : AES-256 encrypt tokens
+API -> DB : INSERT INTO accounts\n(platform, tokens, userId)
+DB --> API : Account created
+API --> D : 302 Redirect to dashboard\n+ success status
+D --> U : Show "YouTube Connected"
+@enduml
+
+
+============================================================
+DIAGRAM 9: Sequence Diagram — Schedule & Publish Post
+============================================================
+
+@startuml
+actor "Content Creator" as U
+participant "Dashboard\n(React)" as D
+participant "API Server\n(Fastify)" as API
+database "PostgreSQL" as DB
+participant "Redis\n(BullMQ)" as Q
+participant "Worker\nProcess" as W
+participant "Platform API\n(YouTube/TikTok/Meta)" as P
+
+U -> D : Create new post\n(video, platform, time)
+D -> API : POST /api/v1/posts
+API -> DB : INSERT post\n(status=scheduled)
+DB --> API : Post created
+API -> Q : Enqueue delayed job\n(postId, scheduledAt)
+Q --> API : Job enqueued
+API --> D : 201 Created
+D --> U : Show post in calendar
+
+... time passes until scheduledAt ...
+
+Q -> W : Dequeue job at scheduled time
+W -> DB : SELECT post + account details
+DB --> W : Post & account data
+W -> W : Decrypt access token
+W -> P : Upload video + metadata\nusing OAuth token
+alt Success
+  P --> W : Return externalPostId
+  W -> DB : UPDATE post\n(status=posted, externalPostId)
+  W --> Q : Job complete
+else Failure
+  P --> W : Error response
+  W -> DB : UPDATE post\n(status=failed, errorMessage)
+  W -> DB : INSERT alert\n(type=error)
+  W --> Q : Job failed
+end
+@enduml
+
+
+============================================================
+DIAGRAM 10: Sequence Diagram — AI Video Enhancement
+============================================================
+
+@startuml
+actor "Content Creator" as U
+participant "AI Studio\n(React)" as D
+participant "Enhancement\nPipeline" as P
+participant "FFmpeg" as FF
+participant "Quality\nAnalyzer" as QA
+participant "Real-ESRGAN" as SR
+participant "GFPGAN" as GF
+
+U -> D : Upload video file
+D -> P : upload_video(file)
+P -> P : Validate format & size
+P -> FF : Extract frames\n(ffmpeg → frame_%06d.png)
+FF --> P : Frames extracted
+P -> FF : Extract audio track
+FF --> P : audio.aac
+P -> QA : analyze_quality(frames)
+QA -> QA : Detect blur, noise,\nlow-light, faces
+QA --> P : Quality Report\n(needs_sr, needs_denoise,\nfaces_detected)
+P -> P : Apply classical filters\n(bilateral, Gaussian, unsharp)
+alt needs_sr = true
+  P -> SR : Super-resolve frames\n(2x or 4x upscale)
+  SR --> P : Enhanced frames
+end
+alt faces_detected = true
+  P -> GF : Face restoration\n(GFPGAN v1.4)
+  GF --> P : Restored frames
+end
+P -> FF : Reassemble video\n(H.264, CRF 18, faststart)
+FF --> P : Output video
+P -> P : Compute metrics\n(PSNR, SSIM, LPIPS)
+P -> P : Generate publish manifest
+P --> D : Enhancement complete\n+ metrics + manifest
+D --> U : Show before/after preview\n+ quality metrics
+@enduml
+
+
+============================================================
+DIAGRAM 11: Gantt Diagram — Project Timeline
+============================================================
+NOTE: PlantUML Gantt syntax. Render at plantuml.com or
+      use a dedicated Gantt tool (GanttProject, MS Project).
+============================================================
+
+@startgantt
+title BViral Control Center — Project Timeline
+printscale weekly
+project starts 2026-02-01
+
+-- Phase 1: Analysis & Design --
+[Preliminary Study] starts 2026-02-01 and lasts 10 days
+[Study of Existing Solutions] starts 2026-02-01 and lasts 7 days
+[Requirements Specification] starts 2026-02-08 and lasts 5 days
+[UML Conception] starts 2026-02-12 and lasts 10 days
+[Use Case Diagrams] starts 2026-02-12 and lasts 5 days
+[Class Diagram] starts 2026-02-17 and lasts 3 days
+[Sequence Diagrams] starts 2026-02-19 and lasts 4 days
+
+-- Phase 2: Core Infrastructure --
+[Monorepo & Workspace Setup] starts 2026-02-24 and lasts 5 days
+[Database Schema (Drizzle)] starts 2026-02-27 and lasts 7 days
+[Fastify API Server Setup] starts 2026-03-03 and lasts 7 days
+[Authentication & Middleware] starts 2026-03-07 and lasts 5 days
+
+-- Phase 3: Dashboard Frontend --
+[React/Vite Dashboard Shell] starts 2026-03-10 and lasts 7 days
+[Dashboard Home Page] starts 2026-03-14 and lasts 5 days
+[Scheduling Page & Calendar] starts 2026-03-19 and lasts 10 days
+[Analytics Page & Charts] starts 2026-03-26 and lasts 7 days
+[Alerts Page] starts 2026-04-01 and lasts 5 days
+[Settings Page] starts 2026-04-04 and lasts 5 days
+
+-- Phase 4: Platform Integrations --
+[YouTube OAuth Integration] starts 2026-04-07 and lasts 7 days
+[TikTok OAuth + PKCE] starts 2026-04-14 and lasts 7 days
+[Meta/Facebook OAuth] starts 2026-04-18 and lasts 7 days
+[Accounts Management Page] starts 2026-04-21 and lasts 5 days
+
+-- Phase 5: AI & Video --
+[AI Video Enhancement Pipeline] starts 2026-04-24 and lasts 10 days
+[Real-ESRGAN Integration] starts 2026-04-24 and lasts 5 days
+[GFPGAN Face Restoration] starts 2026-04-29 and lasts 3 days
+[AI Video Studio Page] starts 2026-05-01 and lasts 5 days
+[BVIRAL Video Editor Integration] starts 2026-05-04 and lasts 5 days
+
+-- Phase 6: Worker & Polish --
+[Redis/BullMQ Post Worker] starts 2026-05-06 and lasts 5 days
+[Testing & Bug Fixes] starts 2026-05-10 and lasts 7 days
+[UI Polish & Animations] starts 2026-05-14 and lasts 5 days
+[Report Writing] starts 2026-05-12 and lasts 10 days
+@endgantt
+
+
+============================================================
+DIAGRAM 12: Deployment / Architecture Diagram
+============================================================
+
+@startuml
+skinparam componentStyle rectangle
+skinparam backgroundColor white
+
+cloud "Social Media Platforms" {
+  [YouTube API]
+  [TikTok API]
+  [Meta Graph API]
+}
+
+node "Client Browser" {
+  [React Dashboard\n(Vite, port 5173)] as Dashboard
+  [BVIRAL Video Editor\n(Next.js, port 3000)] as Editor
+}
+
+node "Backend Server" {
+  [Fastify API Server\n(port 3001)] as API
+  [BullMQ Post Worker] as Worker
+}
+
+node "AI Processing" {
+  [Video Enhancement\nPipeline (Python)] as AI
+  [Real-ESRGAN] as SR
+  [GFPGAN] as GF
+  [FFmpeg] as FF
+}
+
+database "PostgreSQL\n(Supabase)" as DB
+database "Redis" as Redis
+
+Dashboard --> API : REST API\n/api/v1/*
+Dashboard --> Editor : iframe embed
+API --> DB : Drizzle ORM\n(RLS policies)
+API --> Redis : Enqueue jobs
+Redis --> Worker : Dequeue at\nscheduled time
+Worker --> [YouTube API] : Upload video
+Worker --> [TikTok API] : Upload video
+Worker --> [Meta Graph API] : Upload video
+Worker --> DB : Update status
+
+AI --> SR : Super-resolution
+AI --> GF : Face restoration
+AI --> FF : Frame extraction\n& reassembly
+@enduml
+
+
+============================================================
+DIAGRAM 13: AI Pipeline Activity Diagram
+============================================================
+
+@startuml
+start
+:Upload Video;
+:Validate format & size;
+if (Valid?) then (yes)
+  :Extract frames (FFmpeg);
+  :Extract audio track;
+  :Analyze quality\n(blur, noise, low-light, faces);
+
+  if (Needs denoise?) then (yes)
+    :Apply bilateral filter;
+  else (no)
+    :Apply balanced filter;
+  endif
+
+  if (Resolution < 1080p?) then (yes)
+    :Run Real-ESRGAN\nsuper-resolution (2x/4x);
+  else (no)
+  endif
+
+  if (Faces detected?) then (yes)
+    :Run GFPGAN\nface restoration;
+  else (no)
+  endif
+
+  :Reassemble video\n(H.264, CRF 18, faststart);
+  :Compute quality metrics\n(PSNR, SSIM, LPIPS);
+  :Generate publish manifest;
+  :Show before/after preview;
+  stop
+else (no)
+  :Show error message;
+  stop
+endif
+@enduml

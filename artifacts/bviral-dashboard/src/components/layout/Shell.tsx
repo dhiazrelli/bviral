@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useAuth } from "@/lib/auth-context";
@@ -17,7 +17,6 @@ import {
   Search,
   Settings,
   Shield,
-  Sparkles,
   Users,
   Wand2,
   X,
@@ -127,8 +126,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [location, navigate] = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isCommandRoomOpen, setCommandRoomOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const shouldReduceMotion = useReducedMotion();
   const { toast } = useToast();
   const { user, role, signOut } = useAuth();
@@ -167,13 +166,27 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   const handleQuickNavigate = (path: string, label: string) => {
     navigate(path);
-    setCommandRoomOpen(false);
     setMobileMenuOpen(false);
     toast({
       title: label,
       description: "View updated.",
     });
   };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        const input = searchInputRef.current;
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const handleSearchSubmit = () => {
     const nextItem = searchResults[0];
@@ -190,14 +203,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
     handleQuickNavigate(nextItem.path, nextItem.label);
   };
 
-  const openCommandRoom = () => {
-    setCommandRoomOpen(true);
-  };
-
   const showHelp = () => {
     toast({
       title: "Operator shortcuts",
-      description: "Press Enter in search to jump pages, or use Command Room for quick navigation.",
+      description: "Press Enter in search to jump pages.",
     });
   };
 
@@ -316,10 +325,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 <Menu className="h-5 w-5" />
               </button>
               <div className="min-w-0">
-                <div className="surface-label mb-2">
-                  <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  Operating View
-                </div>
                 <h1 className="truncate text-[1.45rem] font-bold tracking-[-0.05em] text-white md:text-[1.9rem]">
                   {currentItem.label}
                 </h1>
@@ -333,6 +338,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <div className="relative w-[20rem] xl:w-[24rem]">
                 <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/36" />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   placeholder="Search campaigns, accounts, or alerts"
                   value={searchQuery}
@@ -349,10 +355,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   K
                 </span>
               </div>
-              <button onClick={openCommandRoom} className="btn-secondary">
-                <Sparkles className="h-4 w-4" />
-                Command room
-              </button>
               <button
                 onClick={showHelp}
                 className="relative rounded-2xl border border-white/8 bg-white/[0.04] p-3 text-white/72 transition hover:bg-white/[0.07] hover:text-white"
@@ -440,67 +442,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
         ) : null}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {isCommandRoomOpen ? (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[60] bg-slate-950/72 backdrop-blur-sm"
-              onClick={() => setCommandRoomOpen(false)}
-            />
-            <motion.div
-              initial={shouldReduceMotion ? false : { opacity: 0, y: 16, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={shouldReduceMotion ? undefined : { opacity: 0, y: 12, scale: 0.98 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="glass-panel fixed left-1/2 top-[12vh] z-[61] w-[min(92vw,34rem)] -translate-x-1/2 rounded-[1.8rem] border border-white/8 p-5 shadow-[0_30px_80px_rgba(2,10,22,0.45)]"
-            >
-              <div className="mb-4 flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/36">
-                    Command Room
-                  </p>
-                  <h2 className="mt-2 text-xl font-display font-bold text-white">
-                    Jump between operating views
-                  </h2>
-                </div>
-                <button
-                  onClick={() => setCommandRoomOpen(false)}
-                  className="rounded-2xl border border-white/8 bg-white/[0.04] p-2.5 text-white/70 transition hover:bg-white/[0.07] hover:text-white"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                {navItems.map((item) => (
-                  <button
-                    key={item.path}
-                    onClick={() => handleQuickNavigate(item.path, item.label)}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition",
-                      location === item.path
-                        ? "border-primary/20 bg-primary/10 text-white"
-                        : "border-white/8 bg-white/[0.03] text-white/72 hover:border-white/12 hover:bg-white/[0.05]",
-                    )}
-                  >
-
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.05]">
-                      <item.icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold">{item.label}</p>
-                      <p className="text-[11px] text-white/40">{sectionLabels[item.section]}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          </>
-        ) : null}
-      </AnimatePresence>
     </div>
   );
 }

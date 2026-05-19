@@ -5,5 +5,18 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AccountOwnerKind } from './accountOwnerKind';
+import type { AccountPlatform } from './accountPlatform';
 
-export type AccountMetadata = { [key: string]: unknown };
+/**
+ * Account metadata visible to admins — no token fields.
+ */
+export interface AccountMetadata {
+  id: string;
+  platform: AccountPlatform;
+  accountName: string;
+  tokenExpiry: Date | null;
+  ownerKind: AccountOwnerKind;
+  userId: string | null;
+  createdAt: Date;
+}

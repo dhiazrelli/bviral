@@ -1,0 +1,261 @@
+\chapter{Realisation}
+
+\section*{Introduction}
+In this final chapter, we focus on the technical realization of BViral Control Center. We present the system architecture, justify our technology choices, describe the development environment and tools, and showcase the implemented interfaces through screenshots.
+
+% ══════════════════════════════════════════════════════════════
+\section{System Architecture}
+% ══════════════════════════════════════════════════════════════
+
+\subsection{Monorepo Workspace Architecture}
+
+BViral Control Center is organized as a \textbf{pnpm monorepo workspace}, a modern approach that allows multiple packages (frontend, backend, shared libraries) to coexist in a single repository while maintaining clear separation of concerns.
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.85\textwidth]{figures/arch_monorepo.png}
+%     \caption{pnpm Monorepo workspace architecture}
+%     \label{fig:arch-monorepo}
+% \end{figure}
+
+The workspace is divided into three layers:
+
+\begin{itemize}
+    \item \textbf{artifacts/} --- Deployable applications:
+    \begin{itemize}
+        \item \texttt{bviral-dashboard}: React/Vite frontend dashboard
+        \item \texttt{api-server}: Fastify REST API backend
+        \item \texttt{openvideo}: Vendored BVIRAL Video Editor (Next.js)
+        \item \texttt{mockup-sandbox}: UI prototyping sandbox
+    \end{itemize}
+    \item \textbf{lib/} --- Shared packages:
+    \begin{itemize}
+        \item \texttt{db}: Drizzle ORM schema and database helpers
+        \item \texttt{api-spec}: OpenAPI specification and codegen config
+        \item \texttt{api-zod}: Generated Zod validation schemas
+        \item \texttt{api-client-react}: Generated React API client
+    \end{itemize}
+    \item \textbf{scripts/} --- Utility and automation scripts
+\end{itemize}
+
+\subsection{Client-Server Architecture}
+
+The system follows a classic \textbf{client-server architecture} with clear separation between the presentation layer and the business/data layers.
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.9\textwidth]{figures/arch_client_server.png}
+%     \caption{Client-Server architecture of BViral}
+%     \label{fig:arch-cs}
+% \end{figure}
+
+\noindent\textit{See the full deployment/architecture diagram in \texttt{startuml\_diagrams.txt} --- Diagram 12. The AI pipeline activity diagram is available as Diagram 13.}
+
+\begin{itemize}
+    \item \textbf{Presentation Tier (Client):} The React/Vite dashboard served at \texttt{localhost:5173}. It communicates with the API via RESTful HTTP requests and renders the UI using React components, Tailwind CSS, and Framer Motion.
+    \item \textbf{Business Logic Tier (API Server):} The Fastify server at \texttt{localhost:3001} handles authentication, OAuth flows, CRUD operations, and orchestrates the BullMQ post-publishing worker.
+    \item \textbf{Data Tier:} PostgreSQL database (hosted via Supabase) managed through Drizzle ORM with type-safe schemas and Row Level Security (RLS) policies. Redis is used for BullMQ job queues.
+    \item \textbf{AI Processing Tier:} Python-based AI video enhancement pipeline using PyTorch, Real-ESRGAN, GFPGAN, and OpenCV, running independently or integrated via API calls.
+\end{itemize}
+
+\subsection{MVC-Inspired Pattern}
+
+The API server follows an MVC-inspired layered architecture:
+
+\begin{itemize}
+    \item \textbf{Routes (Controller):} Define HTTP endpoints, handle request validation, and delegate to services. Organized under \texttt{/api/v1/} with sub-routers for accounts, posts, videos, analytics, alerts, and users.
+    \item \textbf{Services (Business Logic):} Contain the core business logic for each domain. Services include \texttt{accounts.service}, \texttt{posts.service}, \texttt{analytics.service}, \texttt{youtube.service}, \texttt{tiktok.service}, \texttt{meta.service}, \texttt{videos.service}, \texttt{alerts.service}, and \texttt{platform-publisher.service}.
+    \item \textbf{Schema/Repository (Model):} Drizzle ORM schemas define the database structure. Repositories provide data access methods with type-safe queries.
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════
+\section{Technology Choices}
+% ══════════════════════════════════════════════════════════════
+
+\subsection{React \& Vite (Frontend)}
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.15\textwidth]{figures/logo_react.png}
+%     \caption{React}
+%     \label{fig:react}
+% \end{figure}
+
+React 19 is a declarative, component-based JavaScript library for building user interfaces, maintained by Meta. Combined with Vite 7, a next-generation build tool, it provides near-instant hot module replacement (HMR) during development and optimized production builds. Key frontend libraries include:
+
+\begin{itemize}
+    \item \textbf{Tailwind CSS 4:} utility-first CSS framework for rapid, consistent styling.
+    \item \textbf{Framer Motion:} production-ready animation library for React.
+    \item \textbf{Wouter:} lightweight client-side router.
+    \item \textbf{TanStack React Query:} data fetching and server-state management.
+    \item \textbf{Lucide React:} modern, customizable icon library.
+    \item \textbf{Recharts:} composable charting library for analytics visualization.
+\end{itemize}
+
+\subsection{Fastify (Backend)}
+
+Fastify is a high-performance, low-overhead Node.js web framework. It is designed for speed and developer experience, featuring:
+
+\begin{itemize}
+    \item Schema-based request/response validation with AJV.
+    \item Plugin-based architecture with auto-loading.
+    \item Built-in logging via Pino with production-grade redaction.
+    \item Native TypeScript support.
+\end{itemize}
+
+\subsection{PostgreSQL \& Drizzle ORM (Database)}
+
+PostgreSQL is a powerful, open-source relational database system. We use Supabase as a hosted PostgreSQL provider, which adds built-in authentication and Row Level Security.
+
+Drizzle ORM provides a type-safe, SQL-like query builder for TypeScript with:
+
+\begin{itemize}
+    \item Schema-as-code with full TypeScript type inference.
+    \item Built-in Supabase RLS policy support.
+    \item Zero-dependency, lightweight runtime.
+    \item Push-based migration for schema changes.
+\end{itemize}
+
+\subsection{Redis \& BullMQ (Job Queue)}
+
+Redis is used as the backing store for BullMQ, a robust Node.js job queue for managing scheduled post publishing. The worker restores pending jobs on restart and processes posts at their scheduled time, calling the appropriate platform API.
+
+\subsection{PyTorch, Real-ESRGAN \& GFPGAN (AI Pipeline)}
+
+The AI video enhancement pipeline leverages:
+
+\begin{itemize}
+    \item \textbf{PyTorch:} deep learning framework with GPU and parallel CPU support.
+    \item \textbf{Real-ESRGAN:} state-of-the-art super-resolution model for upscaling video frames (2x or 4x).
+    \item \textbf{GFPGAN:} face restoration model that enhances facial details in video frames.
+    \item \textbf{OpenCV:} computer vision library for classical filter processing (bilateral, Gaussian, median, unsharp mask).
+    \item \textbf{FFmpeg:} multimedia framework for frame extraction, audio handling, and video encoding (H.264/H.265/AV1).
+\end{itemize}
+
+\subsection{TypeScript (Language)}
+
+TypeScript is used across the entire stack (frontend, backend, and shared libraries), providing:
+
+\begin{itemize}
+    \item Static type checking at compile time.
+    \item Enhanced IDE support with autocompletion and refactoring.
+    \item Shared type definitions between frontend and backend via the monorepo.
+    \item Zod schema validation for runtime type safety.
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════
+\section{Development Environment and Tools}
+% ══════════════════════════════════════════════════════════════
+
+\begin{table}[H]
+\centering
+\caption{Development tools used in the project}
+\label{tab:tools}
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\textbf{Tool} & \textbf{Purpose} \\
+\hline
+Visual Studio Code & Primary code editor with TypeScript, ESLint, and Prettier extensions \\
+\hline
+Node.js 24 & JavaScript runtime for the API server and build tools \\
+\hline
+pnpm & Fast, disk-efficient package manager with workspace support \\
+\hline
+Git / GitHub & Version control and collaborative development \\
+\hline
+Postman & API testing and endpoint documentation \\
+\hline
+Supabase Studio & Database management, RLS policy testing, and SQL queries \\
+\hline
+Google Colab & GPU-accelerated environment for AI pipeline development \\
+\hline
+StarUML & UML diagram creation for conceptual design \\
+\hline
+ngrok & HTTPS tunneling for TikTok OAuth local development \\
+\hline
+\end{tabularx}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════
+\section{Interfaces}
+% ══════════════════════════════════════════════════════════════
+
+\subsection{Dashboard (Home)}
+
+The main dashboard provides an at-a-glance overview of the creator's social media performance. It displays key performance indicators (KPIs) including total views, engagement rate, total followers, and revenue. Interactive charts show performance trends over time, and a recent activity feed highlights the latest posts and alerts.
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/ui_dashboard.png}
+%     \caption{Interface: Dashboard overview}
+%     \label{fig:ui-dashboard}
+% \end{figure}
+
+\subsection{Post Scheduling}
+
+The scheduling page presents a visual calendar interface where creators can view, create, and manage scheduled posts. A side panel allows creating new posts by selecting a video, target platform, connected account, and schedule time. Posts are color-coded by status: blue for scheduled, green for posted, and red for failed.
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/ui_scheduling.png}
+%     \caption{Interface: Post scheduling calendar}
+%     \label{fig:ui-scheduling}
+% \end{figure}
+
+\subsection{Account Management}
+
+The accounts page displays all connected social media accounts organized by platform. Each account card shows the platform icon, account name, and connection status. ``Connect'' buttons initiate the OAuth flow for each supported platform (YouTube, TikTok, Meta).
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/ui_accounts.png}
+%     \caption{Interface: Account management}
+%     \label{fig:ui-accounts}
+% \end{figure}
+
+\subsection{Analytics Dashboard}
+
+The analytics page provides comprehensive performance monitoring with interactive charts and filters. Users can view aggregated metrics (views, likes, comments, shares, revenue), filter by platform and time period, and visualize engagement trends through line charts, bar charts, and pie charts.
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/ui_analytics.png}
+%     \caption{Interface: Analytics dashboard}
+%     \label{fig:ui-analytics}
+% \end{figure}
+
+\subsection{AI Video Studio}
+
+The AI Video Studio provides access to the video enhancement pipeline and the integrated BVIRAL Video Editor. Users can upload videos, configure enhancement parameters (mode, filters, resolution), and preview results with quality metrics.
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/ui_ai_studio.png}
+%     \caption{Interface: AI Video Studio}
+%     \label{fig:ui-ai-studio}
+% \end{figure}
+
+\subsection{Alert Management}
+
+The alerts page displays system notifications in a filterable table. Each alert shows its type (error, copyright, success), associated platform, message, and resolution status. Users can mark alerts as resolved or filter by type and status.
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/ui_alerts.png}
+%     \caption{Interface: Alert management}
+%     \label{fig:ui-alerts}
+% \end{figure}
+
+\subsection{Settings}
+
+The settings page allows users to configure their profile, notification preferences, API keys, and system options.
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/ui_settings.png}
+%     \caption{Interface: System settings}
+%     \label{fig:ui-settings}
+% \end{figure}
+
+\section*{Conclusion}
+In this chapter, we presented the technical architecture of BViral Control Center, justified our technology choices, and showcased the implemented interfaces. The monorepo workspace architecture with pnpm provides clean separation between the React dashboard, Fastify API server, and shared libraries. The integration of an AI video enhancement pipeline with Real-ESRGAN and GFPGAN distinguishes our solution from existing social media management tools.

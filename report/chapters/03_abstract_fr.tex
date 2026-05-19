@@ -1,0 +1,40 @@
+% =========================================================================
+% Resume (French)
+% =========================================================================
+\chapter*{R\'esum\'e}
+\addcontentsline{toc}{chapter}{R\'esum\'e}
+\thispagestyle{plain}
+
+\vspace{0.5cm}
+
+La vid\'eo courte est devenue le format dominant sur TikTok, Instagram Reels et YouTube
+Shorts, mais les cr\'eateurs s'appuient encore largement sur leur intuition pour d\'ecider quoi
+publier, comment formater les sous-titres et comment am\'eliorer la qualit\'e visuelle des images
+captur\'ees avec des appareils grand public. \textbf{BViral Control Center} est une plateforme web
+bas\'ee sur l'intelligence artificielle qui adresse ces trois angles morts dans un workflow unique
+et int\'egr\'e.
+
+La plateforme s'articule autour de quatre piliers. L'\textbf{Agent Pr\'edictif Pr\'e-Publication}
+fusionne les repr\'esentations visuelles (\textsc{CLIP}), les descripteurs audio (\textsc{Librosa}),
+les embeddings de transcription (\textsc{Whisper} + \textsc{MiniLM}) et les caract\'eristiques
+s\'emantiques g\'en\'er\'ees par Llama~3 en un vecteur de 473 dimensions, puis pr\'edit un score de
+viralit\'e attendu avec un r\'egresseur \textsc{XGBoost} et explique la pr\'ediction avec les
+valeurs \textsc{SHAP}. Le \textbf{Moteur de Sous-Titrage Automatique Dynamique} utilise
+\texttt{faster-whisper} sur GPU avec horodatage au mot, convertit la transcription SRT en un
+fichier de sous-titres \textsc{ASS} \`a taille de police adaptative et incruste les sous-titres avec
+FFmpeg (codec \texttt{libx264}, CRF~18). Le \textbf{Pipeline d'Am\'elioration Vid\'eo IA} effectue une
+\'evaluation de qualit\'e bas\'ee sur OpenCV, applique des filtres classiques (m\'edian, bilat\'eral,
+masque flou), puis route les images vers Real-ESRGAN pour la super-r\'esolution $2\times$/$4\times$
+et vers GFPGAN pour la restauration des visages, avant de r\'eassembler et de transcoder en
+H.264/H.265/AV1 pr\^et pour le web avec \texttt{+faststart}. Le \textbf{AI Studio} est un tableau de
+bord React/Vite + Fastify + PostgreSQL qui orchestre les trois piliers, expose un \'editeur
+vid\'eo navigateur, et g\`ere l'authentification OAuth multi-plateforme (YouTube, TikTok PKCE,
+Meta) ainsi que la planification de publications via une file BullMQ.
+
+\vspace{0.6cm}
+
+\noindent\textbf{Mots-cl\'es:} vid\'eo courte, pr\'ediction de viralit\'e, apprentissage automatique
+multimodal, \textsc{XGBoost}, \textsc{CLIP}, \textsc{Whisper}, super-r\'esolution, \textsc{Real-ESRGAN},
+\textsc{GFPGAN}, sous-titres ASS, FFmpeg, React, Fastify, PostgreSQL, BullMQ.
+
+\cleardoublepage

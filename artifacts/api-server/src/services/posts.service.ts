@@ -195,9 +195,9 @@ export function buildPostsService(
         }
       }
 
-      const deleted = await postsRepository.deleteScheduledForUser(post.id, userId);
+      const cancelled = await postsRepository.cancelScheduledForUser(post.id, userId);
 
-      if (!deleted) {
+      if (!cancelled) {
         throw new PostCancellationError();
       }
     },

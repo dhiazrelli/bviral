@@ -816,6 +816,10 @@ components:
           format: uuid
         originalUrl:
           type: string
+        originalFilename:
+          oneOf:
+            - type: string
+            - type: "null"
         processedUrl:
           oneOf:
             - type: string
@@ -833,6 +837,7 @@ components:
         - id
         - userId
         - originalUrl
+        - originalFilename
         - processedUrl
         - duration
         - status
@@ -862,6 +867,7 @@ components:
         - scheduled
         - posted
         - failed
+        - cancelled
     Post:
       type: object
       additionalProperties: false

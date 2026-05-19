@@ -1,0 +1,119 @@
+% =========================================================================
+% Appendix A
+% =========================================================================
+\chapter{Appendix A --- Configuration and Repository Layout}
+\label{ch:appendixA}
+\addcontentsline{toc}{chapter}{Appendix A --- Configuration and Repository Layout}
+\markboth{Appendix A}{}
+
+This appendix collects the non-prose artefacts that complement the main report: the
+required environment variables, the workspace layout and the most useful commands for
+running the platform locally.
+
+\section*{A.1 Repository layout}
+\addcontentsline{toc}{section}{A.1 Repository layout}
+
+\begin{lstlisting}[caption={pnpm workspace layout (selected files)},label={lst:layout}]
+BViral-Control-Center/
+  README.md
+  package.json                  # root scripts (dev, build, typecheck)
+  pnpm-workspace.yaml
+  tsconfig.base.json
+  ai_module/
+    speechtotext.py             # Pillar II  - captioning
+    ai_video_enhancement_ultimate.py  # Pillar III - enhancement
+  artifacts/
+    api-server/                 # Fastify TypeScript API
+      src/server.ts, app.ts
+      src/plugins/ 00..50-*.ts  # config, observability, cors, multipart,
+                                # database, storage, queues, repositories, auth
+      src/repositories/         # users, accounts, videos, posts, analytics, alerts
+      src/routes/v1/            # accounts, videos, posts, analytics, alerts, users
+      src/services/             # platform-publisher, tiktok, youtube, meta...
+      src/workers/              # posts.worker.ts, videos.worker.ts, analytics.worker.ts
+    bviral-dashboard/           # React/Vite SPA (Pillar IV - AI Studio)
+      src/pages/                # Dashboard, Scheduling, AiVideoStudio,
+                                # Analytics, Alerts, Accounts, Settings
+      src/components/ui/        # shadcn/ui components
+      src/components/visuals/   # BrowserVideoTrimmer, Hero3D
+    openvideo/                  # Vendored Next.js video editor (BVIRAL Video Editor)
+    mockup-sandbox/             # UI/mockup sandbox
+  lib/
+    db/                         # Drizzle schema + migrations
+    api-client-react/           # Generated TanStack Query client
+    api-zod/                    # Generated Zod schemas
+    api-spec/                   # OpenAPI spec + codegen config
+\end{lstlisting}
+
+\section*{A.2 Environment variables (\texttt{.env.example})}
+\addcontentsline{toc}{section}{A.2 Environment variables}
+
+\begin{lstlisting}[caption={Required environment variables for the API server, the dashboard and the workers},label={lst:env}]
+# --- Core API server ----------------------------------------------------
+DATABASE_URL=postgresql://USER:PASS@HOST:5432/DATABASE?sslmode=require
+HOST=0.0.0.0
+PORT=3001
+ADMIN_TOKEN=change-me-in-prod
+CORS_ORIGINS=http://localhost:5173
+DASHBOARD_URL=http://localhost:5173
+TOKEN_ENCRYPTION_KEY=     # 32-byte AES-256 key (base64) -- API refuses to boot without
+
+# --- Supabase ------------------------------------------------------------
+VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxxxxxx
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_VIDEO_BUCKET=videos
+
+# --- Redis (BullMQ queues) ----------------------------------------------
+REDIS_URL=redis://127.0.0.1:6379
+
+# --- YouTube OAuth ------------------------------------------------------
+YOUTUBE_CLIENT_ID=
+YOUTUBE_CLIENT_SECRET=
+YOUTUBE_REDIRECT_URI=http://localhost:3001/api/v1/accounts/youtube/callback
+
+# --- TikTok OAuth (PKCE) ------------------------------------------------
+TIKTOK_CLIENT_KEY=
+TIKTOK_CLIENT_SECRET=
+TIKTOK_REDIRECT_URI=http://localhost:3001/api/v1/accounts/tiktok/callback
+
+# --- Meta (Facebook + Instagram) ---------------------------------------
+META_APP_ID=
+META_APP_SECRET=
+META_REDIRECT_URI=http://localhost:3001/api/v1/accounts/meta/callback
+META_OAUTH_SCOPES=pages_show_list,pages_read_engagement
+
+# --- Dashboard (Vite) ---------------------------------------------------
+VITE_API_BASE_URL=http://localhost:3001
+VITE_BVIRAL_VIDEO_EDITOR_URL=http://localhost:3000/projects
+\end{lstlisting}
+
+\section*{A.3 Useful commands}
+\addcontentsline{toc}{section}{A.3 Useful commands}
+
+\begin{lstlisting}[caption={Local development commands (PowerShell)},label={lst:cmds}]
+# Install all workspaces
+pnpm install
+
+# Push the Drizzle schema to PostgreSQL
+pnpm --filter @workspace/db run push
+
+# Run the dashboard (port 5173)
+pnpm run dev:dashboard
+
+# Run the Fastify API (port 3001)
+$env:DATABASE_URL="postgresql://USER:PASS@HOST:5432/DATABASE"
+pnpm --filter @workspace/api-server run dev
+
+# Run the BVIRAL Video Editor (Next.js, port 3000)
+pnpm run dev:video-editor
+
+# Run the BullMQ posts worker
+pnpm run dev:worker:posts
+
+# Build all
+pnpm run build
+
+# Typecheck all
+pnpm run typecheck
+\end{lstlisting}

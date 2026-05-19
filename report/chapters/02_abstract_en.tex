@@ -1,0 +1,44 @@
+% =========================================================================
+% Abstract (English)
+% =========================================================================
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+\thispagestyle{plain}
+
+\vspace{0.5cm}
+
+Short-form video has become the dominant content format on TikTok, Instagram Reels and
+YouTube Shorts, but creators still rely largely on intuition when deciding what to publish,
+how to format captions, and how to repair the visual quality of footage shot on consumer
+devices. \textbf{BViral Control Center} is an AI-powered, web-based platform that addresses these
+three blind spots in a single, integrated workflow.
+
+The platform is organised around four pillars. The \textbf{Pre-Posting Predictive Agent} fuses
+visual embeddings (\textsc{CLIP}), audio descriptors (\textsc{Librosa}), transcript embeddings
+(\textsc{Whisper} + \textsc{MiniLM}) and Llama-3 generated semantic features into a 473-dimensional
+representation, then predicts an expected virality score with an \textsc{XGBoost} regressor and
+explains the prediction with \textsc{SHAP} values. The \textbf{Dynamic Auto-Captioning Engine}
+uses \texttt{faster-whisper} on GPU with word-level timestamps, converts the SRT transcript into a
+per-caption-scaled \textsc{ASS} subtitle file with a safe-font-size algorithm, and burns the
+captions onto the video with FFmpeg using the \texttt{libx264} codec at CRF~18. The
+\textbf{AI Video Enhancement Pipeline} performs an OpenCV-based quality assessment, runs
+classical filters (median, bilateral, unsharp mask), and routes frames through Real-ESRGAN for
+$2\times$/$4\times$ super-resolution and through GFPGAN for face restoration when faces are
+detected, before reassembling and transcoding to web-ready H.264/H.265/AV1 with
+\texttt{+faststart}. The \textbf{AI Studio} is a React/Vite + Fastify + PostgreSQL dashboard that
+orchestrates the three pillars, exposes a vendored browser video editor, and manages
+multi-platform OAuth (YouTube, TikTok PKCE, Meta) and scheduled publishing through a BullMQ
+queue.
+
+This report covers the full lifecycle of the project: state-of-the-art analysis, requirements
+specification, conceptual design through UML, dataset construction, model training, system
+architecture and the realisation of the four pillars including the predictive virality coach,
+the captioning engine, the enhancement pipeline and the orchestrating dashboard.
+
+\vspace{0.6cm}
+
+\noindent\textbf{Keywords:} short-form video, virality prediction, multimodal machine learning,
+\textsc{XGBoost}, \textsc{CLIP}, \textsc{Whisper}, super-resolution, \textsc{Real-ESRGAN}, \textsc{GFPGAN},
+ASS subtitles, FFmpeg, React, Fastify, PostgreSQL, BullMQ.
+
+\cleardoublepage

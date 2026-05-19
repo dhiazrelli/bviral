@@ -125,6 +125,19 @@ const analyticsPlatforms: AccountPlatform[] = [
   "youtube",
 ];
 
+const PLATFORM_RPM_USD: Record<AccountPlatform, number> = {
+  youtube: 3.2,
+  tiktok: 0.04,
+  instagram: 1.8,
+  facebook: 2.5,
+  snapchat: 1.2,
+};
+
+function estimateRevenue(platform: AccountPlatform, views: number) {
+  const rpm = PLATFORM_RPM_USD[platform] ?? 0;
+  return Math.round(((views * rpm) / 1000) * 100) / 100;
+}
+
 function serializeSnapshot(record: AnalyticsRecord): AnalyticsSnapshotDto {
   return {
     id: record.id,
@@ -186,7 +199,11 @@ function createOverview(rows: JoinedAnalyticsRow[]): AnalyticsOverviewDto {
   };
 
   for (const row of latestByPost.values()) {
-    const snapshot = serializeSnapshot(row.analytics);
+    const stored = serializeSnapshot(row.analytics);
+    const effectiveRevenue = stored.revenue > 0
+      ? stored.revenue
+      : estimateRevenue(row.platform, stored.views);
+    const snapshot = { ...stored, revenue: effectiveRevenue };
     const platformTotals = byPlatformMap.get(row.platform) ?? emptyPlatformTotals(row.platform);
 
     platformTotals.views += snapshot.views;

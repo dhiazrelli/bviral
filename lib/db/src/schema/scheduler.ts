@@ -32,7 +32,7 @@ export const videoStatusValues = [
 ] as const;
 export const videoStatusEnum = pgEnum("video_status", videoStatusValues);
 
-export const postStatusValues = ["scheduled", "posted", "failed"] as const;
+export const postStatusValues = ["scheduled", "posted", "failed", "cancelled"] as const;
 export const postStatusEnum = pgEnum("post_status", postStatusValues);
 
 export const alertTypeValues = ["error", "copyright", "success"] as const;
@@ -100,6 +100,7 @@ export const videosTable = pgTable("videos", {
     onDelete: "cascade",
   }),
   originalUrl: text("original_url").notNull(),
+  originalFilename: varchar("original_filename", { length: 255 }),
   processedUrl: text("processed_url"),
   duration: integer("duration"),
   status: videoStatusEnum("status").default("uploaded").notNull(),

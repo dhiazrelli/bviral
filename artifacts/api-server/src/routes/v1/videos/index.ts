@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { ZodError } from "zod";
 import {
+  DuplicateVideoFilenameError,
   VideoNotFoundError,
   VideoUploadConfigurationError,
   VideoUploadValidationError,
@@ -84,6 +85,7 @@ export default async function videosRoutes(fastify: FastifyInstance) {
         201: { $ref: "video#" },
         400: { $ref: "errorResponse#" },
         401: { $ref: "errorResponse#" },
+        409: { $ref: "duplicateVideoResponse#" },
         500: { $ref: "errorResponse#" },
       },
     },
@@ -98,6 +100,16 @@ export default async function videosRoutes(fastify: FastifyInstance) {
     } catch (error) {
       if (error instanceof VideoUploadValidationError) {
         sendValidationError(reply, error.message);
+        return;
+      }
+
+      if (error instanceof DuplicateVideoFilenameError) {
+        reply.code(409).send({
+          statusCode: 409,
+          error: "Conflict",
+          message: error.message,
+          existing: error.existing,
+        });
         return;
       }
 

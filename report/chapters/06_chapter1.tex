@@ -1,0 +1,349 @@
+% =========================================================================
+% Chapter 1 — State of the Art
+% =========================================================================
+\chapter{State of the Art}
+
+\chapintro
+The state of the art is the explicit knowledge about software engineering and applied machine
+learning that is documented from various sources. Building an AI-powered platform for
+short-form video requires bringing together domains as different as multimodal deep learning,
+classical image processing, full-stack web engineering and OAuth integration with three
+different social-network APIs, and a mature understanding of what creators actually do with
+their tools. This chapter starts by presenting the project context, then surveys existing
+solutions on the market, derives the functional and non-functional requirements, identifies
+the actors of the system, and finally specifies the working methodology adopted for the
+project.
+
+% -------------------------------------------------------------------------
+\section{Project context and host environment}
+\label{sec:context}
+
+This end-of-studies project was carried out within the framework of an applied machine
+learning and full-stack engineering internship. The host structure focuses on building
+production-grade SaaS tools for content creators and small marketing teams: it operates a
+TypeScript/Node.js back-end stack, a React front-end stack and a Python machine learning
+sub-stack, all of which were used during this work. The project was scoped to deliver a
+complete, working MVP of an AI-powered short-form video platform within roughly four months,
+with three of those months dedicated to research, dataset construction and modelling, and the
+last month dedicated to integration and the dashboard.
+
+\begin{figure}[H]
+  \centering
+  \placeholder[10cm]{Logo of the host structure}
+  \caption{Host structure logo}
+  \label{fig:host_logo}
+\end{figure}
+
+% -------------------------------------------------------------------------
+\section{Preliminary study}
+\label{sec:prelim}
+
+Preliminary system study is the first stage of the system development life cycle in which we
+study the viability of the project. We start by a study of the existing where we analyse the
+solutions already available on the market, list their drawbacks, then suggest a more suitable
+solution adapted to the needs of short-form video creators.
+
+\subsection{Study of existing solutions}
+\label{sec:existing}
+
+To ensure the quality of the final system, conducting a study of existing tools is crucial.
+This phase allows us to analyse the existing solutions, their pros and cons, and make sure we
+avoid those drawbacks in our own product.
+
+\subsubsection{Analysis of existing solutions}
+\label{sec:existing_analysis}
+
+In this part we take a thorough look at the various existing solutions in the short-form
+video market, focusing on their advantages and disadvantages. The four solutions we conduct
+our study upon are \textbf{VidIQ}, \textbf{TubeBuddy}, \textbf{CapCut AI} and \textbf{Descript}.
+
+\paragraph{VidIQ} is a YouTube-centric SaaS that analyses the performance of \emph{already
+published} videos. It provides keyword research, tag suggestions, thumbnail analysis,
+competitor monitoring and a daily ``score" derived from heuristics over the YouTube Data API.
+Its strengths are a clean dashboard and an extensive keyword database; its weakness, from the
+point of view of a Shorts creator, is that all signals are post-publication and largely
+text-only --- the platform does not analyse audio or visual frames.
+
+\begin{figure}[H]
+  \centering
+  \placeholder[12cm]{Screenshot of the VidIQ dashboard}
+  \caption{Existing solution \textquotedblleft VidIQ\textquotedblright}
+  \label{fig:vidiq}
+\end{figure}
+
+\paragraph{TubeBuddy} is a browser extension and SaaS that overlays YouTube Studio with
+A/B-tested thumbnails, keyword explorer and a ``Best Time to Publish" estimator. Like VidIQ
+it is built on top of YouTube's published-video API and offers no insight into the multimodal
+content of the clip itself, no dynamic captioning and no enhancement.
+
+\begin{figure}[H]
+  \centering
+  \placeholder[12cm]{Screenshot of the TubeBuddy interface}
+  \caption{Existing solution \textquotedblleft TubeBuddy\textquotedblright}
+  \label{fig:tubebuddy}
+\end{figure}
+
+\paragraph{CapCut AI} is a desktop and web video editor with AI-powered automatic captions,
+auto-cut and a few one-click filters. It is the strongest of the four on the
+\emph{post-production} side: captions are reasonable, the export is fast and the filters cover
+basic colour grading. However, it is purely an editor: it neither predicts performance, nor
+runs super-resolution or face restoration, nor schedules publishing across platforms.
+
+\begin{figure}[H]
+  \centering
+  \placeholder[12cm]{Screenshot of the CapCut AI editor}
+  \caption{Existing solution \textquotedblleft CapCut AI\textquotedblright}
+  \label{fig:capcut}
+\end{figure}
+
+\paragraph{Descript} is a transcription-driven editor that turns a video into a Word-like
+document and lets the user edit the video by editing the text. The captioning experience is
+strong; the application has a basic ``Studio Sound" voice cleaner but no super-resolution, no
+face restoration and no virality model.
+
+\begin{figure}[H]
+  \centering
+  \placeholder[12cm]{Screenshot of the Descript editor}
+  \caption{Existing solution \textquotedblleft Descript\textquotedblright}
+  \label{fig:descript}
+\end{figure}
+
+\subsubsection{Critique of existing solutions}
+\label{sec:existing_critique}
+
+The four solutions surveyed have the following advantages and limitations:
+
+\begin{itemize}
+  \item \textbf{VidIQ and TubeBuddy} are equipped with rich keyword and competitor analytics
+        and integrate cleanly with YouTube's APIs. Both, however, work \emph{only after} a
+        video is published, are limited to text-based signals and ignore the visual and
+        audio content entirely. They cannot tell a creator that the visual hook in the first
+        second is too low-contrast or that the audio energy is below the threshold associated
+        with viral clips.
+  \item \textbf{CapCut AI} delivers strong basic post-production (cut, captions, filters) and
+        a pleasant user experience, but it does not predict performance, does not perform
+        super-resolution beyond simple upscale, has no face-aware restoration, and does not
+        explain its filter choices. The captioning algorithm uses a fixed font size, which
+        causes long words to overflow on portrait-mode 1080$\times$1920 video.
+  \item \textbf{Descript} is excellent for text-driven editing but is fundamentally a
+        post-production tool; it does not address the visual-quality gap and provides no
+        predictive feedback before publication.
+\end{itemize}
+
+\noindent\textbf{Bottom line.} None of these tools offers --- in a single integrated platform
+--- multimodal pre-publication predictive scoring, font-aware automatic captioning that scales
+per caption based on the longest word, super-resolution and face restoration with quality
+metrics, and a multi-platform publishing layer. That gap is what \textbf{BViral Control
+Center} is designed to fill.
+
+\subsection{Suggested solution}
+\label{sec:suggested}
+
+We suggest a unified, web-based platform built around four AI pillars and a single dashboard
+that pipes them together end-to-end:
+
+\begin{itemize}
+  \item \textbf{Pillar I --- Pre-Posting Predictive Agent (AI Coach)}: a multimodal pipeline
+        that ingests a raw video, extracts visual embeddings with CLIP, audio descriptors
+        with Librosa, transcript embeddings with Whisper + MiniLM and Llama-3 generated
+        semantic features (tone, emotion, hook quality), reduces the resulting concatenation
+        to a 473-dimensional vector via PCA, predicts an expected performance score with an
+        XGBoost regressor, and returns SHAP explanations so the creator knows \emph{why} a
+        clip is or isn't predicted to perform.
+  \item \textbf{Pillar II --- Dynamic Auto-Captioning Engine}: a faster-whisper-based
+        transcription pipeline that produces word-level timestamps, regroups them into
+        2-word ``flashes", and renders them as ASS subtitles where each line gets a
+        per-caption font size computed by a safe-zone algorithm (described in
+        Section~\ref{sec:pillar2}). FFmpeg burns the captions in with \texttt{libx264} at
+        CRF~18 and \texttt{+faststart} for instant web playback.
+  \item \textbf{Pillar III --- AI Video Enhancement Pipeline}: a 12-stage pipeline that
+        assesses video quality with OpenCV (blur, noise, low-light, face presence), runs
+        classical filters (median, bilateral, unsharp mask), executes Real-ESRGAN
+        $2\times$/$4\times$ super-resolution, applies GFPGAN face restoration when faces are
+        detected, reassembles with audio, and computes PSNR / SSIM / LPIPS / flicker scores
+        for quality assurance.
+  \item \textbf{Pillar IV --- AI Studio (Web Dashboard)}: a React/Vite + Fastify + Drizzle +
+        PostgreSQL + Supabase + BullMQ application that orchestrates the three pillars,
+        manages YouTube / TikTok / Meta OAuth (with PKCE for TikTok), schedules cross-platform
+        publishing, and surfaces post-publication analytics.
+\end{itemize}
+
+The platform should provide an attractive, ergonomic dashboard that makes the underlying
+machine learning approachable, and a clear set of actor-facing flows for the two main types
+of users introduced in Section~\ref{sec:actors}.
+
+% -------------------------------------------------------------------------
+\section{Requirement specification}
+\label{sec:requirements}
+
+A software requirements specification is the description of the system to be developed and
+its functional and non-functional requirements. It forms the basis for the agreement between
+stakeholders on the way the software product should function.
+
+\subsection{Identifying major actors in the system}
+\label{sec:actors}
+
+The system has two main actors:
+
+\begin{itemize}
+  \item \textbf{Content Creator.} The primary user. Uploads short-form videos, consumes the
+        AI Coach's score and SHAP advice, runs the captioning and enhancement pipelines,
+        connects social accounts and schedules publication. The creator owns their videos
+        through PostgreSQL Row Level Security policies.
+  \item \textbf{Administrator.} A privileged user that can supervise the multi-tenant
+        platform: manage users, monitor processing-queue health, review alerts (errors,
+        copyright strikes, OAuth token expiry), inspect aggregate analytics and re-run failed
+        jobs. Administrators have the \texttt{role = `admin'} flag in the \texttt{users}
+        table.
+\end{itemize}
+
+\subsection{Functional requirements}
+\label{sec:func_req}
+
+Our solution should satisfy the following functional requirements.
+
+\noindent\textbf{The Content Creator:}
+\begin{itemize}
+  \item Authenticate against the platform using a Supabase-issued JWT and view a personalised
+        dashboard.
+  \item Upload an MP4 or MOV video to Supabase Storage and follow the upload progress.
+  \item Trigger the Pre-Posting Predictive Agent on a video and obtain a virality score plus
+        SHAP-based feature explanations.
+  \item Trigger the Dynamic Auto-Captioning Engine on a video and download the captioned
+        version, the SRT file or the styled ASS file.
+  \item Trigger the AI Video Enhancement Pipeline with one of three modes
+        (\texttt{fast}, \texttt{hd}, \texttt{ultra}) and receive a side-by-side preview plus
+        the final enhanced video.
+  \item Connect a YouTube, TikTok or Meta account through OAuth.
+  \item Schedule a post for one or several connected accounts with a future publication time.
+  \item Browse post-publication analytics for owned posts (views, likes, comments, shares,
+        revenue).
+\end{itemize}
+
+\noindent\textbf{The Administrator:}
+\begin{itemize}
+  \item Authenticate with elevated permissions and view the global health dashboard.
+  \item Manage user accounts (create, suspend, change role).
+  \item Resolve alerts (errors, copyright issues, expired refresh tokens).
+  \item Inspect cross-tenant aggregate analytics and queue lengths.
+\end{itemize}
+
+\subsection{Non-functional requirements}
+\label{sec:nonfunc_req}
+
+Non-functional requirements define system attributes that are mostly hidden from the end
+user. The platform should obey the following rules:
+
+\begin{itemize}
+  \item \textbf{Performance.} GPU-side AI inference must complete in under 60 seconds per
+        minute of input video on an NVIDIA T4 / L4-class GPU for the captioning and HD
+        enhancement modes. The Fastify API must respond to dashboard CRUD calls in under
+        200~ms p95.
+  \item \textbf{Security.} Authentication uses a JWT bearer token issued by Supabase. OAuth
+        refresh tokens stored in the \texttt{accounts} table are encrypted at rest with
+        AES-256-GCM using a 32-byte key supplied via the \texttt{TOKEN\_ENCRYPTION\_KEY}
+        environment variable; the API server refuses to boot without it. PostgreSQL Row
+        Level Security policies ensure that a user can only read or modify their own data.
+  \item \textbf{Scalability.} The publishing pipeline runs as a BullMQ-on-Redis queue with a
+        dedicated worker process so that bursty social-network publishing does not back up
+        the API event loop. The same model is used for video processing and analytics
+        refresh.
+  \item \textbf{Portability.} The dashboard, the API and the workers run on Node.js~24 and
+        ship as standalone bundles; the Python AI services run inside Docker containers and
+        can be deployed on any GPU-enabled host (CUDA optional --- the enhancement pipeline
+        also has a parallel-CPU fallback).
+  \item \textbf{Maintainability.} The codebase is fully typed (TypeScript end-to-end, Zod
+        schemas shared between client and server, Python type hints) and follows a
+        monorepo / pnpm-workspace layout that keeps domain-specific dependencies isolated.
+  \item \textbf{Ergonomics.} The dashboard uses Tailwind CSS and shadcn/ui components for a
+        modern, dark-themed interface with smooth transitions, drag-and-drop video upload
+        and real-time toast notifications.
+  \item \textbf{Interoperability.} A vendored Next.js video editor (BVIRAL Video Editor) is
+        embedded as an iframe so that creators can perform manual timeline edits without
+        leaving the platform.
+\end{itemize}
+
+% -------------------------------------------------------------------------
+\section{Working methodology}
+\label{sec:methodology}
+
+When developing this solution we had to take into account all the necessary constraints of a
+modern AI product: model experimentation, dataset evolution, dashboard ergonomics, deployment
+and continuous integration. We chose an \textbf{Agile / Scrum} methodology with two-week
+sprints rather than the V-Model used in many pure-engineering projects, because machine
+learning work is intrinsically iterative: each modelling sprint generates new feature ideas,
+and the dashboard requirements evolve as soon as the predictive scores become trustworthy
+enough to surface to the user.
+
+Each sprint had four ceremonies: a sprint planning at the beginning, a daily 15-minute
+stand-up, a sprint review at the end, and a short retrospective. The planning produced a
+sprint backlog made of two kinds of items: \emph{engineering tickets} (e.g. ``add the
+\texttt{accounts} TikTok connect route") and \emph{ML experiments} (e.g. ``train an XGBoost
+regressor on top of the 473-dim PCA features and report R\textsuperscript{2} on the
+held-out test split"). Engineering tickets followed a definition of done that included
+unit-tested code, type-check pass and a Pull Request reviewed by the supervisor; ML
+experiments followed a definition of done that included a notebook with the metrics, a
+saved model artefact and a one-line summary in the experiments tracker.
+
+\begin{figure}[H]
+  \centering
+  \placeholder[12cm]{Diagram of the Scrum sprint cycle}
+  \caption{Agile / Scrum life cycle adopted for the project}
+  \label{fig:scrum}
+\end{figure}
+
+% -------------------------------------------------------------------------
+\section{Gantt diagram}
+\label{sec:gantt}
+
+This work was carried out over a period of four months. The distribution of tasks across the
+project timeline is illustrated by the Gantt chart below.
+
+\begin{figure}[H]
+\centering
+\begin{ganttchart}[
+    hgrid,
+    vgrid,
+    x unit=0.55cm,
+    y unit chart=0.55cm,
+    bar/.append style={fill=blue!40},
+    bar height=0.55,
+    title height=0.7,
+    title label font=\footnotesize\bfseries,
+    bar label font=\footnotesize,
+    group label font=\footnotesize\bfseries,
+    milestone label font=\footnotesize\itshape,
+  ]{1}{16}
+  \gantttitle{Month 1}{4}
+  \gantttitle{Month 2}{4}
+  \gantttitle{Month 3}{4}
+  \gantttitle{Month 4}{4}\\
+  \gantttitle{Week}{16}\\
+  \ganttbar{Specification \& state of the art}{1}{2}\\
+  \ganttbar{Dataset collection (TikTok scraping)}{2}{4}\\
+  \ganttbar{Pillar~I --- multimodal feature pipeline}{3}{6}\\
+  \ganttbar{Pillar~I --- XGBoost training \& SHAP}{5}{7}\\
+  \ganttbar{Pillar~II --- captioning engine}{6}{8}\\
+  \ganttbar{Pillar~III --- enhancement pipeline}{7}{10}\\
+  \ganttbar{Pillar~IV --- AI Studio dashboard}{9}{14}\\
+  \ganttbar{Fastify API \& Drizzle schema}{8}{13}\\
+  \ganttbar{OAuth integrations \& BullMQ workers}{11}{14}\\
+  \ganttbar{Integration testing}{13}{15}\\
+  \ganttbar{Final report writing}{14}{16}\\
+  \ganttmilestone{MVP demo}{16}
+\end{ganttchart}
+\caption{Gantt diagram of the project}
+\label{fig:gantt}
+\end{figure}
+
+% -------------------------------------------------------------------------
+\chapconclusion
+In this chapter we performed the study of the existing solutions in the short-form video
+optimisation market, identified the four-pillar gap that none of them addresses, suggested an
+integrated solution, listed the major actors and specified both the functional and the
+non-functional requirements. We then justified an Agile / Scrum methodology over the more
+classical V-Model and presented the Gantt diagram. The next chapter will dive into the
+detailed conception of the solution through UML diagrams and the specification of the AI
+pipelines and dataset.
+
+\cleardoublepage

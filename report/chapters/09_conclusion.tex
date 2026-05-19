@@ -1,0 +1,80 @@
+% =========================================================================
+% General Conclusion and Perspectives
+% =========================================================================
+\chapter*{General Conclusion and Perspectives}
+\addcontentsline{toc}{chapter}{General Conclusion and Perspectives}
+\markboth{Conclusion and Perspectives}{}
+
+During this end-of-studies project we were able to design and implement
+\textbf{BViral Control Center}, a four-pillar AI platform that helps short-form video
+creators on TikTok, Instagram Reels and YouTube Shorts answer the three questions that
+matter the most before they hit publish: \emph{will this clip perform, are the captions
+readable, is the visual quality up to par?}
+
+The Pre-Posting Predictive Agent fuses CLIP visual embeddings, Librosa audio descriptors,
+Whisper + MiniLM transcript embeddings, and Llama-3 generated semantic features into a
+473-dimensional PCA-projected representation, predicts a virality score with an XGBoost
+regressor that achieved R\textsuperscript{2} = 0.83 on the held-out test set, and explains
+the prediction with SHAP TreeExplainer values. The Dynamic Auto-Captioning Engine pairs
+\texttt{faster-whisper} with word-level timestamps and a safe-font-size algorithm that
+guarantees zero overflow on portrait-mode video, reducing word error rate to 6.7\,\% and
+removing the 27\,\% of clipped captions observed on competitor tools. The AI Video
+Enhancement Pipeline assesses video quality with OpenCV, runs classical filters,
+Real-ESRGAN super-resolution and GFPGAN face restoration, and produces a manifest of
+profiles (mobile, tablet, desktop, 4K) with associated PSNR, SSIM and LPIPS metrics for
+quality assurance. The AI Studio dashboard, built on React/Vite with a Fastify API,
+PostgreSQL with Drizzle ORM, Supabase Storage, BullMQ on Redis and a vendored Next.js
+video editor, orchestrates the three pillars end-to-end with multi-platform OAuth
+(YouTube, TikTok PKCE, Meta) and scheduled publishing.
+
+This report has detailed in its three chapters the various stages of building this
+solution: the state of the art with the analysis of existing tools (VidIQ, TubeBuddy,
+CapCut AI, Descript) and the requirement specification; the conceptual study with the UML
+diagrams, the dataset description and the system architecture; and finally the realisation
+with the four AI pillars, the technology choices, the development environment and the
+user-facing interfaces.
+
+\bigskip
+
+While coding this project, several technologies, libraries and design patterns were
+internalised: PyTorch and \texttt{float16} GPU inference, the BullMQ queue architecture for
+long-running AI jobs, PostgreSQL Row Level Security with Drizzle declarative policies, the
+TikTok PKCE OAuth flow, the ASS subtitle override syntax, and the Real-ESRGAN tiled
+inference strategy that keeps VRAM bounded.
+
+\bigskip
+
+\noindent\textbf{Future perspectives.}
+This work has achieved most of its initial objectives, but several promising directions
+remain open and should be explored in future iterations.
+
+\begin{itemize}
+  \item \textbf{Real-time streaming analysis.} Today the predictive agent runs on uploaded
+        files. A WebRTC ingest path that streams a few seconds of footage at a time would
+        allow the AI Coach to give a live score \emph{while the creator is recording},
+        opening the door to a viewfinder-style coaching overlay.
+  \item \textbf{Native mobile application.} A React Native client would let creators trigger
+        the entire pipeline directly from their phone, reusing the same Fastify API and the
+        same Zod schemas through the generated TanStack Query client.
+  \item \textbf{Federated learning.} The current Pillar~I model is trained on a centralised
+        TikTok scrape. A federated training scheme in which each creator's private engagement
+        data updates a personalised head on top of a frozen multimodal backbone would let
+        every creator benefit from a personalised virality model without exposing their data.
+  \item \textbf{Multi-platform social-network integration.} Today Snapchat is declared in
+        the platform enum but not implemented. Adding Snapchat (Snap Kit) and X (formerly
+        Twitter) publishers would extend the reach of the scheduler.
+  \item \textbf{Caption translation.} The captioning engine could be extended with a
+        post-Whisper translation step (NLLB-200 or M2M-100) so that a single recording can
+        be exported to multiple languages with localised on-screen text.
+  \item \textbf{Diffusion-based enhancement.} Real-ESRGAN does well for super-resolution
+        but a diffusion model such as Stable Video Diffusion XL or Stable Cascade Video
+        could deliver perceptually superior frames at the cost of more compute. A
+        diffusion-vs-Real-ESRGAN A/B test integrated into the dashboard would be the natural
+        next experiment.
+  \item \textbf{Continuous evaluation.} Once a critical mass of post-publication analytics
+        has been collected through the platform, the Pillar~I regressor can be retrained
+        regularly on real first-party data, and a calibration plot (predicted score vs
+        observed engagement) can be surfaced to the user as a trust signal.
+\end{itemize}
+
+\cleardoublepage

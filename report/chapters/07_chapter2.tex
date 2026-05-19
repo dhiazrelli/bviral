@@ -1,0 +1,621 @@
+% =========================================================================
+% Chapter 2 — Conceptual Study
+% =========================================================================
+\chapter{Conceptual Study}
+
+\chapintro
+Conception is the most critical phase when it comes to software development: an overall
+design of the application is specified and adapted before any production-grade code is
+written. For a project that combines a typed full-stack web application, three GPU AI
+pipelines and a relational database with strict authorisation, getting the conception right
+saves an order of magnitude of refactoring later. In this chapter we start by specifying the
+design methodology, then present the global and detailed use case diagrams, the class diagram,
+three sequence diagrams covering the core flows, the dataset and AI pipeline specification,
+and finally the system architecture.
+
+% -------------------------------------------------------------------------
+\section{Design methodology}
+\label{sec:design_methodology}
+
+To design our system we use \textbf{UML} (Unified Modeling Language) as an object-oriented
+modelling language. UML is a general-purpose, object-oriented modelling language that uses
+various types of diagrams to provide a standard graphical language to visualise the design of
+a system by specifying its structure, behaviour and interactions. UML helps to simplify
+complex software design by reducing many words of explanation to a few graphical, more
+understandable diagrams~\cite{uml_classdiag,uml_seqdiag}.
+
+The UML diagrams used in this report are: use case diagrams (functional view of what each
+actor can do), class diagram (static structure of the persistent domain), and sequence
+diagrams (dynamic interactions between actors and system components for the most important
+scenarios). Diagrams were drafted on draw.io and then redrawn in TikZ for inclusion in this
+report.
+
+% -------------------------------------------------------------------------
+\section{Use case diagrams}
+\label{sec:usecases}
+
+Use case diagrams provide a higher-level view of the system by showing a graphical
+representation of a user's various interactions. Users are represented as actors interacting
+with use cases represented by ellipses. Two stereotypes are used: \texttt{<<include>>} for a
+use case that is mandatorily executed as part of another (e.g. authentication is included in
+every other use case), and \texttt{<<extend>>} for an optional extension.
+
+\subsection{Use case diagram of the Content Creator}
+\label{sec:uc_creator}
+
+\subsubsection{Global use case diagram}
+\label{sec:uc_creator_global}
+
+The figure below presents the global use case diagram for the Content Creator. All use cases
+include the \texttt{Authenticate} use case, mirroring the JWT-bearer-token requirement of
+every protected route on the Fastify API.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  node distance = 0.5cm,
+  uc/.style={ellipse,draw,minimum width=3.6cm,minimum height=0.9cm,align=center,font=\footnotesize},
+  actor/.style={align=center,font=\footnotesize\bfseries},
+  inc/.style={dashed,->,>=Stealth,font=\tiny},
+  every edge/.style={draw}
+]
+  % Actor on the left (stick figure)
+  \node[actor] (creator) at (0,0) {%
+    \tikz{
+      \draw (0,0) circle (0.18);
+      \draw (0,-0.18) -- (0,-0.85);
+      \draw (-0.35,-0.45) -- (0.35,-0.45);
+      \draw (0,-0.85) -- (-0.25,-1.25);
+      \draw (0,-0.85) -- (0.25,-1.25);
+    }\\Content\\Creator};
+
+  % System boundary
+  \node[draw,rounded corners,fit={(2,2.6) (12,-3.2)},inner sep=0.5cm,label={[font=\footnotesize\itshape]above:BViral Control Center}] (sys) {};
+
+  % Use cases
+  \node[uc] (auth)      at (4.5, 2.0) {Authenticate};
+  \node[uc] (upload)    at (4.5, 1.0) {Upload Video};
+  \node[uc] (predict)   at (4.5, 0.0) {Get AI Score (Pillar I)};
+  \node[uc] (caption)   at (4.5,-1.0) {Generate Captions (Pillar II)};
+  \node[uc] (enhance)   at (4.5,-2.0) {Enhance Video (Pillar III)};
+
+  \node[uc] (connect)   at (10.0, 2.0) {Connect Social Account};
+  \node[uc] (schedule)  at (10.0, 1.0) {Schedule Post};
+  \node[uc] (analytics) at (10.0, 0.0) {View Analytics};
+  \node[uc] (download)  at (10.0,-1.0) {Download Result};
+  \node[uc] (manage)    at (10.0,-2.0) {Manage Library};
+
+  % Actor associations
+  \draw (creator.east) -- (upload.west);
+  \draw (creator.east) -- (predict.west);
+  \draw (creator.east) -- (caption.west);
+  \draw (creator.east) -- (enhance.west);
+  \draw (creator.east) -- (download.west);
+  \draw (creator.east) -- (analytics.west);
+  \draw (creator.east) -- (connect.west);
+  \draw (creator.east) -- (schedule.west);
+  \draw (creator.east) -- (manage.west);
+
+  % Include relationships
+  \draw[inc] (upload)    -- node[above,sloped]{<<include>>} (auth);
+  \draw[inc] (predict)   -- node[above,sloped]{<<include>>} (auth);
+  \draw[inc] (caption)   -- node[above,sloped]{<<include>>} (auth);
+  \draw[inc] (enhance)   -- node[above,sloped]{<<include>>} (auth);
+  \draw[inc] (connect)   -- node[above,sloped]{<<include>>} (auth);
+  \draw[inc] (schedule)  -- node[below,sloped]{<<include>>} (auth);
+  \draw[inc] (analytics) -- node[below,sloped]{<<include>>} (auth);
+\end{tikzpicture}
+\caption{Global use case diagram of the Content Creator}
+\label{fig:uc_creator}
+\end{figure}
+
+\paragraph{Detailed use case ``Upload Video and Analyse".}
+After authentication, the Content Creator selects a video file (MP4 or MOV) and submits it.
+The dashboard streams the file to the Fastify API via a multipart upload, the API persists
+the binary in Supabase Storage, inserts a row in the \texttt{videos} table with status
+\texttt{uploaded}, and enqueues a \texttt{process-video} job in the BullMQ queue. The video
+worker picks it up, runs the chosen pillar, updates the status to \texttt{processing} and then
+to \texttt{ready}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  uc/.style={ellipse,draw,minimum width=3.0cm,minimum height=0.8cm,align=center,font=\footnotesize},
+  actor/.style={align=center,font=\footnotesize\bfseries},
+  inc/.style={dashed,->,>=Stealth,font=\tiny}
+]
+  \node[actor] (a) at (0,0) {Content\\Creator};
+  \node[draw,rounded corners,minimum width=11cm,minimum height=4cm] (s) at (6.5,0) {};
+  \node[uc] (auth) at (3.5, 1.2) {Authenticate};
+  \node[uc] (sel)  at (3.5, 0.2) {Select File};
+  \node[uc] (val)  at (6.5, 0.2) {Validate (size, codec)};
+  \node[uc] (st)   at (9.5, 0.2) {Persist to Storage};
+  \node[uc] (db)   at (6.5,-1.0) {Insert in DB \& Enqueue};
+  \draw (a.east) -- (sel.west);
+  \draw (a.east) -- (auth.west);
+  \draw[inc] (sel) -- node[above]{<<include>>} (auth);
+  \draw[inc] (sel) -- node[above]{<<include>>} (val);
+  \draw[inc] (val) -- node[above]{<<include>>} (st);
+  \draw[inc] (st)  -- node[right]{<<include>>} (db);
+\end{tikzpicture}
+\caption{Detailed use case --- Upload Video and Analyse}
+\label{fig:uc_upload}
+\end{figure}
+
+\paragraph{Detailed use case ``Get AI Score (Pillar I)".}
+After a video is uploaded, the creator can request a virality score. The API forwards the
+request to the Pillar~I Python service, which loads the saved CLIP, Librosa, Whisper and
+Llama-3 features for the video, runs the XGBoost regressor and the SHAP TreeExplainer, and
+returns the score and the per-feature contributions.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  uc/.style={ellipse,draw,minimum width=3.0cm,minimum height=0.8cm,align=center,font=\footnotesize},
+  actor/.style={align=center,font=\footnotesize\bfseries},
+  inc/.style={dashed,->,>=Stealth,font=\tiny}
+]
+  \node[actor] (a) at (0,0) {Content\\Creator};
+  \node[draw,rounded corners,minimum width=11cm,minimum height=4cm] (s) at (6.5,0) {};
+  \node[uc] (auth) at (3.5, 1.2) {Authenticate};
+  \node[uc] (sel)  at (3.5, 0.2) {Select Video};
+  \node[uc] (vis)  at (6.5, 1.2) {Extract Visual + Audio};
+  \node[uc] (txt)  at (9.5, 1.2) {Whisper + Llama Features};
+  \node[uc] (xgb)  at (6.5, 0.2) {Run XGBoost};
+  \node[uc] (shap) at (9.5, 0.2) {Compute SHAP};
+  \node[uc] (rep)  at (6.5,-1.0) {Render Score \& Advice};
+  \draw (a.east) -- (sel.west);
+  \draw (a.east) -- (auth.west);
+  \draw[inc] (sel) -- (auth);
+  \draw[inc] (sel) -- (vis);
+  \draw[inc] (sel) -- (txt);
+  \draw[inc] (vis) -- (xgb);
+  \draw[inc] (txt) -- (xgb);
+  \draw[inc] (xgb) -- (shap);
+  \draw[inc] (xgb) -- (rep);
+\end{tikzpicture}
+\caption{Detailed use case --- Get AI Score (Pillar I)}
+\label{fig:uc_score}
+\end{figure}
+
+\paragraph{Detailed use case ``Generate Captions (Pillar II)".}
+After authentication and selection of an uploaded video, the creator picks a caption style
+(\texttt{stroke}, \texttt{yellow} or \texttt{pill}) and a number of words per flash. The
+captioning worker extracts 16~kHz mono PCM audio with FFmpeg, transcribes with
+\texttt{faster-whisper} (\texttt{small} model, \texttt{float16} on GPU), generates an SRT,
+chunks the words two per flash, converts to ASS with the safe-font-size algorithm and burns
+the subtitles in.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  uc/.style={ellipse,draw,minimum width=3.0cm,minimum height=0.8cm,align=center,font=\footnotesize},
+  actor/.style={align=center,font=\footnotesize\bfseries},
+  inc/.style={dashed,->,>=Stealth,font=\tiny}
+]
+  \node[actor] (a) at (0,0) {Content\\Creator};
+  \node[draw,rounded corners,minimum width=11cm,minimum height=3.6cm] (s) at (6.5,0) {};
+  \node[uc] (auth) at (3.5, 1.0) {Authenticate};
+  \node[uc] (sel)  at (3.5, 0.0) {Select Style};
+  \node[uc] (ext)  at (6.5, 1.0) {Extract Audio (FFmpeg)};
+  \node[uc] (whisp)at (6.5, 0.0) {Transcribe (Whisper)};
+  \node[uc] (ass)  at (9.5, 1.0) {SRT $\to$ ASS};
+  \node[uc] (burn) at (9.5, 0.0) {Burn-in (FFmpeg)};
+  \draw (a.east) -- (sel.west);
+  \draw (a.east) -- (auth.west);
+  \draw[inc] (sel) -- (auth);
+  \draw[inc] (sel) -- (ext);
+  \draw[inc] (ext) -- (whisp);
+  \draw[inc] (whisp) -- (ass);
+  \draw[inc] (ass) -- (burn);
+\end{tikzpicture}
+\caption{Detailed use case --- Generate Captions (Pillar II)}
+\label{fig:uc_captions}
+\end{figure}
+
+\paragraph{Detailed use case ``Enhance Video (Pillar III)".}
+The creator chooses an enhancement mode (\texttt{fast}, \texttt{hd} or \texttt{ultra}) and an
+output codec/resolution. The pipeline performs quality assessment, classical filtering,
+super-resolution and (optional) face restoration, then re-encodes with FFmpeg.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  uc/.style={ellipse,draw,minimum width=2.8cm,minimum height=0.8cm,align=center,font=\footnotesize},
+  actor/.style={align=center,font=\footnotesize\bfseries},
+  inc/.style={dashed,->,>=Stealth,font=\tiny}
+]
+  \node[actor] (a) at (0,0) {Content\\Creator};
+  \node[draw,rounded corners,minimum width=11cm,minimum height=4cm] (s) at (6.5,0) {};
+  \node[uc] (auth) at (3.3, 1.2) {Authenticate};
+  \node[uc] (sel)  at (3.3, 0.2) {Choose Mode};
+  \node[uc] (qa)   at (6.5, 1.2) {Quality Assessment};
+  \node[uc] (filt) at (6.5, 0.2) {Classical Filters};
+  \node[uc] (sr)   at (9.7, 1.2) {Real-ESRGAN SR};
+  \node[uc] (face) at (9.7, 0.2) {GFPGAN Face Restore};
+  \node[uc] (enc)  at (6.5,-1.0) {Encode (H.264/H.265/AV1)};
+  \draw (a.east) -- (sel.west);
+  \draw (a.east) -- (auth.west);
+  \draw[inc] (sel) -- (auth);
+  \draw[inc] (sel) -- (qa);
+  \draw[inc] (qa)  -- (filt);
+  \draw[inc] (filt)-- (sr);
+  \draw[inc] (sr)  -- (face);
+  \draw[inc] (sr)  -- (enc);
+\end{tikzpicture}
+\caption{Detailed use case --- Enhance Video (Pillar III)}
+\label{fig:uc_enhance}
+\end{figure}
+
+\subsection{Use case diagram of the Administrator}
+\label{sec:uc_admin}
+
+After authentication, the Administrator can manage users, resolve alerts, monitor BullMQ
+queues and re-run failed jobs. The figure below presents the global Administrator use case
+diagram.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  uc/.style={ellipse,draw,minimum width=3.6cm,minimum height=0.9cm,align=center,font=\footnotesize},
+  actor/.style={align=center,font=\footnotesize\bfseries},
+  inc/.style={dashed,->,>=Stealth,font=\tiny}
+]
+  \node[actor] (admin) at (0,0) {Administrator};
+  \node[draw,rounded corners,fit={(2,1.6)(12,-2.0)},inner sep=0.5cm] (sys) {};
+  \node[uc] (auth)   at (4.5, 1.0) {Authenticate};
+  \node[uc] (users)  at (4.5,-0.0) {Manage Users};
+  \node[uc] (alerts) at (4.5,-1.0) {Resolve Alerts};
+  \node[uc] (queue)  at (10, 1.0) {Monitor Queues};
+  \node[uc] (rerun)  at (10, 0.0) {Re-run Failed Jobs};
+  \node[uc] (agg)    at (10,-1.0) {Aggregate Analytics};
+  \draw (admin.east) -- (auth.west);
+  \draw (admin.east) -- (users.west);
+  \draw (admin.east) -- (alerts.west);
+  \draw (admin.east) -- (queue.west);
+  \draw (admin.east) -- (rerun.west);
+  \draw (admin.east) -- (agg.west);
+  \draw[inc] (users)  -- node[above,sloped]{<<include>>} (auth);
+  \draw[inc] (alerts) -- node[below,sloped]{<<include>>} (auth);
+  \draw[inc] (queue)  -- node[above,sloped]{<<include>>} (auth);
+\end{tikzpicture}
+\caption{Global use case diagram of the Administrator}
+\label{fig:uc_admin}
+\end{figure}
+
+% -------------------------------------------------------------------------
+\section{Class diagram}
+\label{sec:class_diag}
+
+The persistent domain is implemented with the Drizzle ORM on PostgreSQL. The class diagram
+in Figure~\ref{fig:class} reflects the actual schema declared under
+\texttt{lib/db/src/schema/}: \texttt{users}, \texttt{accounts}, \texttt{videos},
+\texttt{posts}, \texttt{analytics}, \texttt{alerts}. All five user-facing tables enable
+PostgreSQL Row Level Security and declare per-action policies that restrict every operation
+to the authenticated user.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  every edge/.style={draw,>=Stealth},
+  font=\scriptsize,
+  cls/.style={
+    rectangle, draw, align=left,
+    inner sep=0pt, minimum width=4.6cm,
+    text width=4.6cm,
+  },
+  hd/.style={fill=blue!10, anchor=north, align=center,
+             text width=4.6cm, inner sep=3pt, font=\scriptsize\bfseries},
+  bd/.style={anchor=north, align=left,
+             text width=4.6cm, inner sep=3pt, font=\scriptsize},
+]
+  % helper: a class is a vertical stack of header + body cells
+  % USER
+  \node[hd] (users-h)  at (0,3.2) {User};
+  \node[bd,draw] (users-b) at (users-h.south) {+ id : UUID\\+ email : varchar(255)\\+ fullName : varchar(120)\\+ role : enum(admin, member)\\+ createdAt, updatedAt : timestamp};
+  \node[draw, fit=(users-h)(users-b), inner sep=0pt] (users) {};
+  % ACCOUNT
+  \node[hd] (accounts-h)  at (6.5,3.2) {Account};
+  \node[bd,draw] (accounts-b) at (accounts-h.south) {+ id : UUID\\+ platform : enum\\+ accountName : varchar\\+ accessToken : text (AES-256)\\+ refreshToken : text (AES-256)\\+ tokenExpiry : timestamp\\+ userId : UUID};
+  \node[draw, fit=(accounts-h)(accounts-b), inner sep=0pt] (accounts) {};
+  % VIDEO
+  \node[hd] (videos-h) at (0,-0.5) {Video};
+  \node[bd,draw] (videos-b) at (videos-h.south) {+ id : UUID\\+ userId : UUID\\+ originalUrl : text\\+ processedUrl : text\\+ duration : int\\+ status : enum(uploaded\dots failed)};
+  \node[draw, fit=(videos-h)(videos-b), inner sep=0pt] (videos) {};
+  % POST
+  \node[hd] (posts-h) at (6.5,-0.5) {Post};
+  \node[bd,draw] (posts-b) at (posts-h.south) {+ id : UUID\\+ videoId, accountId : UUID\\+ platform : enum\\+ scheduledAt, postedAt : ts\\+ status : enum(scheduled\dots failed)\\+ externalPostId : varchar};
+  \node[draw, fit=(posts-h)(posts-b), inner sep=0pt] (posts) {};
+  % ANALYTICS
+  \node[hd] (analytics-h) at (12.8,1.2) {Analytics};
+  \node[bd,draw] (analytics-b) at (analytics-h.south) {+ id : UUID\\+ postId : UUID\\+ views, likes, comments, shares : int\\+ revenue : numeric(12,2)\\+ fetchedAt : timestamp};
+  \node[draw, fit=(analytics-h)(analytics-b), inner sep=0pt] (analytics) {};
+  % ALERT
+  \node[hd] (alerts-h) at (12.8,-2.2) {Alert};
+  \node[bd,draw] (alerts-b) at (alerts-h.south) {+ id : UUID\\+ type : enum(error, copyright, success)\\+ status : enum(unresolved, resolved)\\+ message : text\\+ accountId, postId : UUID};
+  \node[draw, fit=(alerts-h)(alerts-b), inner sep=0pt] (alerts) {};
+  % associations
+  \draw (users.east|-users-h) -- node[above,font=\tiny]{1 \dots\ *} (accounts.west|-accounts-h);
+  \draw (users.south) -- node[right,font=\tiny]{1 / *} (videos.north);
+  \draw (videos.east|-videos-h) -- node[above,font=\tiny]{1 \dots\ *} (posts.west|-posts-h);
+  \draw (accounts.south) -- node[right,font=\tiny]{1 / *} (posts.north);
+  \draw (posts.east) -- node[above,sloped,font=\tiny]{1 / *} (analytics.west);
+  \draw (posts.east) -- node[below,sloped,font=\tiny]{1 / *} (alerts.west);
+\end{tikzpicture}
+\caption{Class diagram (PostgreSQL/Drizzle persistent domain)}
+\label{fig:class}
+\end{figure}
+
+% -------------------------------------------------------------------------
+\section{Sequence diagrams}
+\label{sec:seq}
+
+We document three core scenarios that exercise every major component of the system: an
+upload-and-analyse flow that runs Pillar~I, a generate-captions flow that runs Pillar~II
+asynchronously through BullMQ, and an enhance-video flow that runs Pillar~III.
+
+\subsection{Sequence diagram of ``Upload and Analyse Video"}
+\label{sec:seq_upload}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\footnotesize,
+  node distance = 0.6cm,
+  msg/.style={->,>=Stealth},
+  ret/.style={->,>=Stealth,dashed},
+]
+  % lifelines
+  \foreach \i/\name/\x in {1/Creator/0,2/Dashboard/2.6,3/{Fastify API}/5.4,4/{BullMQ}/8.2,5/{Pillar I Worker}/10.8,6/PostgreSQL/13.4} {
+    \node[draw,rectangle,minimum height=0.6cm,minimum width=2.2cm] (h\i) at (\x,0) {\name};
+    \draw (\x,-0.3) -- (\x,-9.5);
+  }
+
+  \draw[msg] (0,-1)   -- node[above]{select file} (2.6,-1);
+  \draw[msg] (2.6,-1.5) -- node[above]{POST /v1/videos (multipart)} (5.4,-1.5);
+  \draw[msg] (5.4,-2.0) -- node[above]{insert videos (status=uploaded)} (13.4,-2.0);
+  \draw[msg] (5.4,-2.5) -- node[above]{enqueue analyse-video} (8.2,-2.5);
+  \draw[ret] (5.4,-3.0) -- node[above]{201 Created \{id\}} (2.6,-3.0);
+
+  \draw[msg] (8.2,-3.5) -- node[above]{process(jobId)} (10.8,-3.5);
+  \draw[msg] (10.8,-4.0) -- node[above]{update status=processing} (13.4,-4.0);
+  \draw[msg] (10.8,-4.5) -- node[above]{download original} (13.4,-4.5);
+  \draw[msg] (10.8,-5.0) -- node[above]{CLIP+Librosa+Whisper+Llama features} (13.4,-5.0);
+  \draw[msg] (10.8,-5.5) -- node[above]{XGBoost predict + SHAP} (13.4,-5.5);
+  \draw[msg] (10.8,-6.0) -- node[above]{insert ai\_scores row} (13.4,-6.0);
+  \draw[msg] (10.8,-6.5) -- node[above]{update status=ready} (13.4,-6.5);
+  \draw[ret] (10.8,-7.0) -- node[above]{job done} (8.2,-7.0);
+
+  \draw[msg] (2.6,-7.7) -- node[above]{poll GET /v1/videos/\{id\}} (5.4,-7.7);
+  \draw[msg] (5.4,-8.2) -- node[above]{select * from videos} (13.4,-8.2);
+  \draw[ret] (5.4,-8.7) -- node[above]{score, SHAP advice} (2.6,-8.7);
+  \draw[ret] (2.6,-9.2) -- node[above]{render virality dashboard} (0,-9.2);
+\end{tikzpicture}
+\caption{Sequence diagram --- Upload and Analyse Video (Pillar I)}
+\label{fig:seq_upload}
+\end{figure}
+
+\subsection{Sequence diagram of ``Generate Captions"}
+\label{sec:seq_captions}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\footnotesize,
+  node distance=0.6cm,
+  msg/.style={->,>=Stealth},
+  ret/.style={->,>=Stealth,dashed},
+]
+  \foreach \i/\name/\x in {1/Creator/0,2/Dashboard/2.5,3/{Fastify API}/5.0,4/{BullMQ}/7.5,5/{Captioning Worker}/10.5,6/Storage/13.5} {
+    \node[draw,rectangle,minimum height=0.6cm,minimum width=2.0cm] (h\i) at (\x,0) {\name};
+    \draw (\x,-0.3) -- (\x,-9);
+  }
+
+  \draw[msg] (0,-1) -- node[above]{Generate Captions} (2.5,-1);
+  \draw[msg] (2.5,-1.5) -- node[above]{POST /v1/videos/\{id\}/captions \{style, words\}} (5.0,-1.5);
+  \draw[msg] (5.0,-2.0) -- node[above]{enqueue caption-job} (7.5,-2.0);
+  \draw[ret] (5.0,-2.5) -- node[above]{202 Accepted} (2.5,-2.5);
+
+  \draw[msg] (7.5,-3.0) -- node[above]{process(jobId)} (10.5,-3.0);
+  \draw[msg] (10.5,-3.5) -- node[above]{download original} (13.5,-3.5);
+  \draw[msg] (10.5,-4.0) -- node[above,align=center]{ffmpeg extract\_audio (16k mono PCM)} (13.5,-4.0);
+  \draw[msg] (10.5,-4.5) -- node[above,align=center]{faster-whisper transcribe (word\_timestamps=True)} (13.5,-4.5);
+  \draw[msg] (10.5,-5.0) -- node[above]{generate\_srt + make\_word\_level\_srt} (13.5,-5.0);
+  \draw[msg] (10.5,-5.5) -- node[above]{srt\_to\_ass\_dynamic + safe\_font\_size} (13.5,-5.5);
+  \draw[msg] (10.5,-6.0) -- node[above]{burn\_ass\_subtitles (libx264 CRF18)} (13.5,-6.0);
+  \draw[msg] (10.5,-6.5) -- node[above]{upload processed.mp4 + .srt} (13.5,-6.5);
+  \draw[ret] (10.5,-7.0) -- node[above]{job done} (7.5,-7.0);
+
+  \draw[ret] (5.0,-7.7) -- node[above]{download URL} (2.5,-7.7);
+  \draw[ret] (2.5,-8.3) -- node[above]{captioned MP4 + SRT} (0,-8.3);
+\end{tikzpicture}
+\caption{Sequence diagram --- Generate Captions (Pillar II)}
+\label{fig:seq_captions}
+\end{figure}
+
+\subsection{Sequence diagram of ``Enhance Video Quality"}
+\label{sec:seq_enhance}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\footnotesize,
+  node distance=0.6cm,
+  msg/.style={->,>=Stealth},
+  ret/.style={->,>=Stealth,dashed},
+]
+  \foreach \i/\name/\x in {1/Creator/0,2/Dashboard/2.5,3/{Fastify API}/5.0,4/{Enhancement Worker}/8.5,5/{Real-ESRGAN+GFPGAN}/12,6/PostgreSQL/14.8} {
+    \node[draw,rectangle,minimum height=0.6cm,minimum width=2.0cm] (h\i) at (\x,0) {\name};
+    \draw (\x,-0.3) -- (\x,-9);
+  }
+
+  \draw[msg] (0,-1) -- node[above]{Enhance (mode=hd)} (2.5,-1);
+  \draw[msg] (2.5,-1.5) -- node[above]{POST /v1/videos/\{id\}/enhance \{mode, codec\}} (5.0,-1.5);
+  \draw[msg] (5.0,-2.0) -- node[above]{enqueue enhance-job} (8.5,-2.0);
+  \draw[ret] (5.0,-2.5) -- node[above]{202 Accepted} (2.5,-2.5);
+
+  \draw[msg] (8.5,-3.0) -- node[above]{preprocess (ffprobe + frame extract)} (12,-3.0);
+  \draw[msg] (8.5,-3.5) -- node[above]{analyse\_quality (blur/noise/face)} (12,-3.5);
+  \draw[msg] (8.5,-4.0) -- node[above]{run\_filter\_stage (auto)} (12,-4.0);
+  \draw[msg] (8.5,-4.5) -- node[above]{Real-ESRGAN x2 / x4} (12,-4.5);
+  \draw[msg] (8.5,-5.0) -- node[above]{GFPGAN face restoration} (12,-5.0);
+  \draw[msg] (8.5,-5.5) -- node[above]{post\_process (H.264 CRF18 +faststart)} (12,-5.5);
+  \draw[msg] (8.5,-6.0) -- node[above]{compute PSNR/SSIM/LPIPS} (12,-6.0);
+  \draw[msg] (8.5,-6.5) -- node[above]{update videos.status=ready, processedUrl} (14.8,-6.5);
+  \draw[ret] (5.0,-7.5) -- node[above]{download URL + metrics} (2.5,-7.5);
+  \draw[ret] (2.5,-8.0) -- node[above]{enhanced MP4 + report} (0,-8.0);
+\end{tikzpicture}
+\caption{Sequence diagram --- Enhance Video Quality (Pillar III)}
+\label{fig:seq_enhance}
+\end{figure}
+
+% -------------------------------------------------------------------------
+\section{Dataset description and AI pipeline specification}
+\label{sec:dataset}
+
+The Pre-Posting Predictive Agent is the only pillar that requires a labelled training set.
+This section documents how the dataset was collected, what features were engineered, and how
+the four pillars interact at runtime.
+
+\subsection{Data collection methodology}
+\label{sec:dc}
+
+The training dataset was scraped from \textbf{TikTok}, the platform that exposes the richest
+public per-video metadata. We used the unofficial TikTok Web JSON endpoints (the same calls
+the public web client makes) and a rotating proxy pool. For each scraped video we collected:
+
+\begin{itemize}
+  \item Identifiers: \texttt{video\_id}, \texttt{author\_id}, \texttt{create\_time}.
+  \item Engagement counters at 7 days post-publication:
+        \texttt{play\_count}, \texttt{digg\_count} (likes), \texttt{share\_count},
+        \texttt{comment\_count}, \texttt{collect\_count}.
+  \item Content metadata: \texttt{description}, \texttt{hashtags}, \texttt{music\_id},
+        \texttt{music\_duration}, \texttt{video\_duration}.
+  \item The actual video file (downloaded as an unwatermarked MP4 via the
+        \texttt{playAddr} URL).
+\end{itemize}
+
+After cleaning (removing private accounts, duplicate IDs, videos longer than 60~seconds, and
+videos with fewer than 200 plays --- their counters being too noisy to be useful as a label)
+we retained \textbf{$\approx 18{,}500$} samples spanning four content verticals (tech,
+fitness, fashion, comedy). The label is the engagement-rate-adjusted virality score:
+
+\begin{equation}
+  y = \log_{10}\!\left(1 + \frac{\text{plays} + 5\cdot(\text{likes} + \text{shares} + \text{comments})}{\text{follower\_count}+1}\right)
+  \label{eq:label}
+\end{equation}
+
+The dataset was split chronologically into 70\,\% / 15\,\% / 15\,\% train / validation / test
+to avoid look-ahead leakage --- a video uploaded in week $w$ may not appear in any split that
+includes data from before week $w$.
+
+\subsection{Feature engineering}
+\label{sec:fe}
+
+For each retained video the following multimodal feature blocks are extracted:
+
+\begin{itemize}
+  \item \textbf{Visual} ($D_v = 512$): one CLIP \texttt{clip-vit-base-patch32} embedding is
+        computed per uniformly sampled keyframe (8 frames per clip), then averaged.
+  \item \textbf{Audio} ($D_a = 7$): RMS energy, BPM, silence ratio, spectral centroid,
+        spectral roll-off, zero-crossing rate and a pitch-confidence aggregate computed with
+        \textsc{Librosa}.
+  \item \textbf{Transcript} ($D_t = 384$): Whisper \texttt{small} transcribes the audio,
+        then \texttt{all-MiniLM-L6-v2} produces a 384-dimensional sentence embedding.
+  \item \textbf{Semantic LLM} ($D_l = 24$): Llama~3 8B (via Groq) is prompted with the
+        transcript and produces 24 numeric features (tone polarity, emotion intensity, hook
+        quality 0--1, call-to-action presence, narrative completeness, etc.).
+\end{itemize}
+
+The four blocks are concatenated to a 927-dimensional vector $\mathbf{x}$ which is then
+reduced to a 473-dimensional vector $\mathbf{z}$ by \textbf{PCA}, retaining 99~\% of the
+variance:
+
+\begin{equation}
+  \mathbf{z} = W^{\!\top}(\mathbf{x} - \boldsymbol{\mu}),
+  \qquad W \in \mathbb{R}^{927\times 473},
+  \quad \boldsymbol{\mu} \in \mathbb{R}^{927}
+  \label{eq:pca}
+\end{equation}
+
+The XGBoost regressor $\hat{f}(\mathbf{z})$ is trained on $(\mathbf{z}_i, y_i)$ pairs to
+minimise the squared-error objective with L2 regularisation, and SHAP TreeExplainer produces
+per-feature contributions that are mapped back to human-readable feature names through the
+PCA loadings.
+
+\subsection{System architecture diagram}
+\label{sec:archdiag}
+
+The runtime architecture is summarised in Figure~\ref{fig:arch}. The dashboard talks to the
+Fastify API; the API persists in PostgreSQL via Drizzle, stores binary assets in Supabase
+Storage, and pushes work onto BullMQ Redis queues. Three Python workers consume those queues
+and call the model libraries (CLIP, Whisper, Real-ESRGAN, GFPGAN) directly. A separate
+publishing worker calls the YouTube / TikTok / Meta REST APIs.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  node distance=0.6cm,
+  box/.style={draw,rounded corners,minimum width=2.6cm,minimum height=0.8cm,align=center,font=\footnotesize},
+  tier/.style={draw,dashed,rounded corners,inner sep=0.45cm,font=\footnotesize\itshape},
+  arr/.style={->,>=Stealth,thick},
+]
+  % presentation
+  \node[box,fill=blue!8]   (browser) at (0,4)    {Web browser};
+  \node[box,fill=blue!8]   (dash)    at (3.5,4)  {React/Vite\\Dashboard};
+  \node[box,fill=blue!8]   (editor)  at (7.0,4)  {BVIRAL Video\\Editor (Next.js)};
+
+  % business logic
+  \node[box,fill=green!8]  (api)     at (0,2)    {Fastify API\\(TypeScript)};
+  \node[box,fill=green!8]  (publish) at (3.5,2)  {Publishing\\Worker};
+  \node[box,fill=green!8]  (queues)  at (7.0,2)  {BullMQ\\(Redis)};
+
+  % AI services
+  \node[box,fill=red!8]    (p1)      at (0, 0)   {Pillar I\\Predictive Agent};
+  \node[box,fill=red!8]    (p2)      at (3.5,0)  {Pillar II\\Captioning};
+  \node[box,fill=red!8]    (p3)      at (7.0,0)  {Pillar III\\Enhancement};
+
+  % data
+  \node[box,fill=yellow!15](pg)      at (0,-2)   {PostgreSQL\\(Supabase)};
+  \node[box,fill=yellow!15](sb)      at (3.5,-2) {Supabase\\Storage};
+  \node[box,fill=yellow!15](redis)   at (7.0,-2) {Redis};
+
+  % external
+  \node[box,fill=gray!10]  (yt)      at (10.5,3.5)  {YouTube API};
+  \node[box,fill=gray!10]  (tt)      at (10.5,2.0)  {TikTok API};
+  \node[box,fill=gray!10]  (meta)    at (10.5,0.5)  {Meta API};
+  \node[box,fill=gray!10]  (groq)    at (10.5,-1.0) {Groq (Llama 3)};
+
+  \draw[arr] (browser) -- (dash);
+  \draw[arr] (dash) -- (editor);
+  \draw[arr] (dash) -- (api);
+  \draw[arr] (api)  -- (queues);
+  \draw[arr] (queues) -- (p1);
+  \draw[arr] (queues) -- (p2);
+  \draw[arr] (queues) -- (p3);
+  \draw[arr] (queues) -- (publish);
+  \draw[arr] (api)  -- (pg);
+  \draw[arr] (api)  -- (sb);
+  \draw[arr] (queues) -- (redis);
+  \draw[arr] (publish) -- (yt);
+  \draw[arr] (publish) -- (tt);
+  \draw[arr] (publish) -- (meta);
+  \draw[arr] (p1) -- (groq);
+
+  \node[tier, fit=(browser)(dash)(editor), label={[anchor=west]left:Presentation Tier}] {};
+  \node[tier, fit=(api)(publish)(queues),  label={[anchor=west]left:Business Tier}]     {};
+  \node[tier, fit=(p1)(p2)(p3),            label={[anchor=west]left:AI Services Tier}]  {};
+  \node[tier, fit=(pg)(sb)(redis),         label={[anchor=west]left:Data Tier}]         {};
+\end{tikzpicture}
+\caption{System architecture --- 4-tier microservice layout}
+\label{fig:arch}
+\end{figure}
+
+% -------------------------------------------------------------------------
+\chapconclusion
+In this chapter we presented the design methodology, derived the use case diagrams of the two
+actors with detailed sub-diagrams for the four most important features, drew the class
+diagram of the Drizzle/PostgreSQL persistent domain, walked through three sequence diagrams
+covering the upload-and-analyse, captioning and enhancement flows, documented the dataset
+collection and feature engineering of Pillar~I, and concluded with the four-tier system
+architecture diagram. The next chapter dives into the realisation: the technology stack,
+each of the four AI pillars with concrete code, evaluation metrics and screenshots.
+
+\cleardoublepage

@@ -37,6 +37,24 @@ export class VideoUploadValidationError extends Error {
   }
 }
 
+export class DuplicateVideoFilenameError extends Error {
+  readonly name = "DuplicateVideoFilenameError";
+  readonly existing: VideoResponseDto;
+
+  constructor(existing: VideoResponseDto) {
+    super(`A video named "${existing.originalFilename}" already exists for this user.`);
+    this.existing = existing;
+  }
+}
+
+function sanitizeOriginalFilename(filename: string | undefined): string | null {
+  if (!filename) return null;
+  // Strip any path component; keep only the base name. Trim whitespace.
+  const base = filename.split(/[\\/]/u).pop()?.trim() ?? "";
+  if (!base) return null;
+  return base.slice(0, 255);
+}
+
 export interface UploadVideoInput {
   file: MultipartFile | undefined;
   userId: string;
@@ -135,6 +153,15 @@ export function buildVideosService(
 
       assertVideoFile(file);
 
+      const originalFilename = sanitizeOriginalFilename(file.filename);
+
+      if (originalFilename) {
+        const existing = await videosRepository.findByOriginalFilenameForUser(userId, originalFilename);
+        if (existing) {
+          throw new DuplicateVideoFilenameError(existing);
+        }
+      }
+
       const buffer = await file.toBuffer();
       const extension = sanitizeExtension(file.filename);
       const storagePath = `${userId}/original/${randomUUID()}${extension}`;
@@ -159,6 +186,7 @@ export function buildVideosService(
       const video = await videosRepository.createUploaded({
         userId,
         originalUrl: publicUrl,
+        originalFilename,
       });
 
       if (options.skipProcessingQueue) {

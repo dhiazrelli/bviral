@@ -27,7 +27,9 @@ import { useQuery } from "@tanstack/react-query";
 import {
   type AccountPlatform,
   type AnalyticsOverview,
+  type Post,
   useGetAnalyticsOverview,
+  useListPosts,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
@@ -94,6 +96,12 @@ const platformBadge: Record<AccountPlatform, string> = {
 
 const HEATMAP_HOURS = ["12a", "3a", "6a", "9a", "12p", "3p", "6p", "9p"];
 const HEATMAP_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const BEST_TIMES_DAYS = ["M", "Tu", "W", "Th", "F", "Sa", "Su"];
+const DATE_RANGE_DAYS: Record<string, number> = {
+  "Last 7 Days": 7,
+  "Last 30 Days": 30,
+  "This Year": 365,
+};
 
 const emptyAnalyticsTotals = {
   views: 0,
@@ -139,8 +147,8 @@ function normalizeAnalytics(analytics: Partial<AnalyticsOverview> | undefined): 
   };
 }
 
-function buildLineData(analytics: AnalyticsOverview) {
-  return analytics.timeline.slice(-30).map((point) => ({
+function buildLineData(analytics: AnalyticsOverview, dayCount: number) {
+  return analytics.timeline.slice(-dayCount).map((point) => ({
     day: new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(point.date)),
     views: point.views,
     likes: point.likes,
@@ -155,6 +163,99 @@ function buildBarData(analytics: AnalyticsOverview) {
     views: platform.views,
     likes: platform.likes,
   }));
+}
+
+function jsDayToMondayIndex(jsDay: number) {
+  return (jsDay + 6) % 7;
+}
+
+function buildPostingHeatmap(posts: Post[]) {
+  // grid[dayIndex Mon=0..Sun=6][bandIndex 0..7] = count
+  const grid: number[][] = Array.from({ length: 7 }, () => Array(8).fill(0));
+  let total = 0;
+  for (const post of posts) {
+    const reference = post.postedAt ?? post.scheduledAt;
+    if (!reference) continue;
+    const d = new Date(reference);
+    if (Number.isNaN(d.getTime())) continue;
+    const dayIdx = jsDayToMondayIndex(d.getDay());
+    const bandIdx = Math.floor(d.getHours() / 3);
+    grid[dayIdx][bandIdx] += 1;
+    total += 1;
+  }
+  let max = 0;
+  for (const row of grid) {
+    for (const value of row) {
+      if (value > max) max = value;
+    }
+  }
+  return { grid, max, total };
+}
+
+function buildBestTimesGrid(posts: Post[], viewsByPostId: Map<string, number>) {
+  const score: number[][] = Array.from({ length: 7 }, () => Array(8).fill(0));
+  const samples: number[][] = Array.from({ length: 7 }, () => Array(8).fill(0));
+  for (const post of posts) {
+    const reference = post.postedAt;
+    if (!reference) continue;
+    const d = new Date(reference);
+    if (Number.isNaN(d.getTime())) continue;
+    const dayIdx = jsDayToMondayIndex(d.getDay());
+    const bandIdx = Math.floor(d.getHours() / 3);
+    score[dayIdx][bandIdx] += viewsByPostId.get(post.id) ?? 0;
+    samples[dayIdx][bandIdx] += 1;
+  }
+  // Per-cell average views; cells with 0 samples remain 0.
+  const avg: number[][] = Array.from({ length: 7 }, () => Array(8).fill(0));
+  let max = 0;
+  let topCell: { day: number; band: number } | null = null;
+  for (let day = 0; day < 7; day += 1) {
+    for (let band = 0; band < 8; band += 1) {
+      if (samples[day][band] === 0) continue;
+      avg[day][band] = score[day][band] / samples[day][band];
+      if (avg[day][band] > max) {
+        max = avg[day][band];
+        topCell = { day, band };
+      }
+    }
+  }
+  let totalSamples = 0;
+  for (const row of samples) {
+    for (const value of row) {
+      totalSamples += value;
+    }
+  }
+  return { avg, max, topCell, totalSamples };
+}
+
+function filterAnalyticsByPlatform(
+  analytics: AnalyticsOverview,
+  platformFilter: AccountPlatform | "all",
+): AnalyticsOverview {
+  if (platformFilter === "all") return analytics;
+  const platforms = analytics.byPlatform.filter((p) => p.platform === platformFilter);
+  const topPosts = analytics.topPosts.filter((p) => p.platform === platformFilter);
+  const totals = platforms.reduce(
+    (acc, p) => ({
+      views: acc.views + p.views,
+      likes: acc.likes + p.likes,
+      comments: acc.comments + p.comments,
+      shares: acc.shares + p.shares,
+      revenue: acc.revenue + p.revenue,
+      posts: acc.posts + p.posts,
+      engagementRate: 0,
+    }),
+    { views: 0, likes: 0, comments: 0, shares: 0, revenue: 0, posts: 0, engagementRate: 0 },
+  );
+  totals.engagementRate = totals.views > 0
+    ? Number((((totals.likes + totals.comments + totals.shares) / totals.views) * 100).toFixed(2))
+    : 0;
+  return {
+    totals,
+    byPlatform: platforms,
+    timeline: analytics.timeline,
+    topPosts,
+  };
 }
 
 interface AdminFilters {
@@ -201,6 +302,7 @@ export default function Analytics() {
   const { role } = useAuth();
   const isAdmin = role === "admin";
   const [dateRange, setDateRange] = useState("Last 30 Days");
+  const [platformFilter, setPlatformFilter] = useState<AccountPlatform | "all">("all");
   const [adminFilters, setAdminFilters] = useState<AdminFilters>({
     creatorId: "",
     platform: "",
@@ -216,14 +318,31 @@ export default function Analytics() {
   });
 
   const defaultAnalyticsQuery = useGetAnalyticsOverview();
+  const postsQuery = useListPosts();
 
   const analyticsQuery = isAdmin ? creatorAnalyticsQuery : defaultAnalyticsQuery;
-  const analytics = normalizeAnalytics(analyticsQuery.data as AnalyticsOverview | undefined);
-  const lineData = useMemo(() => buildLineData(analytics), [analytics]);
+  const rawAnalytics = normalizeAnalytics(analyticsQuery.data as AnalyticsOverview | undefined);
+  const analytics = useMemo(
+    () => filterAnalyticsByPlatform(rawAnalytics, platformFilter),
+    [rawAnalytics, platformFilter],
+  );
+  const dayCount = DATE_RANGE_DAYS[dateRange] ?? 30;
+  const lineData = useMemo(() => buildLineData(analytics, dayCount), [analytics, dayCount]);
   const barData = useMemo(() => buildBarData(analytics), [analytics]);
   const maxPlatformViews = Math.max(...analytics.byPlatform.map((platform) => platform.views), 1);
   const hasAnalytics = analytics.totals.posts > 0;
-  const heatmapSeed = Math.max(analytics.totals.engagementRate, 1);
+
+  const posts = postsQuery.data?.data ?? [];
+  const postedPosts = useMemo(() => posts.filter((post) => post.status === "posted"), [posts]);
+  const viewsByPostId = useMemo(
+    () => new Map(rawAnalytics.topPosts.map((post) => [post.postId, post.views])),
+    [rawAnalytics.topPosts],
+  );
+  const heatmap = useMemo(() => buildPostingHeatmap(postedPosts), [postedPosts]);
+  const bestTimes = useMemo(
+    () => buildBestTimesGrid(postedPosts, viewsByPostId),
+    [postedPosts, viewsByPostId],
+  );
 
   return (
     <div className="space-y-5 pb-8">
@@ -239,12 +358,17 @@ export default function Analytics() {
         </div>
 
         <div className="flex flex-wrap gap-2 glass-card p-1.5 rounded-xl ml-[52px] md:ml-0">
-          <select className="bg-transparent text-xs text-white/60 px-2.5 py-1.5 focus:outline-none cursor-pointer rounded-lg hover:bg-white/[0.04]">
-            <option className="bg-card">All Platforms</option>
-            <option className="bg-card">Instagram</option>
-            <option className="bg-card">TikTok</option>
-            <option className="bg-card">YouTube</option>
-            <option className="bg-card">Facebook</option>
+          <select
+            value={platformFilter}
+            onChange={(event) => setPlatformFilter(event.target.value as AccountPlatform | "all")}
+            className="bg-transparent text-xs text-white/60 px-2.5 py-1.5 focus:outline-none cursor-pointer rounded-lg hover:bg-white/[0.04]"
+          >
+            <option className="bg-card" value="all">All Platforms</option>
+            <option className="bg-card" value="instagram">Instagram</option>
+            <option className="bg-card" value="tiktok">TikTok</option>
+            <option className="bg-card" value="youtube">YouTube</option>
+            <option className="bg-card" value="facebook">Facebook</option>
+            <option className="bg-card" value="snapchat">Snapchat</option>
           </select>
           <div className="w-px h-5 bg-white/[0.06] self-center" />
           <select
@@ -475,45 +599,53 @@ export default function Analytics() {
                   <div className="w-6 h-6 rounded-md bg-accent/15 flex items-center justify-center border border-accent/10">
                     <TrendingUp className="w-3 h-3 text-accent" />
                   </div>
-                  Engagement Heatmap
+                  Posting Cadence
                 </h3>
+                <span className="text-[10px] text-white/30">{heatmap.total} posted</span>
               </div>
-              <div className="overflow-x-auto">
-                <div className="min-w-[240px]">
-                  <div className="grid grid-cols-9 gap-1 mb-1">
-                    <div />
-                    {HEATMAP_HOURS.map((hour) => (
-                      <div key={hour} className="text-center text-[8px] text-muted-foreground/30 font-mono">{hour}</div>
-                    ))}
-                  </div>
-                  {HEATMAP_DAYS.map((day, dayIndex) => (
-                    <div key={day} className="grid grid-cols-9 gap-1 mb-1">
-                      <div className="text-[9px] text-muted-foreground/40 flex items-center font-medium">{day}</div>
-                      {HEATMAP_HOURS.map((hour, hourIndex) => {
-                        const val = Math.min(10, Math.max(1, Math.round(((dayIndex + 1) * (hourIndex + 2) + heatmapSeed) % 10)));
-                        const intensity = val / 10;
-
-                        return (
-                          <div
-                            key={hour}
-                            title={`${day} ${hour}: ${val * 10}% engagement`}
-                            className="aspect-square rounded cursor-pointer transition-transform hover:scale-125"
-                            style={{
-                              backgroundColor: `rgba(6, 182, 212, ${0.04 + intensity * 0.85})`,
-                              boxShadow: intensity > 0.7 ? `0 0 6px rgba(6,182,212,${intensity * 0.4})` : "none",
-                            }}
-                          />
-                        );
-                      })}
+              {heatmap.total === 0 ? (
+                <div className="py-10 text-center">
+                  <p className="text-xs text-muted-foreground/40">Heatmap fills in once you've published a few posts.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <div className="min-w-[240px]">
+                    <div className="grid grid-cols-9 gap-1 mb-1">
+                      <div />
+                      {HEATMAP_HOURS.map((hour) => (
+                        <div key={hour} className="text-center text-[8px] text-muted-foreground/30 font-mono">{hour}</div>
+                      ))}
                     </div>
-                  ))}
-                  <div className="flex items-center justify-end gap-2 mt-3 text-[9px] text-muted-foreground/30">
-                    <span>Low</span>
-                    <div className="w-16 h-1.5 rounded-full" style={{ background: "linear-gradient(to right, rgba(6,182,212,0.04), rgba(6,182,212,0.9))" }} />
-                    <span>High</span>
+                    {HEATMAP_DAYS.map((day, dayIndex) => (
+                      <div key={day} className="grid grid-cols-9 gap-1 mb-1">
+                        <div className="text-[9px] text-muted-foreground/40 flex items-center font-medium">{day}</div>
+                        {HEATMAP_HOURS.map((hour, bandIndex) => {
+                          const count = heatmap.grid[dayIndex][bandIndex];
+                          const intensity = heatmap.max > 0 ? count / heatmap.max : 0;
+                          return (
+                            <div
+                              key={hour}
+                              title={`${day} ${hour}: ${count} ${count === 1 ? "post" : "posts"}`}
+                              className="aspect-square rounded cursor-pointer transition-transform hover:scale-125"
+                              style={{
+                                backgroundColor: count === 0
+                                  ? "rgba(255,255,255,0.025)"
+                                  : `rgba(6, 182, 212, ${0.12 + intensity * 0.78})`,
+                                boxShadow: intensity > 0.7 ? `0 0 6px rgba(6,182,212,${intensity * 0.4})` : "none",
+                              }}
+                            />
+                          );
+                        })}
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-end gap-2 mt-3 text-[9px] text-muted-foreground/30">
+                      <span>0</span>
+                      <div className="w-16 h-1.5 rounded-full" style={{ background: "linear-gradient(to right, rgba(6,182,212,0.12), rgba(6,182,212,0.9))" }} />
+                      <span>{heatmap.max}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="glass-card p-5">
@@ -524,36 +656,53 @@ export default function Analytics() {
                   </div>
                   Best Posting Times
                 </h3>
+                {bestTimes.topCell ? (
+                  <span className="text-[10px] text-primary font-semibold">
+                    Peak: {HEATMAP_DAYS[bestTimes.topCell.day]} {HEATMAP_HOURS[bestTimes.topCell.band]}
+                  </span>
+                ) : null}
               </div>
-              <div className="grid grid-cols-7 gap-1">
-                {["M", "Tu", "W", "Th", "F", "Sa", "Su"].map((day) => (
-                  <div key={day} className="text-center text-[9px] text-muted-foreground/30 pb-2 font-medium">{day}</div>
-                ))}
-                {Array.from({ length: 56 }).map((_, index) => {
-                  const score = (index + analytics.totals.views + analytics.totals.likes) % 13;
-                  const isHot = score > 9;
-                  const isWarm = score > 5;
-
-                  return (
-                    <div
-                      key={index}
-                      className={`aspect-square rounded transition-all hover:scale-125 cursor-pointer ${
-                        isHot ? "bg-primary" : isWarm ? "bg-primary/40" : "bg-white/[0.03]"
-                      }`}
-                      style={isHot ? { boxShadow: "0 0 8px rgba(124, 58, 237, 0.6)" } : undefined}
-                    />
-                  );
-                })}
-              </div>
-              <div className="flex items-center justify-between mt-4 text-[10px] text-muted-foreground/30 font-mono">
-                <span>00:00</span>
-                <div className="flex gap-2 items-center">
-                  <span>Low</span>
-                  <div className="w-12 h-1.5 bg-gradient-to-r from-white/[0.03] to-primary rounded-full" />
-                  <span>High</span>
+              {bestTimes.totalSamples < 3 ? (
+                <div className="py-10 text-center">
+                  <p className="text-xs text-muted-foreground/40">Need at least 3 posts with analytics to score time slots.</p>
                 </div>
-                <span>24:00</span>
-              </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-7 gap-1">
+                    {BEST_TIMES_DAYS.map((day) => (
+                      <div key={day} className="text-center text-[9px] text-muted-foreground/30 pb-2 font-medium">{day}</div>
+                    ))}
+                    {Array.from({ length: 56 }).map((_, index) => {
+                      const dayIdx = index % 7;
+                      const bandIdx = Math.floor(index / 7);
+                      const value = bestTimes.avg[dayIdx][bandIdx];
+                      const ratio = bestTimes.max > 0 ? value / bestTimes.max : 0;
+                      const isHot = ratio >= 0.75 && value > 0;
+                      const isWarm = ratio >= 0.4 && value > 0;
+                      return (
+                        <div
+                          key={index}
+                          title={value > 0 ? `${HEATMAP_DAYS[dayIdx]} ${HEATMAP_HOURS[bandIdx]}: ~${Math.round(value).toLocaleString()} avg views` : `${HEATMAP_DAYS[dayIdx]} ${HEATMAP_HOURS[bandIdx]}: no data`}
+                          className={cn(
+                            "aspect-square rounded transition-all hover:scale-125 cursor-pointer",
+                            isHot ? "bg-primary" : isWarm ? "bg-primary/40" : "bg-white/[0.03]",
+                          )}
+                          style={isHot ? { boxShadow: "0 0 8px rgba(124, 58, 237, 0.6)" } : undefined}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center justify-between mt-4 text-[10px] text-muted-foreground/30 font-mono">
+                    <span>00:00</span>
+                    <div className="flex gap-2 items-center">
+                      <span>Low</span>
+                      <div className="w-12 h-1.5 bg-gradient-to-r from-white/[0.03] to-primary rounded-full" />
+                      <span>High</span>
+                    </div>
+                    <span>24:00</span>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="glass-card p-5">

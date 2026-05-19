@@ -1,0 +1,244 @@
+\chapter{Conceptual Study}
+
+\section*{Introduction}
+Conception is the most critical phase in software development. In this chapter, we define our design methodology, present global and detailed use case diagrams for each actor, the class diagram representing our data model, and sequence diagrams illustrating key interactions.
+
+\section{Design Methodology}
+
+To design our system, we use \textbf{UML (Unified Modeling Language)} as our object-oriented modeling language. UML provides a standard set of graphical diagrams to visualize the structure, behavior, and interactions of a system. We employ three main types of UML diagrams:
+
+\begin{itemize}
+    \item \textbf{Use Case Diagrams:} to represent user interactions with the system.
+    \item \textbf{Class Diagrams:} to define the data model and relationships between entities.
+    \item \textbf{Sequence Diagrams:} to illustrate the sequential flow of operations.
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════
+\section{Use Case Diagrams}
+% ══════════════════════════════════════════════════════════════
+
+\subsection{Use Case Diagram of the Content Creator}
+
+\subsubsection{Global Use Case Diagram}
+
+The figure below presents the global use case diagram for the content creator, showing all major functionalities accessible from the dashboard.
+
+% ── FIGURE: Global use case diagram ──
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.85\textwidth]{figures/uc_global_creator.png}
+%     \caption{Global use case diagram for the Content Creator}
+%     \label{fig:uc-global}
+% \end{figure}
+
+\noindent\textit{See StarUML code in the companion file \texttt{startuml\_diagrams.txt} --- Diagram 1.}
+
+\vspace{0.5cm}
+
+The content creator interacts with the following subsystems after authentication:
+\begin{itemize}
+    \item Dashboard overview (KPIs and statistics)
+    \item Account management (connect/disconnect platforms)
+    \item Post scheduling (create, view, cancel posts)
+    \item Analytics monitoring
+    \item AI Video Studio (enhance and edit videos)
+    \item Alert management
+    \item System settings
+\end{itemize}
+
+% ─────────────────────────────────────────────────────
+\subsubsection*{Use Case Diagram: Account Management}
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.75\textwidth]{figures/uc_accounts.png}
+%     \caption{Use case diagram of ``Account Management''}
+%     \label{fig:uc-accounts}
+% \end{figure}
+
+\noindent\textit{See StarUML code --- Diagram 2.}
+
+After authentication, the content creator can manage connected social media accounts. The available actions include:
+\begin{itemize}
+    \item \textbf{Connect YouTube account:} initiates Google OAuth 2.0 flow with required scopes for video upload and channel management.
+    \item \textbf{Connect TikTok account:} initiates TikTok OAuth with PKCE (Proof Key for Code Exchange) for enhanced security.
+    \item \textbf{Connect Meta account:} initiates Facebook Login to connect Facebook Pages and linked professional Instagram accounts.
+    \item \textbf{View connected accounts:} displays all connected accounts with platform, name, and token status.
+    \item \textbf{Disconnect account:} removes the OAuth tokens and account record from the system.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────
+\subsubsection*{Use Case Diagram: Post Scheduling}
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.75\textwidth]{figures/uc_scheduling.png}
+%     \caption{Use case diagram of ``Post Scheduling''}
+%     \label{fig:uc-scheduling}
+% \end{figure}
+
+\noindent\textit{See StarUML code --- Diagram 3.}
+
+The content creator can manage scheduled posts:
+\begin{itemize}
+    \item \textbf{Create a scheduled post:} select a video, choose target platform and account, set date/time, and add metadata (caption, hashtags).
+    \item \textbf{View scheduled posts:} display posts in a calendar or list view, filtered by status (scheduled, posted, failed).
+    \item \textbf{Cancel a post:} remove a pending scheduled post before it is published.
+    \item \textbf{Reschedule a post:} update the scheduled date/time of a pending post.
+\end{itemize}
+
+The \textbf{System Worker} actor automatically publishes posts at their scheduled time using BullMQ queues.
+
+% ─────────────────────────────────────────────────────
+\subsubsection*{Use Case Diagram: Analytics Monitoring}
+
+\noindent\textit{See StarUML code --- Diagram 4.}
+
+After authentication, the content creator can monitor analytics:
+\begin{itemize}
+    \item \textbf{View aggregated metrics:} total views, likes, comments, shares, and revenue across all platforms.
+    \item \textbf{Filter by platform:} isolate analytics for YouTube, TikTok, or Instagram.
+    \item \textbf{Filter by time period:} view data for the last 7 days, 30 days, or custom range.
+    \item \textbf{View performance charts:} interactive line and bar charts showing trends over time.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────
+\subsubsection*{Use Case Diagram: AI Video Studio}
+
+\noindent\textit{See StarUML code --- Diagram 5.}
+
+The AI Video Studio provides the following use cases:
+\begin{itemize}
+    \item \textbf{Upload video:} upload a video file (MP4, MOV, WebM, AVI, MKV; max 500 MB).
+    \item \textbf{Analyze quality:} automatic assessment of blur, noise, low-light, and face detection.
+    \item \textbf{Apply AI enhancement:} run Real-ESRGAN super-resolution and/or GFPGAN face restoration.
+    \item \textbf{Apply classical filters:} denoise, deblur, smooth, balanced, or aggressive filter modes.
+    \item \textbf{Preview results:} side-by-side before/after comparison with quality metrics.
+    \item \textbf{Export enhanced video:} encode to H.264/H.265/AV1 at 720p/1080p/4K.
+    \item \textbf{Open Video Editor:} launch the integrated BVIRAL Video Editor for timeline editing.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────
+\subsubsection*{Use Case Diagram: Alert Management}
+
+\noindent\textit{See StarUML code --- Diagram 6.}
+
+The content creator can manage system alerts:
+\begin{itemize}
+    \item \textbf{View alerts list:} display all alerts with type (error, copyright, success), platform, and status.
+    \item \textbf{View alert details:} see the full message, associated post, and account.
+    \item \textbf{Resolve alert:} mark an alert as resolved.
+    \item \textbf{Filter alerts:} filter by type, platform, or status.
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════
+\section{Class Diagram}
+% ══════════════════════════════════════════════════════════════
+
+The class diagram represents the data model of BViral Control Center, derived from the Drizzle ORM schema. The main entities and their relationships are:
+
+\noindent\textit{See StarUML code --- Diagram 7 (Class Diagram).}
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/class_diagram.png}
+%     \caption{Class diagram of BViral Control Center}
+%     \label{fig:class-diagram}
+% \end{figure}
+
+The system contains six main entities:
+
+\begin{itemize}
+    \item \textbf{User:} represents a registered user with attributes: id (UUID), email, fullName, role (admin/member), createdAt, updatedAt.
+    \item \textbf{Account:} represents a connected social media account with: id, platform (facebook/instagram/tiktok/youtube/snapchat), accountName, accessToken (AES-256 encrypted), refreshToken, tokenExpiry, metadata (JSONB).
+    \item \textbf{Video:} represents an uploaded video with: id, originalUrl, processedUrl, duration, status (uploaded/processing/ready/failed).
+    \item \textbf{Post:} represents a scheduled or published post with: id, platform, scheduledAt, postedAt, status (scheduled/posted/failed), externalPostId, errorMessage, metadata (JSONB).
+    \item \textbf{Analytics:} stores performance metrics per post: views, likes, comments, shares, revenue, fetchedAt.
+    \item \textbf{Alert:} system notifications with: type (error/copyright/success), status (unresolved/resolved), message, platform.
+\end{itemize}
+
+\textbf{Relationships:}
+\begin{itemize}
+    \item User $\xrightarrow{1..*}$ Account (a user owns multiple accounts)
+    \item User $\xrightarrow{1..*}$ Video (a user uploads multiple videos)
+    \item Account $\xrightarrow{1..*}$ Post (posts are published through accounts)
+    \item Video $\xrightarrow{1..*}$ Post (a video can be posted to multiple platforms)
+    \item Post $\xrightarrow{0..*}$ Analytics (each post has analytics snapshots)
+    \item Account $\xrightarrow{0..*}$ Alert (alerts may reference an account)
+    \item Post $\xrightarrow{0..*}$ Alert (alerts may reference a post)
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════
+\section{Sequence Diagrams}
+% ══════════════════════════════════════════════════════════════
+
+\subsection{Sequence Diagram: OAuth Account Connection}
+
+\noindent\textit{See StarUML code --- Diagram 8.}
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/seq_oauth.png}
+%     \caption{Sequence diagram of ``OAuth Account Connection''}
+%     \label{fig:seq-oauth}
+% \end{figure}
+
+The OAuth connection flow proceeds as follows:
+\begin{enumerate}
+    \item The user clicks ``Connect'' for a platform (e.g., YouTube) in the dashboard.
+    \item The dashboard sends a GET request to \texttt{/api/v1/accounts/youtube/connect}.
+    \item The API server generates an OAuth authorization URL with required scopes and (for TikTok) a PKCE code verifier stored in memory.
+    \item The user is redirected to the platform's consent screen.
+    \item After granting consent, the platform redirects to the callback URL with an authorization code.
+    \item The API server exchanges the code for access and refresh tokens via the platform's token endpoint.
+    \item Tokens are encrypted with AES-256 and stored in the \texttt{accounts} table.
+    \item The user is redirected back to the dashboard with a success status.
+\end{enumerate}
+
+\subsection{Sequence Diagram: Schedule and Publish a Post}
+
+\noindent\textit{See StarUML code --- Diagram 9.}
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/seq_schedule.png}
+%     \caption{Sequence diagram of ``Schedule and Publish a Post''}
+%     \label{fig:seq-schedule}
+% \end{figure}
+
+The scheduling and publishing flow:
+\begin{enumerate}
+    \item The user creates a new post in the scheduling interface, selecting video, platform, account, and schedule time.
+    \item The dashboard sends a POST request to \texttt{/api/v1/posts}.
+    \item The API server validates the request, creates a post record with status ``scheduled'', and enqueues a delayed job in the Redis/BullMQ publishing queue.
+    \item At the scheduled time, the BullMQ worker dequeues the job.
+    \item The worker calls the appropriate platform publisher service (YouTube, TikTok, or Meta).
+    \item The platform service uploads the video and metadata using the stored OAuth tokens.
+    \item On success, the post status is updated to ``posted'' with the external post ID. On failure, it is marked ``failed'' with an error message, and an alert is created.
+\end{enumerate}
+
+\subsection{Sequence Diagram: AI Video Enhancement}
+
+\noindent\textit{See StarUML code --- Diagram 10.}
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/seq_ai_enhance.png}
+%     \caption{Sequence diagram of ``AI Video Enhancement''}
+%     \label{fig:seq-ai-enhance}
+% \end{figure}
+
+The AI enhancement pipeline:
+\begin{enumerate}
+    \item The user uploads a video in the AI Video Studio.
+    \item The system preprocesses the video: extracts frames using FFmpeg, extracts audio, and records metadata (resolution, FPS, codec).
+    \item The quality analyzer samples frames to detect blur, noise, low-light, and faces, producing a quality report.
+    \item Based on the report, classical filters are applied (denoise, deblur, color correction).
+    \item The AI enhancement engine runs: Real-ESRGAN for super-resolution (if resolution < 1080p) and GFPGAN for face restoration (if faces are detected).
+    \item Frames are reassembled with audio into a web-ready video (H.264, CRF 18, faststart).
+    \item Quality metrics (PSNR, SSIM, LPIPS, flicker score) are computed and displayed.
+    \item A publish manifest is generated with profiles for mobile, tablet, desktop, and 4K TV.
+\end{enumerate}
+
+\section*{Conclusion}
+In this chapter, we presented the detailed conceptual design of BViral Control Center. We defined our UML-based design methodology, created use case diagrams for all major functionalities, a class diagram representing our database schema, and sequence diagrams for the three most critical workflows: OAuth account connection, post scheduling/publishing, and AI video enhancement. The next chapter focuses on the technical realization of our solution.

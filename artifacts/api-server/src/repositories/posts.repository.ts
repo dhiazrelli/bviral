@@ -18,7 +18,7 @@ export type PostPlatform =
   | "youtube"
   | "snapchat";
 
-export type PostStatus = "scheduled" | "posted" | "failed";
+export type PostStatus = "scheduled" | "posted" | "failed" | "cancelled";
 
 export interface PostResponseDto {
   id: string;
@@ -59,6 +59,7 @@ export interface PostsRepository {
   findWithAccountForUser(postId: string, userId: string): Promise<PostResponseDto | null>;
   createScheduled(input: CreateScheduledPostPayload): Promise<PostResponseDto>;
   deleteScheduledForUser(postId: string, userId: string): Promise<boolean>;
+  cancelScheduledForUser(postId: string, userId: string): Promise<boolean>;
   userOwnsVideo(videoId: string, userId: string): Promise<boolean>;
   findOwnedAccountPlatform(
     accountId: string,
@@ -162,6 +163,24 @@ export function buildPostsRepository(db: Database): PostsRepository {
         .returning({ id: postsTable.id });
 
       return deleted.length > 0;
+    },
+
+    async cancelScheduledForUser(postId, userId) {
+      const updated = await db
+        .update(postsTable)
+        .set({ status: "cancelled" })
+        .where(and(
+          eq(postsTable.id, postId),
+          eq(postsTable.status, "scheduled"),
+          sql`exists (
+            select 1 from ${accountsTable}
+            where ${accountsTable.id} = ${postsTable.accountId}
+              and ${accountsTable.userId} = ${userId}
+          )`,
+        ))
+        .returning({ id: postsTable.id });
+
+      return updated.length > 0;
     },
 
     async userOwnsVideo(videoId, userId) {

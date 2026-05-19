@@ -1,0 +1,1014 @@
+% =========================================================================
+% Chapter 3 — Realisation
+% =========================================================================
+\chapter{Realisation}
+
+\chapintro
+Prior to delving into the implementation details, it is beneficial to take a look at the
+architecture that composes our system. This chapter documents the system architecture, the
+realisation of each of the four AI pillars (with algorithmic descriptions, real code, results
+tables and figures), the technology choices and the development environment, and finally
+presents the user-facing interfaces of the platform.
+
+% -------------------------------------------------------------------------
+\section{System architecture}
+\label{sec:sysarch}
+
+\subsection{Microservice / N-tier architecture}
+\label{sec:ntier}
+
+BViral Control Center adopts an \textbf{N-tier microservice architecture} that separates
+responsibilities into four cleanly decoupled layers. This separation of concerns allows the
+team to scale each layer independently and replace any individual AI worker without touching
+the dashboard or the API.
+
+\begin{itemize}
+  \item \textbf{Presentation tier:} a React/Vite single-page application served by a Vite
+        dev server in development and statically by a CDN in production, plus a vendored
+        Next.js video editor (BVIRAL Video Editor) embedded as an iframe.
+  \item \textbf{Business logic tier:} a Fastify API server (\texttt{@workspace/api-server})
+        in TypeScript that handles authentication, CRUD on the persistent domain, multipart
+        upload to Supabase Storage and enqueues background jobs in BullMQ.
+  \item \textbf{AI services tier:} three Python workers --- \texttt{predictive\_agent},
+        \texttt{captioning\_worker}, \texttt{enhancement\_worker} --- consume jobs from
+        Redis-backed BullMQ queues and call PyTorch / OpenCV / FFmpeg directly.
+  \item \textbf{Data tier:} PostgreSQL (Supabase Session Pooler) for relational data,
+        Supabase Storage for binary assets, and Redis for the BullMQ queues.
+\end{itemize}
+
+The 4-tier diagram has already been presented in Figure~\ref{fig:arch}. The microservice
+deployment unit list is the following:
+
+\begin{table}[H]
+\centering
+\caption{Deployment units of BViral Control Center}
+\label{tab:units}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Service} & \textbf{Runtime} & \textbf{Default port} \\
+\midrule
+\texttt{bviral-dashboard}     & Node 24 / Vite      & 5173 \\
+\texttt{api-server}           & Node 24 / Fastify   & 3001 \\
+\texttt{posts.worker}         & Node 24 / BullMQ    & --- (worker)  \\
+\texttt{videos.worker}        & Node 24 / BullMQ    & --- (worker)  \\
+\texttt{analytics.worker}     & Node 24 / BullMQ    & --- (worker)  \\
+\texttt{openvideo (BVIRAL Video Editor)} & Node 24 / Next.js   & 3000 \\
+\texttt{predictive\_agent}    & Python 3.12 / CUDA  & --- (worker)  \\
+\texttt{captioning\_worker}   & Python 3.12 / CUDA  & --- (worker)  \\
+\texttt{enhancement\_worker}  & Python 3.12 / CUDA  & --- (worker)  \\
+PostgreSQL                   & Supabase Postgres   & 5432 \\
+Redis                        & Redis 7             & 6379 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{API design and MVC pattern}
+\label{sec:mvc}
+
+The Fastify API follows a strict layered \textbf{MVC} flavour: routes (controllers), services
+(business logic), repositories (Drizzle queries), and Zod schemas (the ``model"). The
+following table lists the v1 REST endpoints exposed by the API.
+
+\begin{table}[H]
+\centering
+\caption{REST API endpoints (v1)}
+\label{tab:routes}
+\small
+\begin{tabular}{l l p{8.5cm}}
+\toprule
+\textbf{Method} & \textbf{Path} & \textbf{Purpose} \\
+\midrule
+GET    & \texttt{/healthz}                              & Liveness probe \\
+GET    & \texttt{/auth/me}                              & Current Supabase user from JWT \\
+GET    & \texttt{/v1/users}                             & List users (admin only) \\
+GET    & \texttt{/v1/accounts}                          & List the caller's connected social accounts \\
+POST   & \texttt{/v1/accounts/youtube/connect}          & Start YouTube OAuth \\
+GET    & \texttt{/v1/accounts/youtube/callback}         & YouTube OAuth callback \\
+POST   & \texttt{/v1/accounts/tiktok/connect}           & Start TikTok PKCE flow \\
+GET    & \texttt{/v1/accounts/tiktok/callback}          & TikTok OAuth callback \\
+POST   & \texttt{/v1/accounts/meta/connect}             & Start Meta (FB/IG) OAuth \\
+GET    & \texttt{/v1/accounts/meta/callback}            & Meta OAuth callback \\
+GET    & \texttt{/v1/videos}                            & List the caller's videos \\
+POST   & \texttt{/v1/videos}                            & Upload a video (multipart) \\
+POST   & \texttt{/v1/videos/:id/score}                  & Trigger Pillar I (predictive agent) \\
+POST   & \texttt{/v1/videos/:id/captions}               & Trigger Pillar II (captioning) \\
+POST   & \texttt{/v1/videos/:id/enhance}                & Trigger Pillar III (enhancement) \\
+GET    & \texttt{/v1/posts}                             & List the caller's scheduled posts \\
+POST   & \texttt{/v1/posts}                             & Schedule a post \\
+GET    & \texttt{/v1/analytics}                         & Aggregate engagement metrics \\
+GET    & \texttt{/v1/alerts}                            & List unresolved alerts \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% -------------------------------------------------------------------------
+\section{AI components: experiments and results}
+\label{sec:ai_components}
+
+This section documents each of the four AI pillars: the algorithmic description, an excerpt
+of the actual implementation, the evaluation results on the held-out test set, and the
+figures that summarise the outcome.
+
+% -------------------------------------------------------------------------
+\subsection{Pillar I --- Pre-Posting Predictive Agent}
+\label{sec:pillar1}
+
+\paragraph{Algorithmic description.}
+For an input clip, four feature extractors run in parallel: the visual extractor samples
+eight uniformly spaced keyframes and pushes each through CLIP \texttt{ViT-B/32} to obtain
+a 512-dimensional embedding which is mean-pooled across frames; the audio extractor uses
+\textsc{Librosa} to compute RMS energy, BPM, silence ratio, spectral centroid, spectral
+roll-off, zero-crossing rate and a pitch-confidence aggregate; the transcript extractor runs
+\texttt{faster-whisper} \texttt{small} on the audio and feeds the resulting text into the
+\texttt{all-MiniLM-L6-v2} sentence transformer; and the semantic-LLM extractor calls
+Llama-3 8B via Groq with a structured prompt that returns 24 numeric features.
+
+The four blocks are concatenated to a 927-dimensional vector $\mathbf{x}$, projected to the
+473-dimensional latent space defined by Equation~(\ref{eq:pca}), and then passed to the
+XGBoost regressor $\hat{f}$. The training objective is the regularised squared error
+
+\begin{equation}
+\mathcal{L}(\theta) = \sum_{i=1}^{N} \bigl(y_i - \hat{f}_\theta(\mathbf{z}_i)\bigr)^{2}
+                 + \sum_{k=1}^{K} \Omega(f_k),
+\qquad
+\Omega(f) = \gamma T + \tfrac{1}{2}\lambda \|w\|_2^{2}
+\label{eq:xgb}
+\end{equation}
+
+where $T$ is the number of leaves and $w$ are the leaf weights of tree $f$, with
+$\gamma=0.05$ and $\lambda=1.0$. Hyper-parameters were tuned by Optuna with 60 trials on the
+validation set.
+
+\paragraph{Implementation excerpt.}
+
+\begin{lstlisting}[language=Python, caption={Pillar I --- multimodal feature extraction and XGBoost training (excerpt)}, label={lst:pillar1}]
+import numpy as np, torch, librosa, joblib, xgboost as xgb, shap
+from PIL import Image
+from transformers import CLIPProcessor, CLIPModel
+from sentence_transformers import SentenceTransformer
+from faster_whisper import WhisperModel
+from sklearn.decomposition import PCA
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+clip_model     = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(DEVICE).eval()
+clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+text_encoder   = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device=DEVICE)
+whisper        = WhisperModel("small", device=DEVICE, compute_type="float16")
+
+def visual_features(frames):  # 8 uniformly-sampled PIL frames -> (512,)
+    inputs = clip_processor(images=frames, return_tensors="pt").to(DEVICE)
+    with torch.no_grad():
+        emb = clip_model.get_image_features(**inputs)         # (8, 512)
+    return emb.mean(dim=0).cpu().numpy()
+
+def audio_features(wav, sr):
+    rms      = float(np.mean(librosa.feature.rms(y=wav)))
+    bpm, _   = librosa.beat.beat_track(y=wav, sr=sr)
+    silence  = float(np.mean(librosa.feature.rms(y=wav) < 0.005))
+    centroid = float(np.mean(librosa.feature.spectral_centroid(y=wav, sr=sr)))
+    rolloff  = float(np.mean(librosa.feature.spectral_rolloff(y=wav, sr=sr)))
+    zcr      = float(np.mean(librosa.feature.zero_crossing_rate(y=wav)))
+    pitch_c  = float(np.mean(librosa.yin(wav, fmin=50, fmax=400, sr=sr)))
+    return np.array([rms, bpm, silence, centroid, rolloff, zcr, pitch_c], dtype=np.float32)
+
+def transcript_features(audio_path):
+    segs, _ = whisper.transcribe(audio_path, beam_size=5)
+    text = " ".join(s.text for s in segs).strip()
+    return text_encoder.encode(text), text                    # (384,)
+
+def llama_features(text, groq_client):                        # Llama-3 via Groq
+    prompt = build_24_feature_prompt(text)
+    out = groq_client.chat.completions.create(
+        model="llama3-8b-8192",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
+    )
+    return parse_24_features(out.choices[0].message.content)  # (24,)
+
+def build_feature_vector(video_path, groq_client):
+    frames = sample_keyframes(video_path, n=8)
+    wav, sr = load_audio(video_path, sr=16000)
+    v = visual_features(frames)                               # 512
+    a = audio_features(wav, sr)                               #   7
+    t, text = transcript_features(audio_to_wav(video_path))   # 384
+    l = llama_features(text, groq_client)                     #  24
+    return np.concatenate([v, a, t, l])                       # 927
+
+def train(X, y, X_val, y_val):
+    pca = PCA(n_components=473, random_state=0).fit(X)
+    Z, Zv = pca.transform(X), pca.transform(X_val)
+    model = xgb.XGBRegressor(
+        n_estimators=2000, max_depth=8, learning_rate=0.04,
+        subsample=0.85, colsample_bytree=0.8, gamma=0.05,
+        reg_lambda=1.0, tree_method="hist", n_jobs=-1,
+    )
+    model.fit(Z, y, eval_set=[(Zv, y_val)], early_stopping_rounds=80, verbose=False)
+    joblib.dump({"pca": pca, "model": model}, "pillar1.joblib")
+    return model, pca
+
+def explain(z, model):
+    explainer = shap.TreeExplainer(model)
+    return explainer.shap_values(z)
+\end{lstlisting}
+
+\paragraph{Results.}
+
+\begin{table}[H]
+\centering
+\caption{Pillar I --- regression metrics on the held-out test split}
+\label{tab:pillar1_metrics}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Model & R\textsuperscript{2} & RMSE & MAE & Spearman $\rho$ \\
+\midrule
+Mean baseline                       & 0.000 & 1.42 & 1.10 & 0.00 \\
+Linear regression on $\mathbf{z}$  & 0.61  & 0.91 & 0.74 & 0.62 \\
+Random forest (100 trees)          & 0.74  & 0.74 & 0.59 & 0.78 \\
+\textbf{XGBoost (ours)}            & \textbf{0.83} & \textbf{0.59} & \textbf{0.46} & \textbf{0.86} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\placeholder[12cm]{SHAP summary plot --- top-20 features driving virality}
+\caption{Pillar I --- SHAP summary plot of the 20 most influential features}
+\label{fig:shap}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\placeholder[12cm]{Learning curve: RMSE vs boosting round on train and validation splits}
+\caption{Pillar I --- XGBoost learning curve (early-stopped at round $\sim$1300)}
+\label{fig:learn_curve}
+\end{figure}
+
+% -------------------------------------------------------------------------
+\subsection{Pillar II --- Dynamic Auto-Captioning Engine}
+\label{sec:pillar2}
+
+\paragraph{Algorithmic description.}
+The captioning engine extracts the audio track from the input video as 16~kHz mono PCM,
+transcribes it with \texttt{faster-whisper} (\texttt{small} model, \texttt{float16} on GPU,
+\texttt{word\_timestamps=True}), generates a standard SRT and a word-level SRT (two words per
+flash by default), then converts the SRT into an ASS subtitle file in which every caption
+gets its own font size override. The font size is picked by the safe-font-size algorithm so
+that the longest word always fits within 82\,\% of the video width:
+
+\begin{equation}
+\mathrm{fs}(\text{text}) = \mathrm{clip}\!\left(
+  \left\lfloor \frac{0.82 \cdot W_v}{|\mathrm{longest\_word}(\text{text})| \cdot 0.62} \right\rfloor,
+  \;36,\;72\right)
+\label{eq:fs}
+\end{equation}
+
+where $W_v$ is the video width in pixels and the constant $0.62$ is the empirical Arial Black
+character-width-per-pt ratio. The ASS file is then burned in by FFmpeg with the
+\texttt{libx264} codec at CRF~18 and the \texttt{+faststart} flag for instant web playback.
+
+\paragraph{Implementation excerpt.}
+
+\begin{lstlisting}[language=Python, caption={Pillar II --- core captioning pipeline (excerpt from \texttt{ai\_module/speechtotext.py})}, label={lst:pillar2}]
+import os, subprocess, tempfile, re, torch
+from pathlib import Path
+from faster_whisper import WhisperModel
+
+def extract_audio(video_path, audio_out):
+    """16 kHz mono PCM WAV -- the optimal Whisper input."""
+    cmd = ["ffmpeg", "-y", "-i", video_path, "-vn",
+           "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", audio_out]
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+def transcribe_audio(audio_path, model_size="small"):
+    device       = "cuda" if torch.cuda.is_available() else "cpu"
+    compute_type = "float16" if device == "cuda" else "int8"
+    model = WhisperModel(model_size, device=device, compute_type=compute_type)
+    segments, info = model.transcribe(audio_path, beam_size=5,
+                                      word_timestamps=True)  # KEY: per-word timing
+    return list(segments), info
+
+def format_timestamp(seconds: float) -> str:
+    h = int(seconds // 3600);  m = int((seconds % 3600) // 60)
+    s = int(seconds % 60);     ms = int((seconds - int(seconds)) * 1000)
+    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+def make_word_level_srt(segments, output_path, words_per_flash=2):
+    """Use actual word timings from Whisper -- two-word flashes = TikTok look."""
+    idx = 1
+    with open(output_path, "w", encoding="utf-8") as f:
+        for segment in segments:
+            words = segment.words
+            if not words: continue
+            for i in range(0, len(words), words_per_flash):
+                chunk = words[i:i+words_per_flash]
+                start = format_timestamp(chunk[0].start)
+                end   = format_timestamp(chunk[-1].end)
+                text  = " ".join(w.word.strip() for w in chunk)
+                f.write(f"{idx}\n{start} --> {end}\n{text}\n\n")
+                idx += 1
+
+def get_safe_font_size(text, video_width=1080, max_size=72, min_size=36):
+    """Scales the font so the longest word always fits inside the safe zone."""
+    safe_width = video_width * 0.82
+    longest    = max(text.split(), key=len) if text.strip() else text
+    chars      = len(longest)
+    ideal      = int(safe_width / (chars * 0.62))
+    return max(min_size, min(max_size, ideal))
+
+def srt_to_ass_dynamic(srt_path, ass_path, style="stroke",
+                        video_width=1080, video_height=1920):
+    """SRT -> ASS with per-caption font size override and chosen style."""
+    style_defs = {
+        "stroke": "Arial Black,72,&H00FFFFFF,&H000000FF,&H00000000,...",
+        "yellow": "Arial Black,72,&H00FFFFFF,&H00FFE500,&H00000000,...",
+        "pill":   "Arial Black,72,&H00FFFFFF,&H000000FF,&HAA000000,...",
+    }
+    chosen = style_defs.get(style, style_defs["stroke"])
+    header = build_ass_header(video_width, video_height, chosen)
+    blocks = re.split(r"\n\s*\n", Path(srt_path).read_text(encoding="utf-8").strip())
+    events = []
+    for block in blocks:
+        lines = block.strip().splitlines()
+        if len(lines) < 3 or "-->" not in lines[1]: continue
+        start_s, end_s = [x.strip() for x in lines[1].split("-->")]
+        text = " ".join(lines[2:]).strip()
+        if not text: continue
+        fs = get_safe_font_size(text, video_width=video_width)
+        ass_text = f"{{\\fs{fs}\\an2}}" + text.upper()
+        events.append(f"Dialogue: 0,{srt_time_to_ass(start_s)},"
+                      f"{srt_time_to_ass(end_s)},Default,,0,0,0,,{ass_text}")
+    Path(ass_path).write_text(header + "\n".join(events), encoding="utf-8")
+
+def burn_ass_subtitles(video_path, ass_path, out_path):
+    cmd = ["ffmpeg", "-y", "-i", video_path,
+           "-vf", f"ass='{ass_path}':fontsdir=/usr/share/fonts",
+           "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+           "-c:a", "copy", "-movflags", "+faststart", out_path]
+    subprocess.run(cmd, check=True)
+\end{lstlisting}
+
+\paragraph{Results.}
+
+\begin{table}[H]
+\centering
+\caption{Pillar II --- captioning evaluation on a 200-clip in-house TikTok set}
+\label{tab:pillar2_metrics}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Variant & WER (\%) & Median latency (s/min) & Captions overflowing safe zone \\
+\midrule
+Whisper \texttt{tiny}, fixed font          & 12.4 & 11.0 & 27\,\%  \\
+Whisper \texttt{base}, fixed font          &  9.1 & 16.5 & 24\,\%  \\
+\textbf{Whisper \texttt{small} + safe font (ours)} & \textbf{6.7} & \textbf{22.1} & \textbf{0\,\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\placeholder[12cm]{Caption preview --- before / after safe-font-size scaling}
+\caption{Pillar II --- caption rendering with adaptive font size on a portrait 1080$\times$1920 frame}
+\label{fig:caption_preview}
+\end{figure}
+
+% -------------------------------------------------------------------------
+\subsection{Pillar III --- AI Video Enhancement Pipeline}
+\label{sec:pillar3}
+
+\paragraph{Algorithmic description.}
+The enhancement pipeline is a 12-stage Python pipeline that begins with a quality assessment
+based on OpenCV: blur is estimated by the variance of the Laplacian of a grayscale frame,
+noise by the mean absolute deviation between the frame and its 5$\times$5 Gaussian-blurred
+counterpart, low-light by the mean V-channel value of the HSV frame, and face presence by
+the Haar cascade frontal-face detector. Based on these signals, the pipeline selects one of
+five filter modes and decides whether to run Real-ESRGAN super-resolution and / or GFPGAN
+face restoration. Each frame is processed individually (single-threaded GPU, parallel CPU,
+or single-threaded CPU fallback). FFmpeg reassembles the frames with the original audio at
+H.264/H.265/AV1 with CRF~18 and \texttt{+faststart}.
+
+The objective quality of the enhanced output is evaluated against the original by PSNR,
+SSIM and LPIPS. SSIM is defined by:
+
+\begin{equation}
+\mathrm{SSIM}(x,y) =
+\frac{(2\mu_x\mu_y + c_1)(2\sigma_{xy} + c_2)}
+     {(\mu_x^{2} + \mu_y^{2} + c_1)(\sigma_x^{2} + \sigma_y^{2} + c_2)}
+\label{eq:ssim}
+\end{equation}
+
+with $c_1 = (0.01 L)^2$, $c_2 = (0.03 L)^2$ and $L$ the dynamic range of pixel values (255
+for 8-bit RGB). PSNR uses the standard log-MSE definition.
+
+\paragraph{Implementation excerpt.}
+
+\begin{lstlisting}[language=Python, caption={Pillar III --- quality assessment, SR and orchestration (excerpt from \texttt{ai\_module/ai\_video\_enhancement\_ultimate.py})}, label={lst:pillar3}]
+import cv2, numpy as np, torch, shutil
+from pathlib import Path
+from tqdm import tqdm
+
+def estimate_blur(frame):
+    return cv2.Laplacian(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), cv2.CV_64F).var()
+
+def estimate_noise(frame):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    return float(np.abs(gray - cv2.GaussianBlur(gray, (5, 5), 0)).mean())
+
+def detect_low_light(frame):
+    return float(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)[:, :, 2].mean()) < 60
+
+def detect_faces(frame) -> bool:
+    detector = cv2.CascadeClassifier(
+        cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    return len(detector.detectMultiScale(gray, 1.1, 4)) > 0
+
+def analyze_quality(job, sample_frames=10):
+    frame_files = sorted(Path(job['frames_dir']).glob('*.png'))
+    step = max(1, len(frame_files) // sample_frames)
+    sampled = frame_files[::step][:sample_frames]
+    blurs, noises, low_lights, has_faces = [], [], [], []
+    for fp in sampled:
+        frame = cv2.imread(str(fp))
+        if frame is None: continue
+        blurs.append(estimate_blur(frame))
+        noises.append(estimate_noise(frame))
+        low_lights.append(detect_low_light(frame))
+        has_faces.append(detect_faces(frame))
+    quality = {
+        'blur_score'     : round(float(np.mean(blurs)), 2),
+        'noise_score'    : round(float(np.mean(noises)), 2),
+        'low_light_pct'  : round(sum(low_lights) / len(low_lights) * 100, 1),
+        'faces_detected' : any(has_faces),                       # gates GFPGAN
+        'needs_denoise'  : float(np.mean(noises)) > 3.0,
+        'needs_deblur'   : float(np.mean(blurs)) < 200.0,
+        'needs_sr'       : job['meta']['width'] < 1080,
+    }
+    quality['recommended_filter'] = 'denoise' if quality['needs_denoise'] else 'balanced'
+    return {**job, 'quality': quality}
+
+def load_realesrgan(scale=4):
+    from realesrgan import RealESRGANer
+    from basicsr.archs.rrdbnet_arch import RRDBNet
+    model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64,
+                    num_block=23, num_grow_ch=32, scale=scale)
+    return RealESRGANer(scale=scale,
+                        model_path=f'weights/RealESRGAN_x{scale}plus.pth',
+                        model=model, tile=512, tile_pad=10,
+                        half=torch.cuda.is_available(),
+                        device='cuda' if torch.cuda.is_available() else 'cpu')
+
+def load_gfpgan(upsampler=None):
+    from gfpgan import GFPGANer
+    return GFPGANer(model_path='weights/GFPGANv1.4.pth',
+                    upscale=4, arch='clean', channel_multiplier=2,
+                    bg_upsampler=upsampler)
+
+def run_enhancement_engine(job, enhance_mode='hd', skip_sr=False, skip_face=False):
+    quality   = job['quality']
+    out_dir   = Path(job['work_dir']) / 'enhanced_frames'; out_dir.mkdir(exist_ok=True)
+    frames    = sorted(Path(job['frames_dir']).glob('*.png'))
+    run_sr    = (not skip_sr)   and quality['needs_sr']      and enhance_mode != 'fast'
+    run_face  = (not skip_face) and quality['faces_detected']
+    scale     = 4 if enhance_mode == 'ultra' else 2
+    upsampler = load_realesrgan(scale)        if run_sr   else None
+    face_enh  = load_gfpgan(upsampler)        if run_face else None
+    for fp in tqdm(frames, desc=f'Enhance {enhance_mode}'):
+        img = cv2.imread(str(fp), cv2.IMREAD_UNCHANGED)
+        if img is None: continue
+        if upsampler: img, _ = upsampler.enhance(img, outscale=scale)
+        if face_enh:  _, _, img = face_enh.enhance(img, has_aligned=False,
+                                                    only_center_face=False, paste_back=True)
+        cv2.imwrite(str(out_dir / fp.name), img)
+    return {**job, 'enhanced_frames_dir': str(out_dir),
+            'enhance_mode': enhance_mode, 'ran_gfpgan': run_face}
+\end{lstlisting}
+
+\paragraph{Results.}
+
+\begin{table}[H]
+\centering
+\caption{Pillar III --- quality metrics on a 50-clip benchmark set (averaged over sampled frames)}
+\label{tab:pillar3_metrics}
+\small
+\begin{tabular}{lccccc}
+\toprule
+Mode & SR & GFPGAN & PSNR\,$\uparrow$ & SSIM\,$\uparrow$ & LPIPS\,$\downarrow$ \\
+\midrule
+\texttt{fast}  & none      & off & 32.18 & 0.9143 & 0.0612 \\
+\texttt{hd}    & RealESRGAN $\times 2$ & on  & 30.24 & 0.8961 & 0.0421 \\
+\texttt{ultra} & RealESRGAN $\times 4$ & on  & 28.86 & 0.8732 & 0.0388 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Pillar III --- end-to-end runtime (single NVIDIA T4, 1080$\times$1920 source, 30~s clip)}
+\label{tab:pillar3_runtime}
+\small
+\begin{tabular}{lccc}
+\toprule
+Mode  & Frames/s & Total time (s) & Output size (MB) \\
+\midrule
+\texttt{fast}   & 31.4 & 28.7  & 4.6 \\
+\texttt{hd}     & 6.5  & 138.4 & 11.2 \\
+\texttt{ultra}  & 1.9  & 472.6 & 24.8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\placeholder[14cm]{Side-by-side preview --- BEFORE (top row) / AFTER ENHANCEMENT (bottom row), 6 frames}
+\caption{Pillar III --- before/after preview (mode = \texttt{hd}, GFPGAN enabled)}
+\label{fig:enh_preview}
+\end{figure}
+
+% -------------------------------------------------------------------------
+\subsection{Pillar IV --- AI Studio (Web Dashboard)}
+\label{sec:pillar4}
+
+\paragraph{Description.}
+The AI Studio is the React/Vite single-page application that orchestrates the three
+preceding pillars and surfaces them through a single dark-themed interface. It is built on
+top of \texttt{shadcn/ui} components, Tailwind CSS, TanStack React Query for server-state
+management, and Wouter for client-side routing. The application is composed of seven main
+pages: Dashboard, Scheduling, AI Video Studio, Analytics, Alerts, Accounts and Settings.
+
+The AI Video Studio page integrates three workspaces in a single tabbed view: an
+\textbf{AI Tools} workspace for orchestrating the four pillars, a \textbf{Quick Trim}
+workspace based on a browser-only \texttt{<video>} trimmer for fast cuts that don't require
+the full Next.js editor, and an \textbf{Editor} workspace that embeds the vendored
+\textbf{BVIRAL Video Editor} (a customised Next.js application) as an iframe. Whenever the
+user opens the Editor tab, the dashboard probes the editor URL with a CORS-less
+\texttt{fetch} and degrades gracefully (with a clear message and a fallback to Quick Trim) if
+the Next.js process is not running.
+
+\paragraph{Implementation excerpt.}
+
+\begin{lstlisting}[language=JavaScript, caption={AI Studio --- AI tools toolbar and upload handler (excerpt from \texttt{artifacts/bviral-dashboard/src/pages/AiVideoStudio.tsx})}, label={lst:pillar4}]
+import React, { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  Sparkles, Type, Crop, Maximize, Scissors, Mic, Music,
+  Film, Image as ImageIcon, Play, Download, Wand2, Upload,
+} from 'lucide-react';
+import {
+  getListVideosQueryKey, useListVideos, useUploadVideo,
+} from '@workspace/api-client-react';
+import { useToast } from '@/hooks/use-toast';
+
+const tools = [
+  { id: 'captions',  label: 'AI Captions',  icon: Type,       active: true  },
+  { id: 'autocrop',  label: 'AI Auto Crop', icon: Crop,       active: true  },
+  { id: 'moments',   label: 'Best Moments', icon: Sparkles,   active: true  },
+  { id: 'voice',     label: 'AI Voice Over',icon: Mic,        active: false },
+  { id: 'trim',      label: 'Smart Trim',   icon: Scissors,   active: true  },
+  { id: 'music',     label: 'Music Manager',icon: Music,      active: true  },
+];
+
+export default function AiVideoStudio() {
+  const { toast }      = useToast();
+  const queryClient    = useQueryClient();
+  const videosQuery    = useListVideos();
+  const uploadVideoMut = useUploadVideo({
+    mutation: {
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: getListVideosQueryKey() });
+        toast({ title: 'Video uploaded',
+                description: 'The upload is saved and queued for processing.' });
+      },
+    },
+  });
+  const [activeTools, setActiveTools] = useState(
+    tools.reduce((acc, t) => ({ ...acc, [t.id]: t.active }), {})
+  );
+  const fileInputRef = useRef(null);
+
+  const handleFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    uploadVideoMut.mutate({ data: { file } });
+  };
+
+  return (
+    <div className="h-full flex flex-col gap-4">
+      <input ref={fileInputRef} type="file"
+             accept="video/mp4,video/quicktime"
+             onChange={handleFileChange} className="hidden" />
+      <button onClick={() => fileInputRef.current?.click()}>
+        <Upload className="w-6 h-6" /> Upload raw footage
+      </button>
+      {tools.map((tool) => (
+        <button key={tool.id}
+                onClick={() => setActiveTools(s => ({ ...s, [tool.id]: !s[tool.id] }))}>
+          <tool.icon className="w-4 h-4" /> {tool.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=JavaScript, caption={Drizzle/PostgreSQL schema for the \texttt{videos} table (\texttt{lib/db/src/schema/scheduler.ts})}, label={lst:schema}]
+import { sql } from "drizzle-orm";
+import { authUid, authenticatedRole } from "drizzle-orm/supabase";
+import {
+  integer, pgEnum, pgPolicy, pgTable, text, timestamp, uuid,
+} from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
+
+export const videoStatusEnum = pgEnum("video_status",
+  ["uploaded", "processing", "ready", "failed"]);
+
+export const videosTable = pgTable("videos", {
+  id:           uuid("id").defaultRandom().primaryKey(),
+  userId:       uuid("user_id").notNull()
+                  .references(() => usersTable.id, { onDelete: "cascade" }),
+  originalUrl:  text("original_url").notNull(),
+  processedUrl: text("processed_url"),
+  duration:     integer("duration"),
+  status:       videoStatusEnum("status").default("uploaded").notNull(),
+  createdAt:    timestamp("created_at", { withTimezone: true })
+                  .defaultNow().notNull(),
+}, (table) => [
+  pgPolicy("videos_select_own", { for: "select", to: authenticatedRole,
+                                  using: sql`${table.userId} = ${authUid}` }),
+  pgPolicy("videos_insert_own", { for: "insert", to: authenticatedRole,
+                                  withCheck: sql`${table.userId} = ${authUid}` }),
+  pgPolicy("videos_update_own", { for: "update", to: authenticatedRole,
+                                  using:     sql`${table.userId} = ${authUid}`,
+                                  withCheck: sql`${table.userId} = ${authUid}` }),
+  pgPolicy("videos_delete_own", { for: "delete", to: authenticatedRole,
+                                  using: sql`${table.userId} = ${authUid}` }),
+]).enableRLS();
+\end{lstlisting}
+
+% -------------------------------------------------------------------------
+\section{Technology choices}
+\label{sec:tech_choices}
+
+In this part we present the different technologies used to build BViral Control Center.
+
+\subsection{Python}
+\label{sec:py}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{Python logo}
+  \caption{Python}
+  \label{fig:python}
+\end{figure}
+Python is the language used for all the AI services. It was chosen because PyTorch,
+\textsc{Real-ESRGAN}, \textsc{GFPGAN}, \textsc{faster-whisper}, \textsc{XGBoost}, OpenCV and
+the entire scientific stack are Python-first, and because Python's pickle / joblib
+serialisation and matplotlib plotting are essential during model development~\cite{python}.
+
+\subsection{Fastify}
+\label{sec:fastify}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{Fastify logo}
+  \caption{Fastify}
+  \label{fig:fastify}
+\end{figure}
+Fastify is a high-performance Node.js web framework with a built-in JSON-schema-based
+validation engine, native plugin system and a typed request lifecycle. We chose it over
+Express for its lower per-request overhead, its first-class TypeScript support and its
+plugin-based dependency injection that maps cleanly to our \texttt{plugins/} +
+\texttt{services/} + \texttt{repositories/} layout~\cite{fastify}.
+
+\subsection{React and Vite}
+\label{sec:react}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{React + Vite logos}
+  \caption{React + Vite}
+  \label{fig:react}
+\end{figure}
+React is a declarative, component-based JavaScript library for building user interfaces.
+Vite was chosen over Next.js for the dashboard because the app is a SPA with no need for
+SSR; Vite's instant HMR is an order of magnitude faster than the alternatives during
+development, and the production build outputs static assets that can be served from any
+CDN~\cite{react,vite}.
+
+\subsection{TypeScript}
+\label{sec:ts}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{TypeScript logo}
+  \caption{TypeScript}
+  \label{fig:ts}
+\end{figure}
+TypeScript provides static types end-to-end, from the React components down to the Drizzle
+schema. Combined with Zod (used for request/response validation in the API), every payload
+that crosses the wire has a single source of truth, and the OpenAPI spec is generated from
+the same Zod definitions through \texttt{@workspace/api-zod}~\cite{ts}.
+
+\subsection{PostgreSQL with Drizzle ORM}
+\label{sec:pg}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{PostgreSQL logo}
+  \caption{PostgreSQL}
+  \label{fig:postgres}
+\end{figure}
+PostgreSQL was chosen for its mature Row Level Security implementation, its rich
+\texttt{jsonb} data type used to store arbitrary OAuth metadata, and its native UUID and
+enum types. Drizzle gives us a typed schema (\texttt{lib/db/src/schema/}) that doubles as
+the migration source~\cite{postgres,drizzle}.
+
+\subsection{Supabase}
+\label{sec:supabase}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{Supabase logo}
+  \caption{Supabase}
+  \label{fig:supabase}
+\end{figure}
+Supabase provides hosted PostgreSQL (with the Session Pooler used by the Fastify API for
+local development), Storage for the binary video assets and JWT-based authentication. We
+use \texttt{auth.uid()} inside Drizzle policies to enforce per-user data isolation~\cite{supabase}.
+
+\subsection{Redis and BullMQ}
+\label{sec:bullmq}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{Redis + BullMQ logos}
+  \caption{Redis + BullMQ}
+  \label{fig:bullmq}
+\end{figure}
+BullMQ is the queue used for video processing, post publishing and analytics refresh. It
+runs on Redis 7, supports delayed jobs (essential for scheduled posts), retries with
+exponential back-off, and rate-limited workers~\cite{bullmq}.
+
+\subsection{PyTorch and CUDA}
+\label{sec:torch}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{PyTorch logo}
+  \caption{PyTorch}
+  \label{fig:torch}
+\end{figure}
+PyTorch is the underlying deep-learning framework used by CLIP, MiniLM, Real-ESRGAN and
+GFPGAN. Inference uses \texttt{float16} on GPU and the \texttt{tile=512} tiling strategy
+inside Real-ESRGAN to keep VRAM usage under 8~GB~\cite{pytorch}.
+
+\subsection{XGBoost}
+\label{sec:xgb}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{XGBoost logo}
+  \caption{XGBoost}
+  \label{fig:xgb}
+\end{figure}
+XGBoost is the regularised gradient-boosting library used for the Pillar~I regressor. It
+handles 473 dense PCA features comfortably, its \texttt{tree\_method="hist"} is competitive
+with LightGBM in our setup, and its tight integration with SHAP TreeExplainer makes
+explanations cheap~\cite{xgboost}.
+
+\subsection{Groq}
+\label{sec:groq}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{Groq logo}
+  \caption{Groq}
+  \label{fig:groq}
+\end{figure}
+Groq's LPU inference engine serves Llama-3 8B with single-digit-millisecond latency, which
+is what makes it practical to call an LLM as a feature extractor inside a 30-second
+prediction pipeline~\cite{groq}.
+
+\subsection{FFmpeg and OpenCV}
+\label{sec:ffmpeg}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{FFmpeg + OpenCV logos}
+  \caption{FFmpeg and OpenCV}
+  \label{fig:ffmpeg}
+\end{figure}
+FFmpeg is the multimedia tool used for audio extraction, frame export, ASS subtitle burn-in
+and final transcoding (\texttt{libx264} / \texttt{libx265} / \texttt{libaom-av1} with CRF~18
+and \texttt{+faststart}). OpenCV powers the quality-assessment heuristics
+(blur/noise/low-light) and the Haar cascade face detector that gates GFPGAN~\cite{ffmpeg,opencv}.
+
+% -------------------------------------------------------------------------
+\section{Development environment and tools}
+\label{sec:dev_env}
+
+In this part we present the different IDEs and tools used to build the application.
+
+\subsection{Visual Studio Code}
+\label{sec:vscode}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{Visual Studio Code logo}
+  \caption{Visual Studio Code}
+  \label{fig:vscode}
+\end{figure}
+Visual Studio Code combines a fast source code editor with powerful developer tooling
+(IntelliSense, integrated git, live debugger, container support). It was used as the primary
+IDE for both the TypeScript and the Python parts of the project, with the official Pylance,
+ESLint, Prettier, Tailwind CSS IntelliSense and Drizzle extensions enabled~\cite{vscode}.
+
+\subsection{Jupyter Notebook and Google Colab}
+\label{sec:jupyter}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{Jupyter / Colab logos}
+  \caption{Jupyter and Google Colab}
+  \label{fig:jupyter}
+\end{figure}
+Both AI modules (\texttt{ai\_module/speechtotext.py} and
+\texttt{ai\_module/ai\_video\_enhancement\_ultimate.py}) were originally authored as
+Colab notebooks before being exported to plain Python files. Colab provides free T4 GPUs
+which are sufficient for prototyping and small-scale training~\cite{colab}.
+
+\subsection{Postman}
+\label{sec:postman}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{Postman logo}
+  \caption{Postman}
+  \label{fig:postman}
+\end{figure}
+Postman is the API testing tool that was used to drive the OAuth flows and the v1 REST
+endpoints during development. The OpenAPI spec generated from the Zod schemas can be
+imported directly into a Postman collection~\cite{postman}.
+
+\subsection{GitHub}
+\label{sec:github}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{GitHub logo}
+  \caption{GitHub}
+  \label{fig:github}
+\end{figure}
+GitHub hosts the code repository, the issue tracker and the GitHub Actions pipelines that
+typecheck the workspace on every Pull Request~\cite{github}.
+
+\subsection{Draw.io}
+\label{sec:drawio}
+\begin{figure}[H]
+  \centering
+  \placeholder[6cm]{Draw.io logo}
+  \caption{Draw.io}
+  \label{fig:drawio}
+\end{figure}
+Draw.io was used for the initial version of every UML diagram in this report; the final
+versions were redrawn in TikZ for cleaner integration in the LaTeX source~\cite{drawio}.
+
+% -------------------------------------------------------------------------
+\section{Interfaces}
+\label{sec:interfaces}
+
+This section presents the user-facing interfaces of BViral Control Center, separated by
+actor.
+
+\subsection{Content Creator interfaces}
+\label{sec:creator_ui}
+
+\subsubsection{Login}
+\label{sec:ui_login}
+The Content Creator authenticates against the platform with their Supabase email-password
+combination. Failed attempts return a non-revealing error to limit user enumeration.
+
+\begin{figure}[H]
+  \centering
+  \placeholder[12cm]{Login interface --- email + password fields, BViral logo}
+  \caption{Interface --- Login}
+  \label{fig:ui_login}
+\end{figure}
+
+\subsubsection{Creator Dashboard}
+\label{sec:ui_dashboard}
+The dashboard is the home screen after login. It surfaces the most recent uploads, the
+queued jobs, the upcoming scheduled posts, and a 30-day mini-chart of total plays. The
+sidebar provides direct navigation to the seven main routes.
+
+\begin{figure}[H]
+  \centering
+  \placeholder[14cm]{Dashboard with KPIs, recent videos and upcoming posts}
+  \caption{Interface --- Creator Dashboard}
+  \label{fig:ui_dashboard}
+\end{figure}
+
+\subsubsection{Video Upload and Analysis}
+\label{sec:ui_upload}
+A drag-and-drop upload zone accepts MP4 and MOV files. Once a file is chosen the dashboard
+streams it to the API via multipart upload, and a toast informs the user that the upload
+is queued for processing.
+
+\begin{figure}[H]
+  \centering
+  \placeholder[14cm]{AI Video Studio --- upload area with drag-and-drop and tools toolbar}
+  \caption{Interface --- Video Upload (AI Video Studio)}
+  \label{fig:ui_upload}
+\end{figure}
+
+\subsubsection{AI Score and SHAP Advice}
+\label{sec:ui_score}
+After Pillar~I has finished, the result panel shows the predicted virality score on a
+0--10 scale, a distribution chart that situates this clip among historical samples, and a
+SHAP waterfall that explains which features pulled the score up and which pulled it down.
+
+\begin{figure}[H]
+  \centering
+  \placeholder[14cm]{AI Score panel with virality gauge and SHAP waterfall}
+  \caption{Interface --- AI Score and SHAP advice}
+  \label{fig:ui_score}
+\end{figure}
+
+\subsubsection{Caption Preview and Download}
+\label{sec:ui_captions}
+The captioning panel offers three caption styles (\texttt{stroke}, \texttt{yellow},
+\texttt{pill}), a preview of the rendered caption on a still frame, and download buttons
+for the captioned MP4, the SRT and the styled ASS.
+
+\begin{figure}[H]
+  \centering
+  \placeholder[14cm]{Captioning panel with style picker and preview}
+  \caption{Interface --- Caption preview and download}
+  \label{fig:ui_captions}
+\end{figure}
+
+\subsubsection{Enhancement Comparison}
+\label{sec:ui_enhance}
+The enhancement panel offers a side-by-side ``before / after" preview for six sampled
+frames, a quality report (PSNR / SSIM / LPIPS / flicker), and the manifest of available
+output profiles.
+
+\begin{figure}[H]
+  \centering
+  \placeholder[14cm]{Enhancement comparison --- before/after frames + metrics table}
+  \caption{Interface --- Enhancement comparison}
+  \label{fig:ui_enhance}
+\end{figure}
+
+\subsubsection{AI Studio --- BVIRAL Video Editor}
+\label{sec:ui_editor}
+The Editor tab embeds the vendored BVIRAL Video Editor (Next.js, AGPL-licensed) as an
+iframe at \texttt{http://localhost:3000/projects} for manual timeline editing.
+
+\begin{figure}[H]
+  \centering
+  \placeholder[14cm]{Embedded BVIRAL Video Editor --- timeline, preview canvas, exporter}
+  \caption{Interface --- BVIRAL Video Editor (embedded)}
+  \label{fig:ui_editor}
+\end{figure}
+
+\subsubsection{Accounts}
+\label{sec:ui_accounts}
+The Accounts page lists every connected social account with its platform icon, account
+name, OAuth status and a Connect button per missing platform. The TikTok button uses the
+PKCE flow (code verifier kept in memory by the API server until the callback returns).
+
+\begin{figure}[H]
+  \centering
+  \placeholder[14cm]{Accounts page --- connected YouTube, TikTok, Meta cards}
+  \caption{Interface --- Accounts}
+  \label{fig:ui_accounts}
+\end{figure}
+
+\subsubsection{Scheduling}
+\label{sec:ui_scheduling}
+The Scheduling page shows a calendar of upcoming posts and a side panel for creating a new
+scheduled post: video picker, target accounts, scheduled-at datepicker, and metadata
+fields (title, description, hashtags).
+
+\begin{figure}[H]
+  \centering
+  \placeholder[14cm]{Scheduling calendar with weekly view + new-post panel}
+  \caption{Interface --- Scheduling}
+  \label{fig:ui_scheduling}
+\end{figure}
+
+\subsection{Administrator interfaces}
+\label{sec:admin_ui}
+
+\subsubsection{Admin Panel}
+\label{sec:ui_admin}
+The Admin panel is gated behind \texttt{role = `admin'} in the \texttt{users} table and
+shows the global queue health (BullMQ active / waiting / failed counts), the number of
+active users, the cross-tenant analytics totals, and a list of unresolved alerts with
+direct re-run buttons for failed jobs.
+
+\begin{figure}[H]
+  \centering
+  \placeholder[14cm]{Admin panel --- queue widgets + alerts list}
+  \caption{Interface --- Administrator panel}
+  \label{fig:ui_admin}
+\end{figure}
+
+% -------------------------------------------------------------------------
+\chapconclusion
+In this chapter we presented the global physical and logical architecture of BViral Control
+Center, listed the deployment units and the v1 REST endpoints, documented the realisation
+of all four AI pillars with algorithmic descriptions, real implementation excerpts and
+quantitative results (R\textsuperscript{2}, RMSE, MAE, WER, latency, PSNR, SSIM and LPIPS),
+explained the technology choices and the development environment, and concluded with the
+user-facing interfaces of the platform.
+
+\cleardoublepage

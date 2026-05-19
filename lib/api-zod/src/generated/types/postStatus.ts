@@ -13,4 +13,5 @@ export const PostStatus = {
   scheduled: 'scheduled',
   posted: 'posted',
   failed: 'failed',
+  cancelled: 'cancelled',
 } as const;

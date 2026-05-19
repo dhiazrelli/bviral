@@ -1,0 +1,248 @@
+\chapter{State of the Art}
+
+\section*{Introduction}
+The state of the art constitutes the preliminary phase of our project where we study the existing landscape, identify shortcomings in current solutions, and define our project's requirements. In this chapter, we begin by presenting the project context, study existing solutions, propose our solution, specify functional and non-functional requirements, and define our working methodology.
+
+\section{Project Context}
+
+Social media management has become a critical business function for content creators, influencers, and enterprises. Managing content across multiple platforms---YouTube, TikTok, Instagram, Facebook, and Snapchat---requires significant effort in content creation, scheduling, and performance monitoring.
+
+BViral Control Center was conceived as a comprehensive solution to centralize all social media management tasks into a single, powerful dashboard. The project is developed as a full-stack web application with an integrated AI video enhancement pipeline, targeting content creators who need to manage their multi-platform presence efficiently.
+
+% ── Place bviral_logo.png in report/figures/ ──
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{figures/bviral_logo.png}
+    \caption{BViral Control Center Logo}
+    \label{fig:bviral-logo}
+\end{figure}
+
+\section{Preliminary Study}
+
+\subsection{Study of Existing Solutions}
+
+\subsubsection{Analysis of Existing Solutions}
+
+Before developing our solution, we conducted a thorough study of the main existing social media management platforms:
+
+\textbf{Hootsuite:} is one of the most popular social media management platforms. It allows users to schedule posts, manage multiple accounts, and track analytics from a single dashboard. Hootsuite supports major platforms including Facebook, Instagram, Twitter, LinkedIn, and YouTube.
+
+% ── Place hootsuite.png in report/figures/ ──
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/hootsuite.png}
+    \caption{Existing solution: Hootsuite Dashboard}
+    \label{fig:hootsuite}
+\end{figure}
+
+\textbf{Buffer:} is a streamlined social media management tool focused on publishing and scheduling. Buffer provides analytics, engagement tools, and a clean, user-friendly interface for managing posts across platforms.
+
+% ── Place buffer.png in report/figures/ ──
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/buffer.png}
+    \caption{Existing solution: Buffer}
+    \label{fig:buffer}
+\end{figure}
+
+\textbf{Topaz Video AI:} is a desktop application specializing in AI-powered video enhancement. It uses deep learning models to upscale, denoise, and sharpen videos. However, it is a standalone desktop tool with no social media integration.
+
+\subsubsection{Critique of Existing Solutions}
+
+The existing solutions present several limitations:
+
+\textbf{Hootsuite:} offers comprehensive scheduling and analytics but lacks any AI-powered video enhancement capability. Its pricing model is expensive for individual creators, and it does not support TikTok natively with full features. The video editing capabilities are minimal.
+
+\textbf{Buffer:} provides a simple and clean interface but offers limited analytics compared to competitors. It lacks video enhancement features entirely and has restricted support for newer platforms like TikTok and Snapchat.
+
+\textbf{Topaz Video AI:} delivers excellent AI video enhancement with models like Real-ESRGAN and GFPGAN, but it operates only as a standalone desktop application. It has no scheduling, analytics, or social media management features.
+
+\begin{table}[H]
+\centering
+\caption{Comparison of existing solutions}
+\label{tab:comparison}
+\begin{tabularx}{\textwidth}{|l|X|X|X|X|}
+\hline
+\textbf{Feature} & \textbf{Hootsuite} & \textbf{Buffer} & \textbf{Topaz AI} & \textbf{BViral (Ours)} \\
+\hline
+Multi-platform scheduling & \checkmark & \checkmark & $\times$ & \checkmark \\
+\hline
+Analytics dashboard & \checkmark & Limited & $\times$ & \checkmark \\
+\hline
+AI video enhancement & $\times$ & $\times$ & \checkmark & \checkmark \\
+\hline
+OAuth account connection & \checkmark & \checkmark & $\times$ & \checkmark \\
+\hline
+Integrated video editor & $\times$ & $\times$ & \checkmark & \checkmark \\
+\hline
+Alert management & Limited & $\times$ & $\times$ & \checkmark \\
+\hline
+Open-source / Self-hosted & $\times$ & $\times$ & $\times$ & \checkmark \\
+\hline
+Free for individuals & $\times$ & Limited & $\times$ & \checkmark \\
+\hline
+\end{tabularx}
+\end{table}
+
+\subsection{Suggested Solution}
+
+We propose \textbf{BViral Control Center}, a web-based platform that combines social media management with AI-powered video enhancement in a single, unified interface. Our solution addresses the gaps identified in existing tools by providing:
+
+\begin{itemize}
+    \item A centralized dashboard for managing posts across YouTube, TikTok, Instagram/Facebook, and Snapchat.
+    \item An integrated scheduling system with a visual calendar interface backed by Redis queues for reliable post publishing.
+    \item OAuth-based account connection for YouTube, TikTok, and Meta (Facebook/Instagram) with PKCE security.
+    \item A comprehensive analytics module with performance metrics, engagement tracking, and revenue monitoring.
+    \item An AI-powered video enhancement pipeline using Real-ESRGAN for super-resolution and GFPGAN for face restoration.
+    \item An integrated browser-based video editor (BVIRAL Video Editor) for timeline editing, media import, and export.
+    \item An alert management system for monitoring errors, copyright issues, and success notifications.
+\end{itemize}
+
+\section{Requirement Specification}
+
+\subsection{Identifying Major Actors}
+
+Our system involves two primary actors:
+
+\begin{itemize}
+    \item \textbf{Content Creator (Admin):} the main user of the web dashboard who manages all social media accounts, creates and schedules posts, monitors analytics, configures settings, uses the AI video enhancement pipeline, and manages alerts.
+    \item \textbf{System (Automated):} the background worker processes that handle scheduled post publishing via Redis/BullMQ queues, OAuth token refresh, and analytics data fetching from platform APIs.
+\end{itemize}
+
+\subsection{Functional Requirements}
+
+Our solution must satisfy the following functional requirements:
+
+\textbf{Account Management:}
+\begin{itemize}
+    \item Connect and disconnect YouTube accounts via Google OAuth 2.0.
+    \item Connect and disconnect TikTok accounts via TikTok OAuth with PKCE.
+    \item Connect and disconnect Meta (Facebook/Instagram) accounts via Facebook Login.
+    \item View all connected accounts with platform, name, and connection status.
+\end{itemize}
+
+\textbf{Post Scheduling:}
+\begin{itemize}
+    \item Create new scheduled posts with video, caption, and target platform.
+    \item View scheduled, posted, and failed posts in a calendar interface.
+    \item Cancel or reschedule pending posts.
+    \item Background worker publishes posts at their scheduled time.
+\end{itemize}
+
+\textbf{Analytics:}
+\begin{itemize}
+    \item View aggregated analytics: views, likes, comments, shares, and revenue.
+    \item Filter analytics by platform and time period.
+    \item Visualize performance trends with interactive charts.
+\end{itemize}
+
+\textbf{AI Video Studio:}
+\begin{itemize}
+    \item Enhance video quality using Real-ESRGAN super-resolution (2x/4x).
+    \item Apply GFPGAN face restoration on detected faces.
+    \item Apply classical filters: denoise, deblur, color correction.
+    \item Preview before/after comparisons and quality metrics (PSNR, SSIM, LPIPS).
+    \item Access the integrated BVIRAL Video Editor for timeline editing.
+\end{itemize}
+
+\textbf{Alerts:}
+\begin{itemize}
+    \item Receive alerts for posting errors, copyright issues, and success notifications.
+    \item Mark alerts as resolved or unresolved.
+    \item Filter alerts by type, platform, and status.
+\end{itemize}
+
+\subsection{Non-Functional Requirements}
+
+\begin{itemize}
+    \item \textbf{Security:} OAuth 2.0 with PKCE for TikTok; AES-256 encryption for stored access tokens; Supabase Row Level Security (RLS) policies on all database tables; JWT-based authentication.
+    \item \textbf{Performance:} Redis/BullMQ queues for reliable asynchronous post publishing; parallel CPU processing for AI video enhancement when GPU is unavailable.
+    \item \textbf{Scalability:} pnpm monorepo workspace architecture separating frontend, backend, and shared libraries; modular service layer in the API server.
+    \item \textbf{Maintainability:} TypeScript across the entire stack; Drizzle ORM with type-safe database schema; OpenAPI specification with generated Zod validation schemas.
+    \item \textbf{Ergonomics:} modern, responsive UI built with React, Tailwind CSS, and Framer Motion animations; dark-mode dashboard design.
+    \item \textbf{Interoperability:} RESTful API with versioned routes (\texttt{/api/v1/}); standard OAuth flows compatible with all major platforms.
+\end{itemize}
+
+\section{Working Methodology}
+
+For the development of BViral Control Center, we adopted an \textbf{Agile iterative} approach. Given the modular nature of the project---with distinct frontend, backend, AI, and integration components---an iterative methodology allows us to develop, test, and refine each module independently before integrating them.
+
+Each iteration focuses on a specific functional module:
+\begin{enumerate}
+    \item \textbf{Iteration 1:} Core dashboard UI and navigation shell.
+    \item \textbf{Iteration 2:} API server setup, database schema, and authentication.
+    \item \textbf{Iteration 3:} OAuth account connection flows (YouTube, TikTok, Meta).
+    \item \textbf{Iteration 4:} Post scheduling with Redis/BullMQ worker.
+    \item \textbf{Iteration 5:} Analytics dashboard and data visualization.
+    \item \textbf{Iteration 6:} AI Video Enhancement pipeline integration.
+    \item \textbf{Iteration 7:} BVIRAL Video Editor integration and alerts system.
+    \item \textbf{Iteration 8:} Testing, polish, and deployment preparation.
+\end{enumerate}
+
+\section{Gantt Diagram}
+
+This project was carried out over a period of approximately 4 months (February -- May 2026). The distribution of tasks throughout that duration is illustrated by the following Gantt diagram. The project is divided into 6 major phases.
+
+% ── Option A: Use the PlantUML Gantt from startuml_diagrams.txt (Diagram 11)
+%    Render it at plantuml.com, export as PNG, and uncomment below:
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/gantt.png}
+%     \caption{Gantt diagram of the project}
+%     \label{fig:gantt}
+% \end{figure}
+
+% ── Option B: LaTeX table representation of the Gantt ──
+\begin{table}[H]
+\centering
+\caption{Project planning -- Gantt overview}
+\label{tab:gantt}
+\small
+\begin{tabularx}{\textwidth}{|l|X|c|c|}
+\hline
+\textbf{Phase} & \textbf{Task} & \textbf{Start} & \textbf{Duration} \\
+\hline
+\hline
+\multirow{4}{*}{\rotatebox{90}{\textbf{Analysis}}}
+ & Preliminary Study \& Study of Existing & Feb 01 & 10 days \\
+ & Requirements Specification & Feb 08 & 5 days \\
+ & UML Conception (Use Case, Class, Sequence) & Feb 12 & 10 days \\
+\hline
+\multirow{4}{*}{\rotatebox{90}{\textbf{Infra.}}}
+ & Monorepo \& Workspace Setup (pnpm) & Feb 24 & 5 days \\
+ & Database Schema (Drizzle ORM + Supabase) & Feb 27 & 7 days \\
+ & Fastify API Server + Auth Middleware & Mar 03 & 10 days \\
+\hline
+\multirow{6}{*}{\rotatebox{90}{\textbf{Frontend}}}
+ & React/Vite Dashboard Shell & Mar 10 & 7 days \\
+ & Dashboard Home Page (KPIs, Charts) & Mar 14 & 5 days \\
+ & Scheduling Page \& Calendar & Mar 19 & 10 days \\
+ & Analytics Page \& Charts & Mar 26 & 7 days \\
+ & Alerts Page & Apr 01 & 5 days \\
+ & Settings Page & Apr 04 & 5 days \\
+\hline
+\multirow{4}{*}{\rotatebox{90}{\textbf{OAuth}}}
+ & YouTube OAuth 2.0 Integration & Apr 07 & 7 days \\
+ & TikTok OAuth + PKCE & Apr 14 & 7 days \\
+ & Meta/Facebook OAuth & Apr 18 & 7 days \\
+ & Accounts Management Page & Apr 21 & 5 days \\
+\hline
+\multirow{4}{*}{\rotatebox{90}{\textbf{AI}}}
+ & AI Video Enhancement Pipeline (Python) & Apr 24 & 10 days \\
+ & Real-ESRGAN + GFPGAN Integration & Apr 24 & 8 days \\
+ & AI Video Studio Page & May 01 & 5 days \\
+ & BVIRAL Video Editor Integration & May 04 & 5 days \\
+\hline
+\multirow{4}{*}{\rotatebox{90}{\textbf{Polish}}}
+ & Redis/BullMQ Post Publishing Worker & May 06 & 5 days \\
+ & Testing \& Bug Fixes & May 10 & 7 days \\
+ & UI Polish \& Animations & May 14 & 5 days \\
+ & Report Writing & May 12 & 10 days \\
+\hline
+\end{tabularx}
+\end{table}
+
+\noindent\textit{A visual Gantt chart is also available as PlantUML code in the companion file \texttt{startuml\_diagrams.txt} --- Diagram 11. Render it at \url{https://www.plantuml.com/plantuml} for a graphical version.}
+
+\section*{Conclusion}
+In this chapter, we performed a study of existing social media management and video enhancement solutions, identified their limitations, and proposed BViral Control Center as a comprehensive alternative. We specified the major actors, functional and non-functional requirements, and defined our iterative working methodology. The next chapter will present the detailed conceptual design of our solution.

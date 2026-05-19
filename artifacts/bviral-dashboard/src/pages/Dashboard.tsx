@@ -39,6 +39,29 @@ import {
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Hero3D } from "@/components/visuals/Hero3D";
+import {
+  generateRecommendations,
+  type Recommendation,
+  type RecommendationCategory,
+} from "@/lib/recommendations";
+
+const recommendationCategoryStyle: Record<RecommendationCategory, { icon: React.ComponentType<{ className?: string }>; tint: string; rail: string; chip: string }> = {
+  warning: { icon: AlertTriangle, tint: "text-red-300", rail: "bg-red-400/70", chip: "bg-red-500/12 text-red-300" },
+  opportunity: { icon: Sparkles, tint: "text-primary", rail: "bg-primary/80", chip: "bg-primary/14 text-primary" },
+  optimization: { icon: Wand2, tint: "text-cyan-300", rail: "bg-cyan-400/70", chip: "bg-cyan-500/12 text-cyan-300" },
+  growth: { icon: TrendingUp, tint: "text-emerald-300", rail: "bg-emerald-400/70", chip: "bg-emerald-500/12 text-emerald-300" },
+  celebration: { icon: CheckCircle2, tint: "text-accent", rail: "bg-accent/80", chip: "bg-accent/14 text-accent" },
+  info: { icon: Activity, tint: "text-white/70", rail: "bg-white/30", chip: "bg-white/8 text-white/70" },
+};
+
+const recommendationCategoryLabel: Record<RecommendationCategory, string> = {
+  warning: "Warning",
+  opportunity: "Opportunity",
+  optimization: "Optimize",
+  growth: "Growth",
+  celebration: "Win",
+  info: "All good",
+};
 
 const platformLabels: Record<AccountPlatform, string> = {
   facebook: "Facebook",
@@ -180,6 +203,11 @@ export default function Dashboard() {
         color: platformColors[platform.platform],
       }));
   }, [analytics.byPlatform]);
+
+  const recommendations = useMemo<Recommendation[]>(
+    () => generateRecommendations({ analytics, alerts, accounts, posts }),
+    [analytics, alerts, accounts, posts],
+  );
 
   const recentAlerts = unresolvedAlerts.slice(0, 5);
   const metrics = [
@@ -445,25 +473,48 @@ export default function Dashboard() {
             </div>
             <div>
               <h2 className="text-lg font-display font-bold text-white">Recommended Moves</h2>
-              <p className="text-[12px] text-white/48">Derived from the current API state</p>
+              <p className="text-[12px] text-white/48">
+                {recommendations.length} {recommendations.length === 1 ? "signal" : "signals"} surfaced from your last 30 days of data
+              </p>
             </div>
           </div>
           <div className="space-y-3">
-            {[
-              unresolvedAlerts.length > 0
-                ? `Review ${unresolvedAlerts.length} unresolved alert${unresolvedAlerts.length === 1 ? "" : "s"} before the next publishing run.`
-                : "No open alerts. Keep the queue moving.",
-              expiredAccounts.length > 0
-                ? `Reconnect ${expiredAccounts.length} account${expiredAccounts.length === 1 ? "" : "s"} with expired tokens.`
-                : "Connected account tokens look current.",
-              scheduledPosts.length > 0
-                ? `${scheduledPosts.length} scheduled post${scheduledPosts.length === 1 ? "" : "s"} are ready for the worker.`
-                : "The scheduled queue is empty.",
-            ].map((detail) => (
-              <div key={detail} className="rounded-[1.15rem] border border-white/8 bg-white/[0.03] px-4 py-4">
-                <p className="text-sm font-semibold text-white">{detail}</p>
-              </div>
-            ))}
+            {recommendations.map((rec) => {
+              const style = recommendationCategoryStyle[rec.category];
+              const Icon = style.icon;
+              return (
+                <div
+                  key={rec.id}
+                  className="relative overflow-hidden rounded-[1.15rem] border border-white/8 bg-white/[0.03] px-4 py-4"
+                >
+                  <span className={cn("absolute inset-y-0 left-0 w-1", style.rail)} />
+                  <div className="flex items-start gap-3 pl-2">
+                    <div className={cn("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/8", style.chip)}>
+                      <Icon className={cn("h-4 w-4", style.tint)} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-white">{rec.title}</p>
+                        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em]", style.chip)}>
+                          {recommendationCategoryLabel[rec.category]}
+                        </span>
+                      </div>
+                      <p className="text-[12px] leading-5 text-white/56">{rec.body}</p>
+                      {rec.cta ? (
+                        <button
+                          type="button"
+                          onClick={() => navigate(rec.cta!.href)}
+                          className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-white/80 transition hover:bg-white/[0.08] hover:text-white"
+                        >
+                          {rec.cta.label}
+                          <ArrowRight className="h-3 w-3" />
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </motion.section>
       </div>

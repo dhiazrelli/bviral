@@ -1,0 +1,177 @@
+% =========================================================================
+%  BViral Control Center -- End-of-Studies Project Report
+%  Author : Dhia Zrelli
+%  Compile: pdflatex -> bibtex -> pdflatex -> pdflatex
+% =========================================================================
+\documentclass[12pt,a4paper]{report}
+
+% ---------- Encoding & language ------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+
+% ---------- Layout --------------------------------------------------------
+\usepackage{setspace}
+\onehalfspacing
+\usepackage[top=2.5cm,bottom=2.5cm,left=2.5cm,right=2.5cm]{geometry}
+
+% ---------- Graphics & color ---------------------------------------------
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+% ---------- Hyperlinks ---------------------------------------------------
+\usepackage[hidelinks]{hyperref}
+\hypersetup{
+  pdftitle  = {BViral Control Center -- AI-Powered Short-Form Video Platform},
+  pdfauthor = {Dhia Zrelli},
+  pdfsubject = {End-of-Studies Project Report},
+}
+
+% ---------- Tables --------------------------------------------------------
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+
+% ---------- Code listings -------------------------------------------------
+\usepackage{listings}
+\definecolor{lstkw}{RGB}{30,80,180}
+\definecolor{lstcmt}{RGB}{0,120,40}
+\definecolor{lststr}{RGB}{170,40,40}
+\definecolor{lstbg}{RGB}{248,248,248}
+
+% Define JavaScript as a listings language (not built-in)
+\lstdefinelanguage{JavaScript}{
+  keywords={break,case,catch,continue,debugger,default,delete,do,else,false,
+            finally,for,function,if,in,instanceof,new,null,return,switch,this,
+            throw,true,try,typeof,var,void,while,with,let,const,of,async,await,
+            export,import,from,as,class,extends,static,yield,super,enum,interface},
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]',
+  morestring=[b]",
+  morestring=[b]`,
+  sensitive=true,
+}
+
+\lstset{
+  basicstyle      = \ttfamily\footnotesize,
+  backgroundcolor = \color{lstbg},
+  breaklines      = true,
+  frame           = single,
+  rulecolor       = \color{black!15},
+  numbers         = left,
+  numberstyle     = \tiny\color{gray},
+  numbersep       = 8pt,
+  keywordstyle    = \color{lstkw}\bfseries,
+  commentstyle    = \color{lstcmt}\itshape,
+  stringstyle     = \color{lststr},
+  showstringspaces= false,
+  captionpos      = b,
+  belowcaptionskip= 0.5em,
+  aboveskip       = 1em,
+  belowskip       = 1em,
+}
+
+% ---------- Floats --------------------------------------------------------
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+
+% ---------- Diagrams ------------------------------------------------------
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows.meta,positioning,fit,calc,decorations.pathreplacing}
+\usepackage{pgfgantt}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+% ---------- Math ----------------------------------------------------------
+\usepackage{amsmath,amssymb}
+
+% ---------- Headers, footers, chapter titles ------------------------------
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries\centering}
+  {\rule{\linewidth}{1.5pt}\vspace{0.8em}\Large CHAPTER \thechapter}
+  {0.8em}
+  {\Huge\scshape}
+  [\vspace{0.6em}\rule{\linewidth}{1.5pt}]
+\titlespacing*{\chapter}{0pt}{0pt}{30pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\chaptermark}[1]{\markboth{#1}{}}
+\fancyfoot[C]{\thepage}
+\fancyfoot[L]{\footnotesize\itshape\nouppercase{\leftmark}}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \fancyfoot[C]{\thepage}%
+  \fancyfoot[L]{\footnotesize\itshape\nouppercase{\leftmark}}%
+  \renewcommand{\headrulewidth}{0pt}%
+  \renewcommand{\footrulewidth}{0.4pt}%
+}
+
+% ---------- Bibliography style: numbered like reference -------------------
+\renewcommand{\bibname}{WEBOGRAPHY}
+
+% ---------- Helper command for placeholder figures ------------------------
+\newcommand{\placeholder}[2][12cm]{%
+  \fbox{\parbox{#1}{\centering\vspace{1.6cm}\textit{#2}\vspace{1.6cm}}}%
+}
+
+% ---------- Chapter intro/conclusion convenience macros -------------------
+\newcommand{\chapintro}{%
+  \section*{Introduction}%
+  \addcontentsline{toc}{section}{Introduction}%
+}
+\newcommand{\chapconclusion}{%
+  \section*{Conclusion}%
+  \addcontentsline{toc}{section}{Conclusion}%
+}
+
+% =========================================================================
+\begin{document}
+
+% ---------- Front matter (Roman numerals) --------------------------------
+\pagenumbering{roman}
+
+\input{chapters/00_cover}
+\input{chapters/01_acknowledgements}
+\input{chapters/02_abstract_en}
+\input{chapters/03_abstract_fr}
+\input{chapters/04_glossary}
+
+\cleardoublepage
+\tableofcontents
+\cleardoublepage
+\listoffigures
+\cleardoblepage
+\listoftablesu
+
+% ---------- Body (Arabic numerals) ---------------------------------------
+\cleardoublepage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\input{chapters/05_introduction}
+\input{chapters/06_chapter1}
+\input{chapters/07_chapter2}
+\input{chapters/08_chapter3}
+\input{chapters/09_conclusion}
+
+% ---------- Bibliography --------------------------------------------------
+\bibliographystyle{unsrt}
+\renewcommand{\bibname}{WEBOGRAPHY}
+\bibliography{references}
+\addcontentsline{toc}{chapter}{WEBOGRAPHY}
+
+% ---------- Appendix ------------------------------------------------------
+\appendix
+\input{chapters/10_appendix}
+
+\end{document}

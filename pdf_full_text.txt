@@ -1,0 +1,1090 @@
+ACKNOWLEDGEMENTS
+I would like to thank everyone who directly or indirectly contributed to the development of this work and who
+lent me a hand in carrying out this project and motivated me throughout my studies.Iwould like to express my
+sincere thanks as well as my deep gratitude to my end-of-study project supervisor Mr. Mouhieddine BELGUITH
+for the trust he placed in me throughout this work as well as for his support, advices, encouragements and his
+guidance.My thanks are also to the members of jury who accepted to honor me with their presence and evaluate my
+work.
+Ghassen
+i
+CONTENTS
+General Introduction
+1
+1
+State of the Art
+3
+1.1
+Presenting the host company: . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+3
+1.2
+Preliminary study . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+4
+1.2.1
+Study of existing . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+4
+1.2.1.1
+analysis of the existing . . . . . . . . . . . . . . . . . . . . . . .
+4
+1.2.1.2
+Critique of the existing: . . . . . . . . . . . . . . . . . . . . . .
+5
+1.2.2
+Suggested solution
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+6
+1.3
+Requirement speciﬁcation
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+6
+1.3.1
+Identifying major actors in the system
+. . . . . . . . . . . . . . . . . . .
+6
+1.3.2
+Functional requirements . . . . . . . . . . . . . . . . . . . . . . . . . . .
+7
+1.3.3
+Non-functional requirements . . . . . . . . . . . . . . . . . . . . . . . . .
+8
+1.4
+Working Methodology
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+9
+1.5
+Gantt Diagram . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+10
+2
+conceptual study
+11
+2.1
+Design methodology
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+11
+2.2
+Use case diagrams . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+12
+2.2.1
+Use case diagram of the administrator . . . . . . . . . . . . . . . . . . .
+12
+2.2.1.1
+Global use case diagram . . . . . . . . . . . . . . . . . . . . . .
+12
+ii
+2.2.2
+Use case diagram of the merchandiser
+. . . . . . . . . . . . . . . . . . .
+23
+2.2.2.1
+Global use case diagram . . . . . . . . . . . . . . . . . . . . . .
+23
+2.3
+Class diagram . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+27
+2.4
+Sequence diagram . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+28
+2.4.1
+Sequence diagram of “Login” . . . . . . . . . . . . . . . . . . . . . . . . .
+28
+2.4.2
+Sequence diagram of “create user” . . . . . . . . . . . . . . . . . . . . . .
+29
+2.4.3
+Sequence diagram of “create a leave request” . . . . . . . . . . . . . . . .
+30
+3
+Realisation
+32
+3.1
+System architecture
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+32
+3.1.1
+N-tier architecture
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+32
+3.1.2
+MVC pattern . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+33
+3.2
+Technology choices . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+34
+3.2.1
+Spring Boot . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+34
+3.2.2
+React
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+35
+3.2.3
+Database
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+35
+3.3
+Development environment and tools . . . . . . . . . . . . . . . . . . . . . . . . .
+36
+3.3.1
+Visual Studio Code . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+36
+3.3.2
+Spring Tool Suite . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+36
+3.3.3
+Postman . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+37
+3.3.4
+GitLab . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+37
+3.3.5
+Draw.io
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+38
+3.3.6
+Beekeeper Studio . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+38
+3.4
+Interfaces
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+39
+3.4.1
+Administrator . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+39
+3.4.1.1
+Login
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+39
+3.4.1.2
+Categories management . . . . . . . . . . . . . . . . . . . . . .
+40
+3.4.1.3
+Planning management . . . . . . . . . . . . . . . . . . . . . . .
+44
+3.4.1.4
+Leave requests management . . . . . . . . . . . . . . . . . . . .
+48
+3.4.1.5
+Claims management . . . . . . . . . . . . . . . . . . . . . . . .
+49
+3.4.1.6
+Reports management
+. . . . . . . . . . . . . . . . . . . . . . .
+51
+iii
+3.4.2
+Merchandiser : (Developing the mobile app is the task of colleague) . . .
+53
+3.4.2.1
+Login
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+53
+3.4.2.2
+Locating a GMS
+. . . . . . . . . . . . . . . . . . . . . . . . . .
+53
+3.4.2.3
+Creating a report . . . . . . . . . . . . . . . . . . . . . . . . . .
+54
+Conclusion& Perspective
+56
+Annex A
+60
+LIST OF FIGURES
+1.1
+Logo «TeamDev» . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+3
+1.2
+Etude de l’existant«Foko Retail»
+. . . . . . . . . . . . . . . . . . . . . . . . . .
+5
+1.3
+Etude de l’existant«Pepperi mobile merchandising» . . . . . . . . . . . . . . . .
+5
+1.4
+V-life cycle model . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+9
+1.5
+Gantt diagram
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+10
+2.1
+global use case for the administrator
+. . . . . . . . . . . . . . . . . . . . . . . .
+12
+2.2
+user accounts management
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+13
+2.3
+Use case diagram of “competitors’management”: . . . . . . . . . . . . . . . . . .
+14
+2.4
+Use case diagram of “Claim management”
+. . . . . . . . . . . . . . . . . . . . .
+15
+2.5
+Use case diagram of “GMS management” . . . . . . . . . . . . . . . . . . . . . .
+16
+2.6
+Use case diagram of “Products management”
+. . . . . . . . . . . . . . . . . . .
+17
+2.7
+Use case diagram of “Leave requests management”
+. . . . . . . . . . . . . . . .
+18
+2.8
+Use case diagram of “Planning management” . . . . . . . . . . . . . . . . . . . .
+19
+2.9
+Use case diagram of “Planning management” . . . . . . . . . . . . . . . . . . . .
+20
+2.10 Use case diagram of “Product category management”
+. . . . . . . . . . . . . . .
+21
+2.11 Use case diagram of “claim type management” . . . . . . . . . . . . . . . . . . .
+22
+2.12 Use case diagram of the merchandiser . . . . . . . . . . . . . . . . . . . . . . . .
+23
+2.13 Use case diagram of “Establishing a report” . . . . . . . . . . . . . . . . . . . . .
+24
+2.14 Use case diagram of “Establishing a report” . . . . . . . . . . . . . . . . . . . . .
+25
+2.15 Use case diagram of “Using the messaging service” . . . . . . . . . . . . . . . . .
+26
+ii
+2.16 Class diagram . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+27
+2.17 Sequence diagram of “Login” . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+28
+2.18 Sequence diagram of “create user” . . . . . . . . . . . . . . . . . . . . . . . . . .
+29
+2.19 Sequence diagram of “create a leave request” . . . . . . . . . . . . . . . . . . . .
+30
+3.1
+Tier architecture
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+33
+3.2
+Interaction within MVC
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+34
+3.3
+Spring Boot . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+34
+3.4
+React
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+35
+3.5
+PostgreSQL . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+35
+3.6
+Visual Studio Code . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+36
+3.7
+Spring Tool Suite . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+36
+3.8
+Postman . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+37
+3.9
+GitLab . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+37
+3.10 Draw.io
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+38
+3.11 Beekeeper Studio . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+38
+3.12 Interface login . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+39
+3.13 Interface lthe list of categories . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+40
+3.14 Interface Add a new category
+. . . . . . . . . . . . . . . . . . . . . . . . . . . .
+41
+3.15 Interface Update a category . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+42
+3.16 Interface Delete a category . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+43
+3.17 Interface merchandiser’s planning and advancement . . . . . . . . . . . . . . . .
+44
+3.18 Interface new planning . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+45
+3.19 Interface Update a planning . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+46
+3.20 Interface Delete a planning . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+47
+3.21 Interface Managing leave requests list . . . . . . . . . . . . . . . . . . . . . . . .
+48
+3.22 Interface list of claims
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+49
+3.23 Interface claim details
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+50
+3.24 Interface Delete a Claim . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+51
+3.25 Interface list of reports . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+51
+3.26 Interface report details . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+52
+iii
+3.27 Interface event Before After in report details . . . . . . . . . . . . . . . . . . . .
+52
+3.28 Login & HomePage . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+53
+3.29 Locating a GMS to start a report . . . . . . . . . . . . . . . . . . . . . . . . . .
+54
+3.30 Creating a report and populating it with events . . . . . . . . . . . . . . . . . .
+55
+GENERAL INTRODUCTION
+Decision making is one of the most critical processes for any enterprise, entrepreneurs make
+daily decisions about almost everything. Some of those are rather simple with minimum eﬀects
+on the company but others could inﬂuence the overall business processes, those particular ones
+need enough informations to make sure that the right decision is being taken, but in reality,
+this is not always the case.
+In a survey done by "BI-survey.com" 50% of entrepreneurs claim that they make decisions
+without the necessary informations, 40% claim that the quality of data they get is not good
+enough and other 32% claim that the relevant data is too expensive to get. [1]
+At a time when competitive intensity is raging, manufacturers and distributors are competing
+to gain new shares in local markets. In order to ensure a good share several companies employ
+agents on the ground which have a main task to collect data about the market, tailor local
+marketing campaigns based on area trends and ensure product appearance and supply in various
+stores throughout their designated geographic area and that’s exactly the job of a merchandiser.
+Despite how crucial the merchandiser’s job is in collecting data and ensuring local operations
+including sales, supply and marketing most of the work is currently done manually, decreasing
+the eﬃciency of the merchandiser and the quality of collected data.
+1Introduction
+1
+This end of studies project aims to solve those issues facing the merchandising team by
+conceiving and developing a web and mobile application called "Merchandising Team".
+To attain our goal we divided this internship report into 3 major parts:
+• First chapter "State of the art» this chapter focuses on the analysis of the existing solu-
+tions, the functional and non-functional needs and specifying the working method.
+• Second chapter "Detailed Conception of the application" in which a detailed conception
+is given, a major step before implementing our solution.
+• Third chapter "Realisation of the project», in this chapter a justiﬁcation about the choice
+of technologies used is provided alongside with screenshots of our application.
+Finally, we conclude our work with a general conclusion in which we discuss the future
+perspectives of our solution and the potential changes we intend to implement in order to
+further improve it and make it more eﬃcient for the merchandisers.
+2Introduction
+2
+CHAPTER 1
+STATE OF THE ART
+Introduction
+The state of the art is the explicit knowledge about software engineering which is documented
+from various sources. First of all we will start by presenting the host company.
+1.1
+Presenting the host company:
+TeamDev is a local software company founded in 2018 responsible for developing and main-
+taining a variety of IT projects for its clients. Its services are focused mainly on web and mobile
+solutions.
+Figure 1.1: Logo «TeamDev»
+1State of the Art
+3
+1.2
+Preliminary study
+Preliminary system study is the ﬁrst stage of system development life cycle in which we study
+the viability of the project. First of all we start by a study of existing phase where we analyse
+the existing solutions on the market, their drawbacks and suggest a more suitable solution for
+the user’s needs.
+1.2.1
+Study of existing
+To ensure the quality of the system, conducting a study of existing is crucial .This phase allows
+us to analyse the existing solutions, their pros and cons and make sure we avoid those drawbacks
+in our solution.
+1.2.1.1
+analysis of the existing
+In the this part we take a thorough look at the various existing solutions in the market
+,focusing on their advantages and disadvantages . The solutions we’re conducting our study
+upon are:
+«Foko Retail»: is a software that allows merchandisers and managers to perform retail
+audits and visual merchandising inspections remotely, whether by smartphone or tablet. In this
+application the user could assign merchandising tasks, collect photos of displays, give feedback,
+and monitor the progress of the ﬁeld team’s day-to-day duties.
+2State of the Art
+4
+Figure 1.2: Etude de l’existant«Foko Retail»
+«Pepperi mobile merchandising»: is a mobile software to equip the merchandising ﬁeld
+teams with a tool able to manage merchandising activities and collect data about local markets.
+Figure 1.3: Etude de l’existant«Pepperi mobile merchandising»
+1.2.1.2
+Critique of the existing:
+Those available solutions have a variety of pros and cons which include:
+«Foko Retail»: is equipped with a powerful notiﬁcation system that keeps merchandisers
+up to date with changes throughout the company and other pertinent informations.
+This
+application oﬀers the ability to reach out to anyone in the company anytime easily.
+Foko retail doesn’t oﬀer its users (merchandisers) a leave request tool , competitors related data
+or a map to locate the target stores.
+3State of the Art
+5
+«Pepperi »: is a powerful, user-friendly tool equipped with a map, route planning, moni-
+toring the ﬁeld teams eﬀectively in a centralized way.
+This application does not contain a dashboard for the administrator and does not oﬀer any
+data about the competitors. Moreover the events supported by this application are limited to
+tracking the shelf’s’state.
+1.2.2
+Suggested solution
+We suggest a multiplatform based solution (web application for the administrator and a
+mobile application for merchandisers) which could digitalise the merchandiser’s job.
+This solution should support multiple events, a dashboard with statistics for the administra-
+tor, an ergonomic, and simple to use interface and collects data about competitors and their
+activities which could be used to plan marketing campaigns.
+Our application should contain a map to guide merchandisers to their target supermarkets
+and allow them to communicate with each other using a messaging service, moreover they
+should be able to send claims and leave requests.
+1.3
+Requirement speciﬁcation
+A software requirements speciﬁcation is the description of the system to be developed and
+its functional and non-functional requirements.it forms the basis for any agreement between
+customers and contractors on the way the software product should function.
+1.3.1
+Identifying major actors in the system
+The administrator is a major actor in our solution, its main duties consists of the management
+of products, competitor, leave request, claims and creating the planning for each merchandiser.
+The second actor is the merchandiser whose main duties are to follow the planning and create
+reports for each visited GMS.
+4State of the Art
+6
+1.3.2
+Functional requirements
+Our solution should contain the following requirements:
+the administrator:
+• The administrator is the actor tasked with creating user accounts, updating those
+accounts when needed and deleting them.
+• The administrator has the possibility of creating, updating and deleting any target
+supermarket in the system and have full access to its data.
+• Using his interface, the administrator is able to add new products, updating and
+deleting them.
+• The administrator manages daily and monthly schedule of all merchandisers.
+• The administrator receive notiﬁcations regarding the merchandiser’s actions, reports
+or messaging service notiﬁcations.
+• All reclamations are reported to the administrator who could list them.
+• The administrator could use the messaging service to communicate with his fellow
+merchandisers.
+• The administrator receives leave requests from merchandisers and has the possibility
+to either accept or reject them.
+the merchandiser:
+• The merchandiser could report a reclamation to the administrator.
+• Merchandisers have the ability to send leave requests.
+• Merchandisers could do the referencing of the company products inside a particular
+supermarket.
+• Merchandisers could use the messaging service to communicate with other merchan-
+disers or the administrator.
+• Merchandisers could follow a daily planning and see their monthly planning.
+• Merchandisers should send a report for every visit to supermarket they made and
+they could see the target supermarkets on a map.
+5State of the Art
+7
+1.3.3
+Non-functional requirements
+Non-functional requirements deﬁne system attributes which are mostly hidden from the end
+user.
+Our application should obey to the following rules:
+• Ergonomics: this solution should be user friendly with an attractive design and we will
+ensure that by using some famous React UI frameworks such as “Material UI”.
+• Maintainability:while coding we try as much as possible to stick to the best practises
+of software development and design patterns to ensure an easy maintainability of our
+product.
+• Security:By logging to the server, the user of the application (both administrator and
+merchandiser) acquire a JWT token that has to be send with every call to the backend
+to ensure his identity.
+• Interoperability: we use technologies that ensure our product could be used on various
+platforms and operation systems (React Native for mobile, spring boot for backend and
+react for web from a single codebase ).
+6State of the Art
+8
+1.4
+Working Methodology
+When developing our solution, we must take into consideration all necessary constraints of
+software development such as: ergonomics of user interface, performance issues, etc. that’s why
+we must comply with certain rules in order to ensure the quality of the software and deadlines.
+This is where the life cycle comes in handy which includes all stages from design to development.
+We choose to use the V-Model which is a model where execution of processes happens in
+a sequential manner in a V-shape and based on the association of a testing phase for each
+corresponding development stage.
+Figure 1.4: V-life cycle model
+7State of the Art
+9
+1.5
+Gantt Diagram
+This work was carried out over a period of 4 months. The distribution of tasks throughout
+that duration is illustrated by the following Gantt diagram in the following ﬁgure.
+Figure 1.5: Gantt diagram
+Conclusion
+In this chapter we performed the study of existing by searching and studying the already
+existing solutions in the market, suggested our own, speciﬁed major actors alongside with both
+functional and non-functional requirements and ﬁnally targeted our working methodology .
+The next chapter will dive into detailed conception of our solution.
+8State of the Art
+10
+CHAPTER 2
+CONCEPTUAL STUDY
+Introduction
+Conception is the most critical phase when it comes to software development in which an
+overall design of the application is speciﬁed and adapted.
+In this chapter we start by specifying the design methodology, various global and detailed
+diagrams and we will ﬁnish by a conclusion.
+2.1
+Design methodology
+To design our system we choose to use UML (Uniﬁed modeling Language) as an object ori-
+ented modeling language.
+UML is a general purpose object oriented modeling language which uses various types of dia-
+grams to provide a standard graphical language to visualize the design of a system by specifying
+its structure, behavior and interactions.
+UML helps to simplify complex software design by reducing lots of words of explanation to a
+few graphical, more understandable diagrams.
+1conceptual study
+11
+2.2
+Use case diagrams
+Use case diagrams provide a higher level view of the system by showing a graphical repre-
+sentation of a user’s various interactions.
+Users are represented as actors interacting with use cases represented by circles.
+2.2.1
+Use case diagram of the administrator
+2.2.1.1
+Global use case diagram
+The ﬁgure below presents a global use case for the administrator in our application.
+Figure 2.1: global use case for the administrator
+2conceptual study
+12
+Use case diagram of “user accounts management”:
+In the following use case diagram we detailed diﬀerent possible actions that could be done by
+the administrator to ensure his management of user accounts.
+Figure 2.2: user accounts management
+After authentication the user who has the role of administrator could manage the user ac-
+counts. He has the possibility to add a new user to the system or consult the list of users from
+which he could either delete a user or update his data.
+3conceptual study
+13
+Use case diagram of “competitors’ management”:
+In this use case diagram we could see the various possible actions of the admin in order to
+manage competitors.
+Figure 2.3: Use case diagram of “competitors’management”:
+After being authenticated, the administrator can manage competitors, he has the possibil-
+ity to add a new competitor, consult the list of competitors from which he could delete any
+competitor or update its relative data.
+4conceptual study
+14
+Use case diagram of “Claim management”:
+In the following diagram we could observe the various actions of the admin in order to manage
+claims.
+Figure 2.4: Use case diagram of “Claim management”
+If he is authenticated, the administrator could manage claims sent by merchandisers By
+consulting the list of those claims. That list gives him the possibility to see the details of each
+claim or delete it.
+Use case diagram of “GMS management”:
+GMS stands in French for (Grande et Moyenne Surface) and by that we mean the diﬀerent
+types of relatively big and medium supermarkets. In this use case we explain possible actions
+by the administrator in order to manage it.
+5conceptual study
+15
+Figure 2.5: Use case diagram of “GMS management”
+After authentication , the administrator has the possibility to manage GMS .he could add
+a new GMS or consult the overall list of GMS from which he could either see GMS details,
+Delete GMS or update it.
+Use case diagram of “Products management”:
+In the following use case diagram we detail possible actions that could be done by the admin-
+istrator to manage products.
+6conceptual study
+16
+Figure 2.6: Use case diagram of “Products management”
+After being authenticated, the administrator is able to manage products, he could either add
+a new product or consult the products list from which he has the possibility to delete a product
+or update it.
+Use case diagram of “Leave requests management”:
+In this use case diagram, we explain possible actions that could be done by the administrator
+to ensure leave requests management.
+7conceptual study
+17
+Figure 2.7: Use case diagram of “Leave requests management”
+If he is authenticated, the administrator is able to manage leave requests by consulting a list
+of leave requests. This list gives him the possibility to see the details of the request and decide
+either to accept or refuse it.
+8conceptual study
+18
+Use case diagram of “Planning management”:
+In the following diagram, we could observe the diﬀerent action of the administrator to manage
+each of the merchandiser’s planning.
+Figure 2.8: Use case diagram of “Planning management”
+After authentication , the administrator is able to manage each of the merchandisers’ planning
+by either adding a planning where he would specify the start and end date of that planning,
+and a list of GMS the merchandiser have to visit per day, or he could update an already existing
+planning or even delete it.
+He has the possibility to consult the progress of each merchandiser in his own planning too.
+9conceptual study
+19
+Use case diagram of “using the messaging service”:
+This use case diagram is mainly about the actions of the administrator in order to use the
+messaging service utility.
+Figure 2.9: Use case diagram of “Planning management”
+After authentication, the administrator is able to send messages to the merchandisers by
+choosing the receiver and getting messages back as well.
+10conceptual study
+20
+Use case diagram of “Product category management”:
+The following use case diagram illustrates the possible actions that could be done by the
+administrator to manage product categories.
+Figure 2.10: Use case diagram of “Product category management”
+After authentication the administrator is able to manage product categories, he could add a
+new category or consult the product categories list in which he could either delete an existing
+category or update one.
+11conceptual study
+21
+Use case diagram of “Reclamation type management”:
+The following use case diagram explains various possible action that could be done by the
+administrator in order to manage reclamation types.
+Figure 2.11: Use case diagram of “claim type management”
+If he is authenticated, the administrator has the ability to manage claim types by adding
+new types, consulting the list of existing types then he could either delete a type or update one.
+12conceptual study
+22
+2.2.2
+Use case diagram of the merchandiser
+2.2.2.1
+Global use case diagram
+The ﬁgure below presents a global use case for the merchandiser in our application.
+Figure 2.12: Use case diagram of the merchandiser
+13conceptual study
+23
+Use case diagram of “Establishing a report”:
+The following use case diagram explains various possible action that could be done by the
+merchandiser in order to establish a report.
+Figure 2.13: Use case diagram of “Establishing a report”
+After authentication the merchandiser is able to establish a report by selecting a task, vali-
+dating its location and verifying that the previous task was validated.
+The merchandiser could add a new event by selecting its type and he has the possibility to
+remove one or update its content.
+14conceptual study
+24
+Use case diagram of “Reference products”:
+This use case diagram is mainly about the actions of the merchandiser in order to reference
+products.
+Figure 2.14: Use case diagram of “Establishing a report”
+After authentication the merchandiser have the possibility to reference products.
+To achieve that he has to choose the appropriate GMS and add or remove products to it.
+15conceptual study
+25
+Use case diagram of “Using the messaging service”:
+In this use case diagram, we explain possible actions that could be done by the merchandiser
+to use the messaging service.
+Figure 2.15: Use case diagram of “Using the messaging service”
+After authentication the merchandiser has the possibility to use the messaging service by
+selecting a receiver that would allow him to send and receive messages or see the previous ones.
+16conceptual study
+26
+2.3
+Class diagram
+Class diagrams are the main building blocks of every object-oriented method. The class
+diagram can be used to show the classes, relationships, interface and association.[2]
+(for clearer class diagram see[annex A])
+Figure 2.16: Class diagram
+17conceptual study
+27
+2.4
+Sequence diagram
+A sequence diagram simply depicts interaction between objects in a sequential order (the
+order in which these interactions take place). Sequence diagrams describe how and in what
+order the objects in a system function.[3]
+2.4.1
+Sequence diagram of “Login”
+The following sequence diagram illustrates the sequence of interactions between objects in
+order to login.
+Figure 2.17: Sequence diagram of “Login”
+In order to login, the user has to enter his username (which is the email in our case) and his
+password, a ﬁrst validation in the frontend takes place to verify the format of the email.
+18conceptual study
+28
+If the ﬁrst validation is veriﬁed a post request is sent to the authentication ﬁlter of spring
+security which sends the request to user model in order to verify the existence of that particular
+user.
+If a user with the speciﬁed email and password do not exists an error message is returned from
+the user model to the authentication ﬁlter which returns an error response to the view.
+In case the speciﬁed user exists, user details are returned from the model to the authentication
+ﬁlter which creates a JWT token and returns it to the view alongside the user’s data to signify
+the operation’s success and the user is taken to the home page.
+2.4.2
+Sequence diagram of “create user”
+The following sequence diagram illustrates the sequence of interactions between objects in
+order to create a leave request.
+Figure 2.18: Sequence diagram of “create user”
+19conceptual study
+29
+To create a new user, the admin enters various user details in a form which is veriﬁed in
+the view to ensure all needed data where typed and display an error in case some ﬁelds were
+missing.
+If all needed ﬁelds are ﬁlled a post request is send to the controller which created a request for
+the user model. The user model validate the existence of any other identical email (emails are
+our unique identiﬁer in this application). In case another identical email exists in our database
+the model informs the controller which returns an error response in an http response to the
+view indicating that the typed email already exists.
+In case no other identical email is found in our database, the new user is added and user details
+are returned to the controller which returns an Http response indicating the success of the
+operation to the user.
+2.4.3
+Sequence diagram of “create a leave request”
+The following sequence diagram illustrates the sequence of interactions between objects in
+order to create a leave request.
+Figure 2.19: Sequence diagram of “create a leave request”
+20conceptual study
+30
+In order to create a leave request, the merchandiser has to specify the start date, end date
+and the reason for his request, a validation in the view takes place to ensure those data are
+speciﬁed and returns an error in case anything is missing. If all needed ﬁelds are ﬁlled an http
+post request is send the controller which in his turn sends a create request to the model and
+an http response to the view indicating the success of the operation.
+Conclusion
+This chapter was mainly focused on conception, a major cornerstone in software development.
+In the ﬁrst part we deﬁned our design methodology as UML, then we used it to create our use
+case diagrams representing various interactions between diﬀerent actors and use cases.
+After that, we represented our sequence diagrams showing sequential interactions between
+the objects of our system to ﬁnish with a class diagram deﬁning the global structure of our
+solution in terms of classes and relationships.
+Once the system was clariﬁed in terms of behavior, interactions and structure we move
+forward to realization which we treat in the next chapter.
+21conceptual study
+31
+CHAPTER 3
+REALISATION
+Introduction
+In this last chapter we focus on realization, the ﬁnal step in software development. This is
+the phase where we code our application.
+First of all we start by deﬁning our global architecture and our choice of technologies to ﬁnish
+by presenting an overview of our solution through screenshots
+3.1
+System architecture
+Prior to delving into our choice of technologies, it is beneﬁcial to take a look at the architecture
+that compose our system.
+3.1.1
+N-tier architecture
+N-tier architecture or multi-layer architecture is client-server architecture that separates re-
+sponsibilities between the layers. Usually we have 3 tiers which handle presentation, business
+logic, and data respectfully.
+1Réalisation
+32
+This separation of concerns allows the developer to create scalable and highly maintainable
+software.
+• Presentation Tier :
+this is the client or the user interface , it is the layer that is
+presented to the end user.
+•
+Business Logic Tier : where we ﬁnd most of the logic for a system, usually as a
+middleman between what the user sees and the stored data.
+•
+Data Tier : the place where all the data used by the application is stored (commonly
+a database)
+The following is a diagram of the representation of the 3 tiers in our application :
+Figure 3.1: Tier architecture
+3.1.2
+MVC pattern
+Model-View-Controller or MVC for short is a software design pattern widely used for devel-
+oping user interfaces. This pattern facilitate the development of systems where we need the
+separate the logic of the way data is presented to and accepted from the user. MVC is very
+popular in the world of web development and therefore for each popular language there exists
+a MVC framework that helps in the implementation of the pattern.
+2Réalisation
+33
+A general way to describe MVC is the following :
+•
+View : In accordance with the name this is what the user sees, in the case of a mobile
+app that refers to the diﬀerent screens.
+•
+Model : A dynamic data structure that represents stored data in the app (for example
+each model could represent a database table)
+•
+Controller : The main piece of the system, generally handles most of the logic and
+ensures communication between the view and the model.
+Figure 3.2: Interaction within MVC
+3.2
+Technology choices
+3.2.1
+Spring Boot
+Figure 3.3: Spring Boot
+Spring Boot makes it easy to create stand-alone, production-grade Spring based Applications
+that you can "just run" with minimal Spring conﬁguration.[4]
+Spring Boot has various advantages as it allows to create a standalone spring applications with
+embedded Tomcat as a web server. It provides starter dependencies which minimize manual
+conﬁgurations to the lowest.
+3Réalisation
+34
+3.2.2
+React
+Figure 3.4: React
+React is a declarative, component based JavaScript library for building user interfaces.[5]
+Created and supported by Facebook, React is one of the most popular libraries for web devel-
+opment. React is lightweight, based on ﬂexible, reusable components and a rich third party
+libraries environment ensuring a fast development process and a good UI quality.
+3.2.3
+Database
+Figure 3.5: PostgreSQL
+PostgreSQL is a powerful, open source object-relational database system with over 30 years
+of active development that has earned it a strong reputation for reliability, feature robustness,
+and performance.
+PostgreSQL comes with many features aimed to help developers build applications, adminis-
+trators to protect data integrity and build fault-tolerant environments, and help you manage
+your data no matter how big or small the dataset. In addition to being free and open source,
+PostgreSQL is highly extensible.[6]
+4Réalisation
+35
+3.3
+Development environment and tools
+In this part we present diﬀerent IDEs and tools used to build this application.
+3.3.1
+Visual Studio Code
+Figure 3.6: Visual Studio Code
+Visual Studio Code combines the simplicity of a source code editor with powerful developer
+tooling, such as code completion, debugging and oﬀers a vast choice of free community driven
+extensions. Visual Studio Code supports macOS, Linux, and Windows.
+Visual Studio Code features a lightning fast source code editor, perfect for day-to-day use.
+With support for hundreds of languages, VS Code helps you be instantly productive with
+syntax highlighting, bracket-matching, auto-indentation, box-selection, snippets, and more.[7]
+3.3.2
+Spring Tool Suite
+Figure 3.7: Spring Tool Suite
+STS is an Eclipse-based development environment that is customized for the development
+of Spring applications. It provides a ready-to-use environment to implement, debug, run and
+deploy your applications. STS is built as an addition on top of the latest Eclipse releases.[8]
+5Réalisation
+36
+3.3.3
+Postman
+Figure 3.8: Postman
+Postman is a scalable API testing tool .It started in 2012 as a side project by Abhinav
+Asthana to simplify API workﬂow in testing and development. It oﬀers a sleek user interface
+with which to make HTTP requests, without the hassle of writing a bunch of code just to test
+an API’s functionality.
+It is used by over 5 million developers every month to make their API development easy
+and simple. It has the ability to make various types of HTTP requests (GET, POST, PUT,
+PATCH), saving environments for later use.‘[9]
+3.3.4
+GitLab
+Figure 3.9: GitLab
+GitLab is an open source code repository and collaborative software development platform.
+It oﬀers a location for online code storage and capabilities for issue tracking. The repository
+enables hosting diﬀerent development chains and versions, and allows users to inspect previous
+code and roll back to it in the event of unforeseen problems.[10]
+6Réalisation
+37
+3.3.5
+Draw.io
+Figure 3.10: Draw.io
+draw.io is proprietary software for making diagrams and charts. The software allows you to
+choose from an automatic layout function, or create a custom layout. They have a large selection
+of shapes and hundreds of visual elements to make your diagram or chart one-of-a-kind.[11]
+3.3.6
+Beekeeper Studio
+Figure 3.11: Beekeeper Studio
+It is a free and open source SQL editor and database manager. It is cross-platform, and
+available for Linux, Mac, and Windows. Use it to query and manage your relational databases,
+like MySQL, Postgres, SQLite, and SQL Server.[12]
+7Réalisation
+38
+3.4
+Interfaces
+3.4.1
+Administrator
+3.4.1.1
+Login
+In order to use the application the administrator has to log in from the interface shown in the
+ﬁgure <Figure 3.12>. He has to specify the email and password and then validate by clicking
+the connection button
+Figure 3.12: Interface login
+8Réalisation
+39
+3.4.1.2
+Categories management
+See the list of categories:
+By clicking on Categories in the sidebar, the list of all available categories is displayed in a
+table ﬁgure<Figure 3.13>
+Figure 3.13: Interface lthe list of categories
+9Réalisation
+40
+Add a new category:
+The administrator has the possibility to add a new category by clicking on the button “Add
+new category”. Once this is done a modal shows up with a form to specify the category’s name
+as shown in the ﬁgure <Figure 3.14>
+Figure 3.14: Interface Add a new category
+10Réalisation
+41
+Update a category:
+Any category could be updated by clicking on the update icon in the operations section inside
+the table , Once that icon is clicked a modal is shown with the old category name allowing the
+administrator to modify it , the modal is shown in ﬁgure <Figure 3.15>
+Figure 3.15: Interface Update a category
+11Réalisation
+42
+Delete a category:
+The administrator could delete any category by clicking the delete icon in the operations
+section, the modal shown in ﬁgure<Figure 3.16> is displayed once that icon is clicked.
+Figure 3.16: Interface Delete a category
+12Réalisation
+43
+3.4.1.3
+Planning management
+See a merchandiser’s planning and monitor its advancement:
+By choosing a merchandiser’s name his planning is displayed in the calendar .Completed
+tasks are highlighted in a green color and other tasks in bleu as shown in ﬁgure«Figure 3.17>
+Figure 3.17: Interface merchandiser’s planning and advancement
+13Réalisation
+44
+Add a new planning:
+The administrator has the possibility to add a new planning by clicking on the button “Add
+new planning”. Once this is done a modal shows up with a form to specify the planning details
+as shown in the ﬁgure <Figure 3.18>
+Figure 3.18: Interface new planning
+14Réalisation
+45
+Update a planning:
+Plannings could be updated by clicking on the update planning, Once that button is clicked
+a modal is shown with the old planning’s details allowing the administrator to modify it, the
+modal is shown in ﬁgure <Figure 3.19>
+Figure 3.19: Interface Update a planning
+15Réalisation
+46
+Delete a planning:
+The administrator could delete any planning by clicking the delete planning button, the modal
+shown in ﬁgure<Figure 3.20> is displayed once that button is clicked, where the merchandiser
+whose planning to be deleted is selected.
+Figure 3.20: Interface Delete a planning
+16Réalisation
+47
+3.4.1.4
+Leave requests management
+Managing leave requests list:
+By clicking on Leave request in the sidebar, the list of all leave requests is displayed in a
+table ﬁgure<>. By default the state of all leave requests is “WAITING”, the administrator has
+two icon buttons the change the state to “ACCEPTED ” or “REFUSED”.
+Figure 3.21: Interface Managing leave requests list
+17Réalisation
+48
+3.4.1.5
+Claims management
+See the list of claims:
+By clicking on Claims in the sidebar, the list of all claims is displayed in a table, ﬁgure<Figure
+3.22>
+Figure 3.22: Interface list of claims
+18Réalisation
+49
+See claim details:
+By clicking at the eye icon in the operations section the Claim’s details are displayed in
+a modal with an optional picture send from the merchandiser. The modal is shown in ﬁg-
+ure<Figure 3.23>
+Figure 3.23: Interface claim details
+Delete a Claim:
+BThe administrator could delete any claim by clicking the delete icon in the operations
+section, the modal shown in ﬁgure<Figure 3.24> is displayed once that icon is clicked.
+19Réalisation
+50
+Figure 3.24: Interface Delete a Claim
+3.4.1.6
+Reports management
+See the list of reports:
+By clicking on Reports in the sidebar, the list of all reports is displayed in a table, ﬁg-
+ure<Figure 3.25>
+Figure 3.25: Interface list of reports
+20Réalisation
+51
+See report details:
+By clicking on Reports in the sidebar, the list of all reports is displayed in a table, ﬁg-
+ure<Figure 3.26>
+Figure 3.26: Interface report details
+Figure 3.27: Interface event Before After in report details
+21Réalisation
+52
+3.4.2
+Merchandiser : (Developing the mobile app is the task of col-
+league)
+3.4.2.1
+Login
+Providing the correct email and password allows the user to enter the app to the home screen.
+In case of entering the wrong credentials an error is shown.
+Figure 3.28: Login & HomePage
+3.4.2.2
+Locating a GMS
+Before starting any task the merchandiser must ﬁrst conﬁrm his proximity to the selected
+supermarket. The map clearly shows the acceptable radius for the supermarket as well as the
+merchandiser’s current location.
+22Réalisation
+53
+Figure 3.29: Locating a GMS to start a report
+3.4.2.3
+Creating a report
+After selecting a task and starting a report, the user is redirected to the report screen where
+he can add events, ﬁll the report form and when ready submit the report. Filling the report
+means ﬁlling the form with valid information for each event. Events diﬀer in the shape and
+type of the required information and this is reﬂected in the displayed form.
+23Réalisation
+54
+Figure 3.30: Creating a report and populating it with events
+Conclusion
+In this chapter, we presented our global physical and logical architecture, explained our choice
+of technologies and concluded by various screenshots of our solution.
+55
+CONCLUSION& PERSPECTIVE
+During this end of studies project performed in the host company“TeamDev” we were able
+to create a solution named “merchandising team », a web and mobile application to digitalize
+merchandisers’ work, as a centralized solution to manage merchandisers, their reports, and their
+collected data.
+The mobile application is used by the merchandiser to follow his planning, create reports,
+send claims and leave requests and reference the products in a given supermarket. As for the
+web application, it is used by the administrator as a centralized solution for managing and
+monitoring all of the merchandiser team’s activities
+This report details in its 3 chapters the various parts in the process of creating our solution
+starting with the state of the art where we did our preliminary study, suggested our solution
+and speciﬁed various functional and non-functional requirements.
+The second chapter deals with the conception, explaining the behavior, interactions and
+structure of our solution while the third chapter’s main focus was the realization. In this last
+part we explained the used architecture and the chosen technologies along with screenshots of
+the major parts of the application.
+While coding I was able to learn new technologies, tools and design patterns.
+1Conclusion
+56
+Several third party libraries were used too such as “formik” for form handling in react and
+“full calendar” as a JavaScript package to manipulate calendars.
+Certainly, this work achieved most of its objectives. But there is still work to be done. One
+of the most important features that could be beneﬁcial for our application is creating a tool to
+share documents between the administrator and merchandisers that could be used mainly to
+share announcements, and training materials or guidelines.
+Another feature to be added is the possibility to create in store audits where the admin-
+istrator could create those audits dynamically and send them to speciﬁc merchandisers to be
+executed.Data from those audits are collected in real time.
+A tool to optimize the routes between the supermarkets that compose the planning could be
+a good idea to minimize fuel consumption and save time.
+2Conclusion
+57
+WEBOGRAPHY
+[1] https://bi-survey.com/decision-making-no-information.visited on 23/02/2021.
+[2] https://www.geeksforgeeks.org/uniﬁed-modeling-language-uml-class-diagrams/
+.visited
+on 20/02/2021.
+[3] https://www.geeksforgeeks.org/uniﬁed-modeling-language-uml-sequence-diagrams/
+.vis-
+ited on 20/03/2021.
+[4] https://spring.io/projects/spring-boot .visited on 15/06/2021.
+[5] https://reactjs.org/.visited on 15/06/2021.
+[6] https://www.postgresql.org/media/img/about/press/elephant.png
+.visited
+on
+15/06/2021.
+[7] https://www.postgresql.org/about/ .visited on 15/06/2021.
+[8] https://code.visualstudio.com/docs/editor/whyvscode .visited on 15/06/2021.
+[9] https://www.baeldung.com/eclipse-sts-spring .visited on 15/06/2021.
+[10] https://about.gitlab.com/press/press-kit/.visited on 15/06/2021.
+[11] https://www.computerhope.com/jargon/d/drawio.htm.visited on 08/03/2021.
+[12] https://stackshare.io/beekeeper-studio: :text=what%20is%20beekeeper%20studio%3f,%2c%20sqlite%
+on 12/03/2021.
+58
+[13] https://www.postgresql.org/ .visited on 15/06/2021.
+[14] https://spring.io/tools .visited on 15/06/2021.
+[15] https://www.geeksforgeeks.org/introduction-postman-api-development/
+.visited
+on
+15/06/2021.
+[16] https://www.postman.com/company/press-media/ .visited on 15/06/2021.
+[17] https://whatis.techtarget.com/deﬁnition/gitlab.visited on 15/06/2021.
+59
+ANNEX A
+60

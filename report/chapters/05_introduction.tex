@@ -1,0 +1,64 @@
+% =========================================================================
+% General Introduction
+% =========================================================================
+\chapter*{General Introduction}
+\addcontentsline{toc}{chapter}{General Introduction}
+\markboth{General Introduction}{}
+
+Short-form video --- TikTok clips, Instagram Reels and YouTube Shorts under sixty seconds ---
+has become the dominant content format of the social-media era. According to Sensor Tower's
+2024 \textit{State of Mobile} report, TikTok crossed 1.5~billion monthly active users and
+short-form video formats now generate the majority of advertising revenue on every major
+mobile platform. For an independent creator or a small marketing team, the economic
+opportunity is real, but so is the cost of guessing wrong: the median Short receives fewer than
+1{,}000 views, while a viral hit can reach millions, and the difference is decided in the first
+three seconds by a combination of visual hook, audio rhythm, on-screen captions and pixel
+quality.
+
+Despite that asymmetry, almost no tooling exists today that helps a creator answer the most
+important questions \emph{before} they hit publish:
+
+\begin{enumerate}
+  \item Will this clip perform? Which 473-feature combination of visuals, audio, transcript
+        and tone correlates with virality, and which one is the bottleneck on \emph{this}
+        particular video?
+  \item Are the burned-in captions readable on a 6-inch phone, or are the long words clipping
+        the safe area?
+  \item Is the footage --- often shot on a hand-held smartphone, in low light, with motion blur ---
+        being uploaded at the visual quality the algorithm and the audience expect?
+\end{enumerate}
+
+Existing post-publication analytics tools (TubeBuddy, VidIQ) and post-production editors
+(CapCut, Descript) address one of these questions in isolation; none of them brings the three
+together with an integrated multi-platform publishing layer.
+
+This end-of-studies project, carried out as part of the Bachelor / Engineering programme at
+\textit{[Institution]}, conceives and builds \textbf{BViral Control Center}: a four-pillar AI
+platform that closes that gap. The system fuses pretrained vision and language models, classical
+computer vision, gradient-boosted trees and a typed full-stack web application into a single
+workflow that ingests a raw clip and returns a virality score with explanations, a captioned
+version with adaptive font sizing, an enhanced version with super-resolution and face
+restoration, and a one-click cross-platform scheduler.
+
+\bigskip
+
+To attain that goal, this internship report is divided into three major parts:
+
+\begin{itemize}
+  \item \textbf{Chapter 1 --- State of the Art:} this chapter focuses on the analysis of the
+        existing solutions for short-form video creators, the functional and non-functional
+        requirements of the proposed platform, the major actors involved, and the working
+        methodology adopted for the project.
+  \item \textbf{Chapter 2 --- Conceptual Study:} a detailed conception is given through UML
+        diagrams (use cases, class diagram, sequence diagrams) and the dataset and AI pipeline
+        specifications, a major step before implementing the solution.
+  \item \textbf{Chapter 3 --- Realisation:} this chapter justifies the choice of technologies,
+        documents the implementation of each of the four AI pillars together with concrete
+        evaluation metrics and code listings, and presents screenshots of the application.
+\end{itemize}
+
+Finally, we conclude with a general conclusion in which we discuss the future perspectives of
+the platform and the potential changes intended to further improve the system and make it more
+useful for short-form video creators of every size.
+
+\cleardoublepage

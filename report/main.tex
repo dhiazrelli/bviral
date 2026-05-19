@@ -1,0 +1,158 @@
+\documentclass[12pt,a4paper]{report}
+
+% ── Encoding & Language ──
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+
+% ── Page Layout ──
+\usepackage[top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+% ── Fonts ──
+\usepackage{times}
+
+% ── Graphics & Colors ──
+\usepackage{graphicx}
+\usepackage[table,xcdraw]{xcolor}
+\usepackage{float}
+
+% ── Tables ──
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{multirow}
+
+% ── Lists ──
+\usepackage{enumitem}
+
+% ── Links ──
+\usepackage[colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!70!black]{hyperref}
+
+% ── Headers/Footers ──
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\leftmark}
+\fancyhead[R]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Code Listings ──
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  backgroundcolor=\color{gray!10},
+  keywordstyle=\color{blue!70!black},
+  commentstyle=\color{green!50!black},
+  stringstyle=\color{red!60!black},
+}
+
+% ── Misc ──
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{titlesec}
+
+% ── Chapter title formatting ──
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries}{\chaptertitlename\ \thechapter}{20pt}{\Huge}
+\titlespacing*{\chapter}{0pt}{-20pt}{40pt}
+
+% ══════════════════════════════════════════════════════════════
+\begin{document}
+
+% ── Title Page ──
+\begin{titlepage}
+\centering
+\vspace*{1cm}
+
+{\Large \textbf{University Name}}\\[0.3cm]
+{\large Faculty of Sciences / Department of Computer Science}\\[1.5cm]
+
+\rule{\linewidth}{0.5mm}\\[0.6cm]
+{\Huge \textbf{End of Studies Project Report}}\\[0.3cm]
+\rule{\linewidth}{0.5mm}\\[1.5cm]
+
+{\LARGE \textbf{BViral Control Center}}\\[0.4cm]
+{\Large A Multi-Platform Social Media Management \\ and AI-Powered Video Enhancement Solution}\\[2cm]
+
+\begin{minipage}{0.45\textwidth}
+\begin{flushleft}\large
+\textbf{Author:}\\
+Dhiaz Relli
+\end{flushleft}
+\end{minipage}
+\hfill
+\begin{minipage}{0.45\textwidth}
+\begin{flushright}\large
+\textbf{Supervisor:}\\
+Mr./Mrs. [Supervisor Name]
+\end{flushright}
+\end{minipage}\\[2cm]
+
+{\large Academic Year: 2025--2026}
+
+\vfill
+\end{titlepage}
+
+% ── Acknowledgements ──
+\chapter*{Acknowledgements}
+\addcontentsline{toc}{chapter}{Acknowledgements}
+
+I would like to express my sincere gratitude to everyone who contributed, directly or indirectly, to the completion of this project. My deepest thanks go to my end-of-study project supervisor for their guidance, trust, and invaluable advice throughout this work. I am also grateful to the members of the jury who accepted to evaluate my project. Finally, I thank my family and friends for their unwavering support and encouragement.
+
+\vspace{1cm}
+\hfill Dhiaz Relli
+
+% ── Table of Contents ──
+\tableofcontents
+\listoffigures
+\listoftables
+
+% ── General Introduction ──
+\chapter*{General Introduction}
+\addcontentsline{toc}{chapter}{General Introduction}
+
+In an era dominated by social media, content creators and businesses face an increasingly complex challenge: managing multiple social media platforms simultaneously while maintaining high-quality content output. The proliferation of platforms such as YouTube, TikTok, Instagram, and Facebook has created a fragmented landscape where creators must juggle content creation, scheduling, analytics monitoring, and account management across numerous interfaces.
+
+The quality of video content has become a critical differentiator in the competitive social media ecosystem. Low-resolution or poorly enhanced videos fail to capture audience attention, yet professional video enhancement tools remain expensive and technically complex for most creators.
+
+This end-of-studies project aims to address these challenges by designing and developing \textbf{BViral Control Center}, a comprehensive, multi-platform social media management dashboard with an integrated AI-powered video enhancement pipeline. The solution provides a centralized interface for scheduling posts, managing connected social media accounts, monitoring analytics, and enhancing video content using state-of-the-art artificial intelligence models.
+
+To present our work, this report is structured into three major chapters:
+
+\begin{itemize}
+    \item \textbf{Chapter 1 --- State of the Art:} presents the preliminary study, analyzes existing solutions, defines functional and non-functional requirements, and specifies the working methodology.
+    \item \textbf{Chapter 2 --- Conceptual Study:} provides the detailed design of our solution using UML diagrams including use case, class, and sequence diagrams.
+    \item \textbf{Chapter 3 --- Realisation:} justifies the technology choices, presents the system architecture, and showcases the implemented interfaces.
+\end{itemize}
+
+Finally, we conclude with a general conclusion discussing future perspectives and potential improvements.
+
+% ══════════════════════════════════════════════════════════════
+% CHAPTER 1 — STATE OF THE ART
+% ══════════════════════════════════════════════════════════════
+\input{chapters/chapter1}
+
+% ══════════════════════════════════════════════════════════════
+% CHAPTER 2 — CONCEPTUAL STUDY
+% ══════════════════════════════════════════════════════════════
+\input{chapters/chapter2}
+
+% ══════════════════════════════════════════════════════════════
+% CHAPTER 3 — REALISATION
+% ══════════════════════════════════════════════════════════════
+\input{chapters/chapter3}
+
+% ══════════════════════════════════════════════════════════════
+% CONCLUSION & PERSPECTIVES
+% ══════════════════════════════════════════════════════════════
+\input{chapters/conclusion}
+
+% ── Webography ──
+\input{chapters/webography}
+
+\end{document}

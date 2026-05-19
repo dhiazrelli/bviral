@@ -1,0 +1,32 @@
+\chapter*{Conclusion \& Perspectives}
+\addcontentsline{toc}{chapter}{Conclusion \& Perspectives}
+
+During this end-of-studies project, we designed and developed \textbf{BViral Control Center}, a comprehensive web-based platform that combines multi-platform social media management with AI-powered video enhancement capabilities.
+
+The solution provides content creators with a centralized dashboard to manage their social media presence across YouTube, TikTok, Instagram, and Facebook. Key achievements include:
+
+\begin{itemize}
+    \item A modern, responsive React dashboard with real-time analytics, post scheduling via a visual calendar, and comprehensive account management.
+    \item A robust Fastify REST API backend with OAuth 2.0 integration (including PKCE for TikTok), AES-256 token encryption, and Supabase Row Level Security.
+    \item An automated post publishing pipeline using Redis/BullMQ queues with reliable scheduled delivery and failure handling.
+    \item An AI video enhancement pipeline featuring Real-ESRGAN super-resolution, GFPGAN face restoration, and classical filter processing with quality metrics (PSNR, SSIM, LPIPS).
+    \item An integrated browser-based video editor (BVIRAL Video Editor) for timeline editing, media import, and export.
+    \item A type-safe, full-stack TypeScript monorepo with shared database schemas, API specifications, and Zod validation.
+\end{itemize}
+
+This report detailed our approach in three chapters: the state of the art where we analyzed existing solutions and specified requirements; the conceptual study with UML diagrams defining the system's behavior and structure; and the realization chapter covering architecture, technology choices, and implemented interfaces.
+
+\vspace{0.5cm}
+\textbf{Future Perspectives:}
+
+While the current implementation achieves its core objectives, several enhancements would further strengthen the platform:
+
+\begin{itemize}
+    \item \textbf{Snapchat integration:} extend the OAuth flow to support Snapchat content publishing, completing the five-platform coverage.
+    \item \textbf{AI content generation:} integrate large language models for automatic caption, hashtag, and description generation tailored to each platform's best practices.
+    \item \textbf{Collaborative workspaces:} add team management features allowing multiple users to collaborate on content calendars with role-based access control.
+    \item \textbf{Advanced analytics:} implement predictive analytics using machine learning to forecast post performance and recommend optimal posting times.
+    \item \textbf{Mobile companion app:} develop a React Native mobile application for on-the-go scheduling and analytics monitoring.
+    \item \textbf{Webhook notifications:} integrate real-time webhook-based notifications from platforms to instantly update post status and analytics.
+    \item \textbf{A/B testing:} enable creators to test different captions, thumbnails, or posting times and compare performance across variants.
+\end{itemize}

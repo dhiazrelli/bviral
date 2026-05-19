@@ -24,7 +24,7 @@ export const HealthCheckResponse = zod.object({
 export const GetCurrentUserResponse = zod.object({
   "id": zod.string(),
   "email": zod.string().optional(),
-  "role": zod.enum(['admin', 'team']),
+  "role": zod.enum(['admin', 'content_creator']),
   "jwtRole": zod.string().optional(),
   "appMetadata": zod.record(zod.string(), zod.unknown()),
   "userMetadata": zod.record(zod.string(), zod.unknown())
@@ -133,6 +133,38 @@ export const GetAccountResponse = zod.object({
 
 
 /**
+ * Updates the display name or metadata of a connected account owned by the current user.
+ * @summary Update connected account
+ */
+export const UpdateAccountParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const updateAccountBodyAccountNameMax = 255;
+
+
+
+export const UpdateAccountBody = zod.object({
+  "accountName": zod.string().min(1).max(updateAccountBodyAccountNameMax).optional(),
+  "metadata": zod.record(zod.string(), zod.unknown()).optional()
+})
+
+export const updateAccountResponseAccountNameMax = 255;
+
+
+
+export const UpdateAccountResponse = zod.object({
+  "id": zod.string().uuid(),
+  "platform": zod.enum(['facebook', 'instagram', 'tiktok', 'youtube', 'snapchat']),
+  "accountName": zod.string().min(1).max(updateAccountResponseAccountNameMax),
+  "tokenExpiry": zod.union([zod.date(),zod.null()]),
+  "userId": zod.string().uuid(),
+  "metadata": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.date()
+})
+
+
+/**
  * Deletes a connected account owned by the current user.
  * @summary Disconnect an account
  */
@@ -150,6 +182,7 @@ export const ListVideosResponse = zod.object({
   "id": zod.string().uuid(),
   "userId": zod.string().uuid(),
   "originalUrl": zod.string(),
+  "originalFilename": zod.union([zod.string(),zod.null()]),
   "processedUrl": zod.union([zod.string(),zod.null()]),
   "duration": zod.union([zod.number(),zod.null()]),
   "status": zod.enum(['uploaded', 'processing', 'ready', 'failed']),
@@ -179,6 +212,7 @@ export const GetVideoResponse = zod.object({
   "id": zod.string().uuid(),
   "userId": zod.string().uuid(),
   "originalUrl": zod.string(),
+  "originalFilename": zod.union([zod.string(),zod.null()]),
   "processedUrl": zod.union([zod.string(),zod.null()]),
   "duration": zod.union([zod.number(),zod.null()]),
   "status": zod.enum(['uploaded', 'processing', 'ready', 'failed']),
@@ -198,7 +232,7 @@ export const ListPostsResponse = zod.object({
   "platform": zod.enum(['facebook', 'instagram', 'tiktok', 'youtube', 'snapchat']),
   "scheduledAt": zod.date(),
   "postedAt": zod.union([zod.date(),zod.null()]),
-  "status": zod.enum(['scheduled', 'posted', 'failed']),
+  "status": zod.enum(['scheduled', 'posted', 'failed', 'cancelled']),
   "externalPostId": zod.union([zod.string(),zod.null()]),
   "errorMessage": zod.union([zod.string(),zod.null()]),
   "metadata": zod.record(zod.string(), zod.unknown()),
@@ -235,7 +269,7 @@ export const GetPostResponse = zod.object({
   "platform": zod.enum(['facebook', 'instagram', 'tiktok', 'youtube', 'snapchat']),
   "scheduledAt": zod.date(),
   "postedAt": zod.union([zod.date(),zod.null()]),
-  "status": zod.enum(['scheduled', 'posted', 'failed']),
+  "status": zod.enum(['scheduled', 'posted', 'failed', 'cancelled']),
   "externalPostId": zod.union([zod.string(),zod.null()]),
   "errorMessage": zod.union([zod.string(),zod.null()]),
   "metadata": zod.record(zod.string(), zod.unknown()),
@@ -356,6 +390,145 @@ export const ListAlertsResponse = zod.object({
  */
 export const DeleteAlertParams = zod.object({
   "id": zod.coerce.string().uuid()
+})
+
+
+/**
+ * Returns all content_creator users with aggregated stats. Admin only.
+ * @summary List content creators
+ */
+export const ListCreatorsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "email": zod.string(),
+  "fullName": zod.string(),
+  "connectedAccountsCount": zod.number(),
+  "unresolvedAlertsCount": zod.number(),
+  "lastActiveAt": zod.date()
+}))
+})
+
+
+/**
+ * Returns a creator's profile, account metadata, and aggregated analytics. Admin only.
+ * @summary Get creator detail
+ */
+export const GetCreatorParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetCreatorResponse = zod.object({
+  "id": zod.string().uuid(),
+  "email": zod.string(),
+  "fullName": zod.string(),
+  "createdAt": zod.date(),
+  "accounts": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "platform": zod.enum(['facebook', 'instagram', 'tiktok', 'youtube', 'snapchat']),
+  "accountName": zod.string(),
+  "tokenExpiry": zod.union([zod.date(),zod.null()]),
+  "ownerKind": zod.enum(['user', 'bviral_company']),
+  "userId": zod.union([zod.string().uuid(),zod.null()]),
+  "createdAt": zod.date()
+}).describe('Account metadata visible to admins — no token fields.')),
+  "analytics": zod.object({
+  "totals": zod.object({
+  "views": zod.number(),
+  "likes": zod.number(),
+  "comments": zod.number(),
+  "shares": zod.number(),
+  "revenue": zod.number(),
+  "posts": zod.number(),
+  "engagementRate": zod.number()
+}),
+  "byPlatform": zod.array(zod.object({
+  "platform": zod.enum(['facebook', 'instagram', 'tiktok', 'youtube', 'snapchat']),
+  "views": zod.number(),
+  "likes": zod.number(),
+  "comments": zod.number(),
+  "shares": zod.number(),
+  "revenue": zod.number(),
+  "posts": zod.number()
+})),
+  "timeline": zod.array(zod.object({
+  "date": zod.string(),
+  "views": zod.number(),
+  "likes": zod.number(),
+  "comments": zod.number(),
+  "shares": zod.number()
+})),
+  "topPosts": zod.array(zod.object({
+  "postId": zod.string().uuid(),
+  "platform": zod.enum(['facebook', 'instagram', 'tiktok', 'youtube', 'snapchat']),
+  "externalPostId": zod.union([zod.string(),zod.null()]),
+  "views": zod.number(),
+  "likes": zod.number(),
+  "comments": zod.number(),
+  "shares": zod.number(),
+  "revenue": zod.number(),
+  "engagementRate": zod.number(),
+  "fetchedAt": zod.date()
+}))
+})
+})
+
+
+/**
+ * Returns the scheduled posts for a creator. Admin only.
+ * @summary Get creator schedule
+ */
+export const GetCreatorScheduleParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetCreatorScheduleResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "videoId": zod.string().uuid(),
+  "accountId": zod.string().uuid(),
+  "platform": zod.enum(['facebook', 'instagram', 'tiktok', 'youtube', 'snapchat']),
+  "scheduledAt": zod.date(),
+  "postedAt": zod.union([zod.date(),zod.null()]),
+  "status": zod.enum(['scheduled', 'posted', 'failed', 'cancelled']),
+  "externalPostId": zod.union([zod.string(),zod.null()]),
+  "errorMessage": zod.union([zod.string(),zod.null()]),
+  "metadata": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.date()
+}))
+})
+
+
+/**
+ * Returns all accounts owned by BViral company. Admin only.
+ * @summary List BViral company accounts
+ */
+export const ListBviralAccountsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "platform": zod.enum(['facebook', 'instagram', 'tiktok', 'youtube', 'snapchat']),
+  "accountName": zod.string(),
+  "tokenExpiry": zod.union([zod.date(),zod.null()]),
+  "ownerKind": zod.enum(['user', 'bviral_company']),
+  "userId": zod.union([zod.string().uuid(),zod.null()]),
+  "createdAt": zod.date()
+}).describe('Account metadata visible to admins — no token fields.'))
+})
+
+
+/**
+ * Creates a company-owned account. Admin only.
+ * @summary Connect a BViral company account
+ */
+
+
+
+
+export const CreateBviralAccountBody = zod.object({
+  "platform": zod.enum(['facebook', 'instagram', 'tiktok', 'youtube', 'snapchat']),
+  "accountName": zod.string().min(1),
+  "accessToken": zod.string().min(1),
+  "refreshToken": zod.string().optional(),
+  "metadata": zod.record(zod.string(), zod.unknown()).optional()
 })
 
 

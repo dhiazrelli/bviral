@@ -11,5 +11,5 @@ export type AuthRole = typeof AuthRole[keyof typeof AuthRole];
 
 export const AuthRole = {
   admin: 'admin',
-  team: 'team',
+  content_creator: 'content_creator',
 } as const;

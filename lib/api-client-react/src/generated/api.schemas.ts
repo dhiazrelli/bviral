@@ -14,7 +14,7 @@ export type AuthRole = typeof AuthRole[keyof typeof AuthRole];
 
 export const AuthRole = {
   admin: 'admin',
-  team: 'team',
+  content_creator: 'content_creator',
 } as const;
 
 export type AuthMeAppMetadata = { [key: string]: unknown };
@@ -41,7 +41,7 @@ export const AccountPlatform = {
   snapchat: 'snapchat',
 } as const;
 
-export type AccountMetadata = { [key: string]: unknown };
+export type AccountMetadataProperty = { [key: string]: unknown };
 
 export interface Account {
   id: string;
@@ -53,7 +53,7 @@ export interface Account {
   accountName: string;
   tokenExpiry: string | null;
   userId: string;
-  metadata: AccountMetadata;
+  metadata: AccountMetadataProperty;
   createdAt: string;
 }
 
@@ -77,6 +77,17 @@ export interface CreateAccountRequest {
   metadata?: CreateAccountRequestMetadata;
 }
 
+export type UpdateAccountRequestMetadata = { [key: string]: unknown };
+
+export interface UpdateAccountRequest {
+  /**
+     * @minLength 1
+     * @maxLength 255
+     */
+  accountName?: string;
+  metadata?: UpdateAccountRequestMetadata;
+}
+
 export type VideoStatus = typeof VideoStatus[keyof typeof VideoStatus];
 
 
@@ -91,6 +102,7 @@ export interface Video {
   id: string;
   userId: string;
   originalUrl: string;
+  originalFilename: string | null;
   processedUrl: string | null;
   duration: number | null;
   status: VideoStatus;
@@ -112,6 +124,7 @@ export const PostStatus = {
   scheduled: 'scheduled',
   posted: 'posted',
   failed: 'failed',
+  cancelled: 'cancelled',
 } as const;
 
 export type PostMetadata = { [key: string]: unknown };
@@ -247,6 +260,65 @@ export interface ErrorResponse {
   statusCode: number;
   error: string;
   message: string;
+}
+
+export type AccountOwnerKind = typeof AccountOwnerKind[keyof typeof AccountOwnerKind];
+
+
+export const AccountOwnerKind = {
+  user: 'user',
+  bviral_company: 'bviral_company',
+} as const;
+
+/**
+ * Account metadata visible to admins — no token fields.
+ */
+export interface AccountMetadata {
+  id: string;
+  platform: AccountPlatform;
+  accountName: string;
+  tokenExpiry: string | null;
+  ownerKind: AccountOwnerKind;
+  userId: string | null;
+  createdAt: string;
+}
+
+export interface AccountMetadataCollection {
+  data: AccountMetadata[];
+}
+
+export interface CreatorSummary {
+  id: string;
+  email: string;
+  fullName: string;
+  connectedAccountsCount: number;
+  unresolvedAlertsCount: number;
+  lastActiveAt: string;
+}
+
+export interface CreatorsCollection {
+  data: CreatorSummary[];
+}
+
+export interface CreatorDetail {
+  id: string;
+  email: string;
+  fullName: string;
+  createdAt: string;
+  accounts: AccountMetadata[];
+  analytics: AnalyticsOverview;
+}
+
+export type CreateBviralAccountRequestMetadata = { [key: string]: unknown };
+
+export interface CreateBviralAccountRequest {
+  platform: AccountPlatform;
+  /** @minLength 1 */
+  accountName: string;
+  /** @minLength 1 */
+  accessToken: string;
+  refreshToken?: string;
+  metadata?: CreateBviralAccountRequestMetadata;
 }
 
 /**

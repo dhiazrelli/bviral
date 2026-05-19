@@ -5,7 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { AccountMetadata } from './accountMetadata';
+import type { AccountMetadataProperty } from './accountMetadataProperty';
 import type { AccountPlatform } from './accountPlatform';
 
 export interface Account {
@@ -18,6 +18,6 @@ export interface Account {
   accountName: string;
   tokenExpiry: Date | null;
   userId: string;
-  metadata: AccountMetadata;
+  metadata: AccountMetadataProperty;
   createdAt: Date;
 }

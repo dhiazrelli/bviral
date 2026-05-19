@@ -22,12 +22,19 @@
       "when": 1777940824694,
       "tag": "0002_puzzling_magus",
       "breakpoints": true
-    }
-    ,{
+    },
+    {
       "idx": 3,
       "version": "7",
       "when": 1747008000000,
       "tag": "0003_role_owner_kind_admin_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779142919761,
+      "tag": "0004_little_miss_america",
       "breakpoints": true
     }
   ]

@@ -2,9 +2,12 @@ import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Calendar as CalendarIcon,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
+  Download,
+  FileText,
   Filter,
   Layers,
   Loader2,
@@ -34,6 +37,14 @@ import {
   useUploadVideo,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const DAYS_OF_WEEK = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -125,6 +136,20 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
 }
 
+function extractDuplicateConflict(error: unknown): DuplicateUpload | null {
+  if (!error || typeof error !== "object") return null;
+  const candidate = error as { status?: number; data?: unknown };
+  if (candidate.status !== 409) return null;
+  const data = candidate.data;
+  if (!data || typeof data !== "object") return null;
+  const existing = (data as { existing?: Video }).existing;
+  if (!existing || typeof existing.id !== "string") return null;
+  return {
+    filename: existing.originalFilename ?? "this file",
+    existing,
+  };
+}
+
 function toDateTimeLocalValue(date: Date) {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 16);
@@ -148,6 +173,10 @@ function createInitialComposerForm(accounts: Account[], videos: Video[]): Compos
 }
 
 function getVideoLabel(video: Video) {
+  if (video.originalFilename) {
+    return video.originalFilename;
+  }
+
   const url = video.processedUrl ?? video.originalUrl;
 
   try {
@@ -158,6 +187,84 @@ function getVideoLabel(video: Video) {
     return video.id.slice(0, 8);
   }
 }
+
+interface DuplicateUpload {
+  filename: string;
+  existing: Video;
+}
+
+interface BulkRow {
+  row: number;
+  accountName: string;
+  scheduledAt: string;
+  videoFilename: string;
+  title: string;
+  caption: string;
+  status: "valid" | "invalid";
+  reason?: string;
+  resolved?: {
+    account: Account;
+    video: Video;
+    scheduledAt: Date;
+  };
+}
+
+function parseCsvText(text: string): string[][] {
+  const rows: string[][] = [];
+  let current: string[] = [];
+  let cell = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          cell += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        cell += ch;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inQuotes = true;
+      continue;
+    }
+
+    if (ch === ",") {
+      current.push(cell);
+      cell = "";
+      continue;
+    }
+
+    if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i += 1;
+      current.push(cell);
+      cell = "";
+      rows.push(current);
+      current = [];
+      continue;
+    }
+
+    cell += ch;
+  }
+
+  if (cell.length > 0 || current.length > 0) {
+    current.push(cell);
+    rows.push(current);
+  }
+
+  return rows.filter((row) => row.some((value) => value.trim().length > 0));
+}
+
+const BULK_CSV_TEMPLATE_HEADER = "account_name,scheduled_at,video_filename,title,caption\n";
+const BULK_CSV_TEMPLATE_EXAMPLE = "marcus.everett,2026-06-12T18:00:00Z,clip-01.mp4,Sunset cruise,\"Late-night drive vibes\"\n";
 
 function MiniCalendar({ scheduledPosts }: { scheduledPosts: Post[] }) {
   const today = new Date();
@@ -251,20 +358,29 @@ export default function Scheduling() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [pipelineFilter, setPipelineFilter] = useState<PipelineFilter>("All");
   const [isComposerOpen, setComposerOpen] = useState(false);
+  const [duplicateUpload, setDuplicateUpload] = useState<DuplicateUpload | null>(null);
+  const [isBulkOpen, setBulkOpen] = useState(false);
+  const [bulkRows, setBulkRows] = useState<BulkRow[]>([]);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
   const accounts = accountsQuery.data?.data ?? [];
   const posts = postsQuery.data?.data ?? [];
   const videos = videosQuery.data?.data ?? [];
   const availableVideos = videos.filter((video) => video.status !== "failed");
   const [composerForm, setComposerForm] = useState<ComposerForm>(() => createInitialComposerForm(accounts, availableVideos));
   const scheduledPosts = posts.filter((post) => post.status === "scheduled");
+  const cancelledPosts = posts.filter((post) => post.status === "cancelled");
   const isLoading = accountsQuery.isLoading || postsQuery.isLoading || videosQuery.isLoading;
   const isError = accountsQuery.isError || postsQuery.isError || videosQuery.isError;
   const error = accountsQuery.error ?? postsQuery.error ?? videosQuery.error;
   const createPostMutation = useCreatePost({
     mutation: {
-      onSuccess: async () => {
+      onSuccess: async (post) => {
         await queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });
+        if (post?.accountId) {
+          setSelectedAccountId(post.accountId);
+        }
         setComposerOpen(false);
+        setDuplicateUpload(null);
         setComposerForm(createInitialComposerForm(accounts, availableVideos));
         toast({
           title: "Post scheduled",
@@ -289,12 +405,23 @@ export default function Scheduling() {
           videoId: video.id,
           uploadFile: null,
         }));
+        setDuplicateUpload(null);
         toast({
-          title: "Video uploaded",
+          title: video.originalFilename ? `Uploaded ${video.originalFilename}` : "Video uploaded",
           description: "The upload is selected for this scheduled post.",
         });
       },
       onError: (error) => {
+        const conflict = extractDuplicateConflict(error);
+        if (conflict) {
+          setDuplicateUpload(conflict);
+          toast({
+            title: "Duplicate filename",
+            description: `You already uploaded ${conflict.filename}. Use the existing video or rename your file.`,
+            variant: "destructive",
+          });
+          return;
+        }
         toast({
           title: "Video upload failed",
           description: getErrorMessage(error),
@@ -308,8 +435,8 @@ export default function Scheduling() {
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });
         toast({
-          title: "Scheduled post cancelled",
-          description: "The delayed publishing job was removed.",
+          title: "Post cancelled",
+          description: "Removed from the queue. You can still see it under recently cancelled.",
         });
       },
       onError: (error) => {
@@ -358,10 +485,27 @@ export default function Scheduling() {
     ?? lanes[0]
     ?? null;
   const activePost = activeLane?.scheduled[0] ?? null;
-  const previewCaption = getStringMetadata(activePost, "description")
+  const fallbackCaption = getStringMetadata(activePost, "description")
     ?? getStringMetadata(activePost, "caption")
     ?? getStringMetadata(activePost, "title")
     ?? "Scheduled post metadata will appear here when available.";
+
+  // While the composer is open, the phone preview reflects what's being typed,
+  // not the next scheduled post. Falls back to the active lane state otherwise.
+  const composerAccount = composerForm.accountId
+    ? accounts.find((account) => account.id === composerForm.accountId) ?? null
+    : null;
+  const useComposerPreview = isComposerOpen && composerAccount !== null;
+  const previewAccount = useComposerPreview ? composerAccount! : activeLane?.account ?? null;
+  const previewCaption = useComposerPreview
+    ? (composerForm.caption.trim() || composerForm.title.trim() || "Your caption will appear here as you type.")
+    : fallbackCaption;
+  const previewScheduledAt = useComposerPreview
+    ? (composerForm.scheduledAt ? new Date(composerForm.scheduledAt).toISOString() : null)
+    : (activePost?.scheduledAt ?? null);
+  const recentCancelledPosts = [...cancelledPosts]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 3);
 
   const handleFilterToggle = () => {
     const nextFilter = pipelineFilter === "All" ? "Attention" : pipelineFilter === "Attention" ? "Active" : "All";
@@ -382,7 +526,13 @@ export default function Scheduling() {
       ...createInitialComposerForm(accounts, availableVideos),
       accountId: selectedAccountId ?? current.accountId ?? accounts[0]?.id ?? "",
     }));
+    setDuplicateUpload(null);
     setComposerOpen(true);
+  };
+
+  const closeComposer = () => {
+    setComposerOpen(false);
+    setDuplicateUpload(null);
   };
 
   const handleUploadSelectedVideo = () => {
@@ -400,6 +550,187 @@ export default function Scheduling() {
         file: composerForm.uploadFile,
       },
     });
+  };
+
+  const openBulk = () => {
+    setBulkRows([]);
+    setBulkOpen(true);
+  };
+
+  const closeBulk = () => {
+    if (bulkSubmitting) return;
+    setBulkOpen(false);
+    setBulkRows([]);
+  };
+
+  const downloadBulkTemplate = () => {
+    const csv = BULK_CSV_TEMPLATE_HEADER + BULK_CSV_TEMPLATE_EXAMPLE;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "bviral-bulk-template.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleBulkFile = async (file: File | undefined) => {
+    if (!file) return;
+    const text = await file.text();
+    const rows = parseCsvText(text);
+    if (rows.length < 2) {
+      toast({
+        title: "Empty CSV",
+        description: "Add at least one data row beneath the header.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const header = rows[0].map((cell) => cell.trim().toLowerCase());
+    const need = (name: string) => {
+      const idx = header.indexOf(name);
+      if (idx < 0) throw new Error(`Missing required column "${name}"`);
+      return idx;
+    };
+
+    let accountCol: number;
+    let scheduledCol: number;
+    let videoCol: number;
+    try {
+      accountCol = need("account_name");
+      scheduledCol = need("scheduled_at");
+      videoCol = need("video_filename");
+    } catch (error) {
+      toast({
+        title: "Invalid CSV header",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const titleCol = header.indexOf("title");
+    const captionCol = header.indexOf("caption");
+    const platformCol = header.indexOf("platform");
+
+    const accountByName = new Map(accounts.map((a) => [a.accountName.toLowerCase(), a]));
+    const videoByFilename = new Map<string, Video>();
+    for (const video of videos) {
+      if (video.originalFilename) {
+        videoByFilename.set(video.originalFilename.toLowerCase(), video);
+      }
+    }
+
+    const now = Date.now();
+    const parsed: BulkRow[] = rows.slice(1).map((cells, index) => {
+      const accountName = (cells[accountCol] ?? "").trim();
+      const scheduledRaw = (cells[scheduledCol] ?? "").trim();
+      const videoFilename = (cells[videoCol] ?? "").trim();
+      const title = titleCol >= 0 ? (cells[titleCol] ?? "").trim() : "";
+      const caption = captionCol >= 0 ? (cells[captionCol] ?? "").trim() : "";
+      const platformOverride = platformCol >= 0 ? (cells[platformCol] ?? "").trim().toLowerCase() : "";
+
+      const row: BulkRow = {
+        row: index + 2,
+        accountName,
+        scheduledAt: scheduledRaw,
+        videoFilename,
+        title,
+        caption,
+        status: "valid",
+      };
+
+      const account = accountByName.get(accountName.toLowerCase());
+      if (!account) {
+        row.status = "invalid";
+        row.reason = `Account "${accountName}" not found`;
+        return row;
+      }
+
+      const video = videoByFilename.get(videoFilename.toLowerCase());
+      if (!video) {
+        row.status = "invalid";
+        row.reason = `Video filename "${videoFilename}" not found`;
+        return row;
+      }
+
+      const scheduledDate = new Date(scheduledRaw);
+      if (Number.isNaN(scheduledDate.getTime())) {
+        row.status = "invalid";
+        row.reason = `Invalid scheduled time "${scheduledRaw}"`;
+        return row;
+      }
+
+      if (scheduledDate.getTime() <= now + 60_000) {
+        row.status = "invalid";
+        row.reason = "Scheduled time must be at least a minute in the future";
+        return row;
+      }
+
+      if (platformOverride && platformOverride !== account.platform) {
+        row.status = "invalid";
+        row.reason = `platform "${platformOverride}" doesn't match account platform "${account.platform}"`;
+        return row;
+      }
+
+      row.resolved = { account, video, scheduledAt: scheduledDate };
+      return row;
+    });
+
+    setBulkRows(parsed);
+  };
+
+  const submitBulk = async () => {
+    const valid = bulkRows.filter((row) => row.status === "valid" && row.resolved);
+    if (valid.length === 0) {
+      toast({
+        title: "Nothing to schedule",
+        description: "No rows passed validation.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setBulkSubmitting(true);
+    let succeeded = 0;
+    let failed = 0;
+
+    for (const row of valid) {
+      if (!row.resolved) continue;
+      try {
+        await createPostMutation.mutateAsync({
+          data: {
+            account_id: row.resolved.account.id,
+            video_id: row.resolved.video.id,
+            platform: row.resolved.account.platform,
+            scheduled_at: row.resolved.scheduledAt.toISOString(),
+            metadata: {
+              title: row.title || "BVIRAL scheduled video",
+              description: row.caption,
+              caption: row.caption,
+              source: "bulk-csv",
+            },
+          },
+        });
+        succeeded += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+
+    setBulkSubmitting(false);
+    toast({
+      title: `${succeeded} scheduled, ${failed} failed`,
+      description: failed === 0 ? "All rows queued." : "Some rows failed — see toasts for details.",
+      variant: failed > 0 ? "destructive" : undefined,
+    });
+    if (failed === 0) {
+      setBulkOpen(false);
+      setBulkRows([]);
+    }
   };
 
   const handleSchedulePost = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -500,7 +831,7 @@ export default function Scheduling() {
         </div>
         <div className="flex gap-2 ml-[52px] sm:ml-0">
           <button
-            onClick={() => toast({ title: "Bulk import", description: "CSV ingest is not wired in this pass." })}
+            onClick={openBulk}
             className="btn-secondary flex items-center gap-2"
           >
             <UploadCloud className="w-4 h-4" /> Bulk CSV
@@ -514,9 +845,9 @@ export default function Scheduling() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.75fr)_minmax(360px,1fr)] gap-4 flex-1 min-h-0">
-        <div className="flex flex-col gap-4 h-full min-w-0">
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="glass-card flex flex-col flex-shrink-0 max-h-[50%]">
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.75fr)_minmax(360px,1fr)] gap-4">
+        <div className="flex flex-col gap-4 min-w-0">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="glass-card flex flex-col">
             <div className="p-4 border-b border-white/[0.04] flex justify-between items-center sticky top-0 bg-card/80 backdrop-blur-md z-10">
               <h2 className="font-display font-bold text-white text-sm">Publishing Lanes</h2>
               <button
@@ -579,7 +910,7 @@ export default function Scheduling() {
             <MiniCalendar scheduledPosts={scheduledPosts} />
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card p-5 flex flex-col h-[260px]">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass-card p-5 flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h2 className="font-display font-bold text-white text-sm flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center border border-primary/10">
@@ -588,7 +919,7 @@ export default function Scheduling() {
                 Next 24 Hours
               </h2>
             </div>
-            <div className="relative flex-1 bg-black/20 rounded-xl border border-white/[0.04] p-4 overflow-auto">
+            <div className="relative bg-black/20 rounded-xl border border-white/[0.04] p-4">
               <div className="space-y-2">
                 {scheduledPosts
                   .filter((post) => new Date(post.scheduledAt).getTime() <= Date.now() + 24 * 60 * 60 * 1000)
@@ -609,33 +940,35 @@ export default function Scheduling() {
           </motion.div>
         </div>
 
-        <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="self-start min-w-0">
-          <div className="glass-card p-5 xl:sticky xl:top-24 xl:max-h-[calc(100dvh-7.5rem)] xl:overflow-y-auto">
+        <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="min-w-0 space-y-4">
+          <div className="glass-card p-5">
             <div className="flex justify-between items-center mb-5">
               <div>
                 <h2 className="font-display font-bold text-white text-sm">Post Preview</h2>
-                <p className="text-[11px] text-muted-foreground/50 mt-1">Selected account and next scheduled post</p>
+                <p className="text-[11px] text-muted-foreground/50 mt-1">
+                  {useComposerPreview ? "Live preview from the composer" : "Selected account and next scheduled post"}
+                </p>
               </div>
               <button
-                onClick={() => toast({ title: "Preview actions", description: activeLane ? `Review tools opened for ${activeLane.account.accountName}.` : "No lane selected." })}
+                onClick={() => toast({ title: "Preview actions", description: previewAccount ? `Review tools opened for ${previewAccount.accountName}.` : "No lane selected." })}
                 className="p-1.5 rounded-lg hover:bg-white/[0.06] text-muted-foreground/50 hover:text-white transition-colors cursor-pointer"
               >
                 <MoreHorizontal className="w-4 h-4" />
               </button>
             </div>
 
-            {activeLane ? (
+            {previewAccount ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-2.5">
                   <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
                     <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/40 font-bold">Queue</p>
-                    <p className="mt-2 text-lg font-display font-bold text-white">{activeLane.scheduled.length}</p>
+                    <p className="mt-2 text-lg font-display font-bold text-white">{activeLane?.scheduled.length ?? 0}</p>
                     <p className="text-[11px] text-muted-foreground/50">scheduled posts</p>
                   </div>
                   <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
                     <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/40 font-bold">Channel</p>
-                    <p className="mt-2 text-lg font-display font-bold text-white">{platformLabels[activeLane.account.platform]}</p>
-                    <p className="text-[11px] text-muted-foreground/50">{activeLane.account.accountName}</p>
+                    <p className="mt-2 text-lg font-display font-bold text-white">{platformLabels[previewAccount.platform]}</p>
+                    <p className="text-[11px] text-muted-foreground/50">{previewAccount.accountName}</p>
                   </div>
                 </div>
 
@@ -653,12 +986,12 @@ export default function Scheduling() {
                     <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-16">
                       <div className="flex items-center gap-2.5 mb-2.5">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-[10px] font-bold text-white shrink-0">
-                          {activeLane.account.accountName.charAt(0).toUpperCase()}
+                          {previewAccount.accountName.charAt(0).toUpperCase()}
                         </div>
-                        <span className="font-bold text-white text-[13px]">{activeLane.account.accountName}</span>
+                        <span className="font-bold text-white text-[13px]">{previewAccount.accountName}</span>
                       </div>
                       <p className="text-white/80 text-xs leading-relaxed line-clamp-3 mb-2">{previewCaption}</p>
-                      <p className="text-primary text-[11px] font-bold">#{activeLane.account.platform} #scheduled</p>
+                      <p className="text-primary text-[11px] font-bold">#{previewAccount.platform} #{useComposerPreview ? "draft" : "scheduled"}</p>
                     </div>
                   </div>
                 </div>
@@ -670,12 +1003,12 @@ export default function Scheduling() {
                   </div>
                   <div className="flex justify-between text-xs gap-3">
                     <span className="text-muted-foreground/50">Scheduled for:</span>
-                    <span className="text-white/80 font-medium text-right">{activePost ? formatDateTime(activePost.scheduledAt) : "No scheduled post"}</span>
+                    <span className="text-white/80 font-medium text-right">{previewScheduledAt ? formatDateTime(previewScheduledAt) : "No scheduled post"}</span>
                   </div>
                   <div className="flex justify-between text-xs gap-3">
                     <span className="text-muted-foreground/50">Platform:</span>
-                    <span className={`px-2 h-5 rounded border flex items-center justify-center text-[9px] font-bold ${platformColors[activeLane.account.platform]}`}>
-                      {platformLabels[activeLane.account.platform]}
+                    <span className={`px-2 h-5 rounded border flex items-center justify-center text-[9px] font-bold ${platformColors[previewAccount.platform]}`}>
+                      {platformLabels[previewAccount.platform]}
                     </span>
                   </div>
                   <button
@@ -697,15 +1030,35 @@ export default function Scheduling() {
               </div>
             )}
           </div>
+
+          {recentCancelledPosts.length > 0 ? (
+            <div className="glass-card p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-display font-bold text-white text-sm">Recently cancelled</h3>
+                <span className="text-[10px] text-muted-foreground/40">{cancelledPosts.length} total</span>
+              </div>
+              <div className="space-y-2">
+                {recentCancelledPosts.map((post) => (
+                  <div key={post.id} className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-xs flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${platformColors[post.platform]}`}>{platformLabels[post.platform]}</span>
+                      <span className="text-white/70 truncate">was scheduled {formatDateTime(post.scheduledAt)}</span>
+                    </div>
+                    <span className="text-muted-foreground/50 shrink-0">{timeAgo(post.createdAt)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </motion.div>
       </div>
 
       {isComposerOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm overflow-y-auto">
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="w-full max-w-2xl rounded-2xl border border-white/[0.08] bg-card p-5 shadow-2xl"
+            className="w-full max-w-4xl rounded-2xl border border-white/[0.08] bg-card p-5 shadow-2xl my-auto"
             role="dialog"
             aria-modal="true"
             aria-labelledby="schedule-post-title"
@@ -717,7 +1070,7 @@ export default function Scheduling() {
               </div>
               <button
                 type="button"
-                onClick={() => setComposerOpen(false)}
+                onClick={closeComposer}
                 className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground/60 transition hover:bg-white/[0.06] hover:text-white"
                 aria-label="Close scheduler"
               >
@@ -725,24 +1078,27 @@ export default function Scheduling() {
               </button>
             </div>
 
-            <form onSubmit={handleSchedulePost} className="mt-5 space-y-4">
+            <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(220px,1fr)]">
+            <form onSubmit={handleSchedulePost} className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
-                <label className="space-y-2">
+                <div className="space-y-2">
                   <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50">Account</span>
-                  <select
-                    value={composerForm.accountId}
-                    onChange={(event) => setComposerForm((current) => ({ ...current, accountId: event.target.value }))}
-                    className="h-11 w-full rounded-xl border border-white/[0.08] bg-black/25 px-3 text-sm text-white outline-none transition focus:border-primary/40"
-                    required
+                  <Select
+                    value={composerForm.accountId || undefined}
+                    onValueChange={(value) => setComposerForm((current) => ({ ...current, accountId: value }))}
                   >
-                    <option value="" disabled>Select account</option>
-                    {accounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.accountName} - {platformLabels[account.platform]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    <SelectTrigger className="h-11 w-full rounded-xl border border-white/[0.08] bg-black/25 px-3 text-sm text-white">
+                      <SelectValue placeholder="Select account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.accountName} — {platformLabels[account.platform]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 <label className="space-y-2">
                   <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50">Schedule time</span>
@@ -758,23 +1114,26 @@ export default function Scheduling() {
               </div>
 
               <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-                <label className="space-y-2">
+                <div className="space-y-2">
                   <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50">Video</span>
-                  <select
-                    value={composerForm.videoId}
-                    onChange={(event) => setComposerForm((current) => ({ ...current, videoId: event.target.value }))}
-                    className="h-11 w-full rounded-xl border border-white/[0.08] bg-black/25 px-3 text-sm text-white outline-none transition focus:border-primary/40"
-                    required
+                  <Select
+                    value={composerForm.videoId || undefined}
+                    onValueChange={(value) => setComposerForm((current) => ({ ...current, videoId: value }))}
+                    disabled={availableVideos.length === 0}
                   >
-                    <option value="" disabled>{availableVideos.length > 0 ? "Select uploaded video" : "No uploaded videos"}</option>
-                    {availableVideos.map((video) => (
-                      <option key={video.id} value={video.id}>
-                        {getVideoLabel(video)} - {video.status}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="h-11 w-full rounded-xl border border-white/[0.08] bg-black/25 px-3 text-sm text-white">
+                      <SelectValue placeholder={availableVideos.length > 0 ? "Select uploaded video" : "No uploaded videos"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableVideos.map((video) => (
+                        <SelectItem key={video.id} value={video.id}>
+                          {getVideoLabel(video)} — {video.status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <p className="text-[11px] text-muted-foreground/45">Select an existing upload, or choose a local file and Schedule will upload it first.</p>
-                </label>
+                </div>
 
                 <div className="space-y-2">
                   <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50">Upload new</span>
@@ -800,6 +1159,42 @@ export default function Scheduling() {
                   </div>
                 </div>
               </div>
+
+              {duplicateUpload ? (
+                <div className="rounded-xl border border-amber-400/25 bg-amber-400/[0.06] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <FileText className="h-4 w-4 text-amber-300 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white">
+                        You already uploaded <span className="text-amber-200">{duplicateUpload.filename}</span>
+                      </p>
+                      <p className="text-[11px] text-white/60 mt-1">
+                        Uploaded {timeAgo(duplicateUpload.existing.createdAt)}. Use the existing video, or rename your file and try again.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setComposerForm((current) => ({ ...current, videoId: duplicateUpload.existing.id, uploadFile: null }));
+                        setDuplicateUpload(null);
+                        toast({ title: "Using existing video", description: duplicateUpload.filename });
+                      }}
+                      className="rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-300/15"
+                    >
+                      Use existing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDuplicateUpload(null)}
+                      className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[11px] font-semibold text-white/60 transition hover:bg-white/[0.06]"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-2">
@@ -828,7 +1223,7 @@ export default function Scheduling() {
               <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"
-                  onClick={() => setComposerOpen(false)}
+                  onClick={closeComposer}
                   className="btn-secondary"
                 >
                   Cancel
@@ -843,6 +1238,191 @@ export default function Scheduling() {
                 </button>
               </div>
             </form>
+
+            <aside className="rounded-2xl border border-white/[0.06] bg-black/20 p-4 flex flex-col gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/40 font-bold">Live preview</p>
+                <p className="text-[11px] text-muted-foreground/50 mt-1">Updates as you type</p>
+              </div>
+              {composerAccount ? (
+                <>
+                  <div
+                    className="border-[3px] border-white/[0.08] rounded-[1.8rem] bg-black relative overflow-hidden mx-auto w-full max-w-[210px] aspect-[10/17]"
+                    style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 18px 36px rgba(0,0,0,0.5)" }}
+                  >
+                    <div className="absolute top-2 left-0 right-0 flex justify-center z-20">
+                      <div className="w-[70px] h-[18px] bg-black rounded-full border border-white/[0.04]" />
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/60 via-purple-900/40 to-slate-900/60" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/10">
+                        <Play className="w-5 h-5 text-white ml-0.5" />
+                      </div>
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-12">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-[9px] font-bold text-white shrink-0">
+                          {composerAccount.accountName.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="font-bold text-white text-[11px] truncate">{composerAccount.accountName}</span>
+                      </div>
+                      <p className="text-white/80 text-[10px] leading-snug line-clamp-3 mb-1">
+                        {composerForm.caption.trim() || composerForm.title.trim() || "Your caption will appear here as you type."}
+                      </p>
+                      <p className="text-primary text-[9px] font-bold">#{composerAccount.platform} #draft</p>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 text-xs space-y-2">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted-foreground/50">Platform</span>
+                      <span className={`px-2 h-5 rounded border flex items-center justify-center text-[9px] font-bold ${platformColors[composerAccount.platform]}`}>
+                        {platformLabels[composerAccount.platform]}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted-foreground/50">Posting at</span>
+                      <span className="text-white/80 font-medium text-right text-[11px]">
+                        {composerForm.scheduledAt
+                          ? formatDateTime(new Date(composerForm.scheduledAt).toISOString())
+                          : "Choose a time"}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="py-10 text-center text-xs text-muted-foreground/45">
+                  Choose an account to see the preview.
+                </div>
+              )}
+            </aside>
+            </div>
+          </motion.div>
+        </div>
+      ) : null}
+
+      {isBulkOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="w-full max-w-3xl rounded-2xl border border-white/[0.08] bg-card p-5 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bulk-csv-title"
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-white/[0.06] pb-4">
+              <div>
+                <h2 id="bulk-csv-title" className="font-display text-lg font-bold text-white">Bulk schedule from CSV</h2>
+                <p className="mt-1 text-xs text-muted-foreground/55">
+                  Upload a CSV referencing existing accounts and uploaded videos. Each valid row becomes a scheduled post.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeBulk}
+                disabled={bulkSubmitting}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground/60 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-50"
+                aria-label="Close bulk import"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <div className="flex flex-wrap gap-3 items-center justify-between">
+                <button
+                  type="button"
+                  onClick={downloadBulkTemplate}
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs font-semibold text-white/80 transition hover:bg-white/[0.06]"
+                >
+                  <Download className="h-3.5 w-3.5" /> Download template
+                </button>
+                <label className="inline-flex items-center gap-2 rounded-lg border border-primary/25 bg-primary/12 px-3 py-2 text-xs font-semibold text-primary cursor-pointer transition hover:bg-primary/18">
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      handleBulkFile(file);
+                    }}
+                  />
+                  <UploadCloud className="h-3.5 w-3.5" /> Choose CSV
+                </label>
+              </div>
+
+              <div className="rounded-xl border border-white/[0.06] bg-black/20">
+                <div className="px-4 py-3 border-b border-white/[0.04] text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground/45 flex items-center justify-between">
+                  <span>Parsed rows</span>
+                  <span className="text-muted-foreground/60 normal-case tracking-normal">
+                    {bulkRows.length === 0
+                      ? "No file loaded"
+                      : `${bulkRows.filter((r) => r.status === "valid").length} valid · ${bulkRows.filter((r) => r.status === "invalid").length} invalid`}
+                  </span>
+                </div>
+                <div className="max-h-[320px] overflow-auto">
+                  {bulkRows.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-xs text-muted-foreground/45">
+                      Choose a CSV file. Required columns: <span className="font-mono">account_name, scheduled_at, video_filename</span>. Optional: <span className="font-mono">title, caption, platform</span>.
+                    </div>
+                  ) : (
+                    <table className="w-full text-left text-[12px]">
+                      <thead className="bg-black/30 text-[10px] uppercase tracking-wider text-muted-foreground/50">
+                        <tr>
+                          <th className="px-3 py-2 font-medium">#</th>
+                          <th className="px-3 py-2 font-medium">Account</th>
+                          <th className="px-3 py-2 font-medium">Scheduled</th>
+                          <th className="px-3 py-2 font-medium">Video</th>
+                          <th className="px-3 py-2 font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.04]">
+                        {bulkRows.map((row) => (
+                          <tr key={row.row} className={cn(row.status === "invalid" && "bg-red-500/[0.04]")}>
+                            <td className="px-3 py-2 text-muted-foreground/50 font-mono">{row.row}</td>
+                            <td className="px-3 py-2 text-white/80">{row.accountName || <span className="text-muted-foreground/40">—</span>}</td>
+                            <td className="px-3 py-2 text-white/70 font-mono text-[11px]">{row.scheduledAt || <span className="text-muted-foreground/40">—</span>}</td>
+                            <td className="px-3 py-2 text-white/80">{row.videoFilename || <span className="text-muted-foreground/40">—</span>}</td>
+                            <td className="px-3 py-2">
+                              {row.status === "valid" ? (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                                  <CheckCircle2 className="h-3 w-3" /> valid
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-red-400/20 bg-red-400/10 px-2 py-0.5 text-[10px] font-bold text-red-300" title={row.reason}>
+                                  <X className="h-3 w-3" /> {row.reason ?? "invalid"}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeBulk}
+                  disabled={bulkSubmitting}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={submitBulk}
+                  disabled={bulkSubmitting || bulkRows.filter((r) => r.status === "valid").length === 0}
+                  className="btn-primary flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {bulkSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  {bulkSubmitting ? "Scheduling..." : `Schedule ${bulkRows.filter((r) => r.status === "valid").length} ${bulkRows.filter((r) => r.status === "valid").length === 1 ? "post" : "posts"}`}
+                </button>
+              </div>
+            </div>
           </motion.div>
         </div>
       ) : null}

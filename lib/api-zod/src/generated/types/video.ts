@@ -11,6 +11,7 @@ export interface Video {
   id: string;
   userId: string;
   originalUrl: string;
+  originalFilename: string | null;
   processedUrl: string | null;
   duration: number | null;
   status: VideoStatus;

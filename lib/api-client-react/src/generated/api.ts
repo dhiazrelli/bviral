@@ -21,6 +21,7 @@ import type {
 
 import type {
   Account,
+  AccountMetadataCollection,
   AccountsCollection,
   AlertsCollection,
   AnalyticsOverview,
@@ -28,7 +29,10 @@ import type {
   BadRequestResponse,
   ConflictResponse,
   CreateAccountRequest,
+  CreateBviralAccountRequest,
   CreatePostRequest,
+  CreatorDetail,
+  CreatorsCollection,
   HandleMetaAccountCallbackParams,
   HandleTikTokAccountCallbackParams,
   HandleYouTubeAccountCallbackParams,
@@ -38,6 +42,7 @@ import type {
   PostAnalytics,
   PostsCollection,
   UnauthorizedResponse,
+  UpdateAccountRequest,
   UploadVideoRequest,
   Video,
   VideosCollection
@@ -927,6 +932,79 @@ export function useGetAccount<TData = Awaited<ReturnType<typeof getAccount>>, TE
 
 
 
+
+/**
+ * Updates the display name or metadata of a connected account owned by the current user.
+ * @summary Update connected account
+ */
+export const getUpdateAccountUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/accounts/${id}`
+}
+
+export const updateAccount = async (id: string,
+    updateAccountRequest: UpdateAccountRequest, options?: RequestInit): Promise<Account> => {
+
+  return customFetch<Account>(getUpdateAccountUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      updateAccountRequest,)
+  }
+);}
+
+
+
+
+export const getUpdateAccountMutationOptions = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAccount>>, TError,{id: string;data: BodyType<UpdateAccountRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAccount>>, TError,{id: string;data: BodyType<UpdateAccountRequest>}, TContext> => {
+
+const mutationKey = ['updateAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAccount>>, {id: string;data: BodyType<UpdateAccountRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateAccount(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAccountMutationResult = NonNullable<Awaited<ReturnType<typeof updateAccount>>>
+    export type UpdateAccountMutationBody = BodyType<UpdateAccountRequest>
+    export type UpdateAccountMutationError = ErrorType<BadRequestResponse | UnauthorizedResponse | NotFoundResponse>
+
+    /**
+ * @summary Update connected account
+ */
+export const useUpdateAccount = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAccount>>, TError,{id: string;data: BodyType<UpdateAccountRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAccount>>,
+        TError,
+        {id: string;data: BodyType<UpdateAccountRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdateAccountMutationOptions(options));
+    }
 
 /**
  * Deletes a connected account owned by the current user.
@@ -1831,5 +1909,389 @@ export const useDeleteAlert = <TError = ErrorType<BadRequestResponse | Unauthori
         TContext
       > => {
       return useMutation(getDeleteAlertMutationOptions(options));
+    }
+
+/**
+ * Returns all content_creator users with aggregated stats. Admin only.
+ * @summary List content creators
+ */
+export const getListCreatorsUrl = () => {
+
+
+
+
+  return `/api/v1/admin/creators`
+}
+
+export const listCreators = async ( options?: RequestInit): Promise<CreatorsCollection> => {
+
+  return customFetch<CreatorsCollection>(getListCreatorsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCreatorsQueryKey = () => {
+    return [
+    `/api/v1/admin/creators`
+    ] as const;
+    }
+
+
+export const getListCreatorsQueryOptions = <TData = Awaited<ReturnType<typeof listCreators>>, TError = ErrorType<UnauthorizedResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCreators>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCreatorsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCreators>>> = ({ signal }) => listCreators({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCreators>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCreatorsQueryResult = NonNullable<Awaited<ReturnType<typeof listCreators>>>
+export type ListCreatorsQueryError = ErrorType<UnauthorizedResponse>
+
+
+/**
+ * @summary List content creators
+ */
+
+export function useListCreators<TData = Awaited<ReturnType<typeof listCreators>>, TError = ErrorType<UnauthorizedResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCreators>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCreatorsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+/**
+ * Returns a creator's profile, account metadata, and aggregated analytics. Admin only.
+ * @summary Get creator detail
+ */
+export const getGetCreatorUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/admin/creators/${id}`
+}
+
+export const getCreator = async (id: string, options?: RequestInit): Promise<CreatorDetail> => {
+
+  return customFetch<CreatorDetail>(getGetCreatorUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCreatorQueryKey = (id: string,) => {
+    return [
+    `/api/v1/admin/creators/${id}`
+    ] as const;
+    }
+
+
+export const getGetCreatorQueryOptions = <TData = Awaited<ReturnType<typeof getCreator>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCreator>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCreatorQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCreator>>> = ({ signal }) => getCreator(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCreator>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCreatorQueryResult = NonNullable<Awaited<ReturnType<typeof getCreator>>>
+export type GetCreatorQueryError = ErrorType<UnauthorizedResponse | NotFoundResponse>
+
+
+/**
+ * @summary Get creator detail
+ */
+
+export function useGetCreator<TData = Awaited<ReturnType<typeof getCreator>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCreator>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCreatorQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+/**
+ * Returns the scheduled posts for a creator. Admin only.
+ * @summary Get creator schedule
+ */
+export const getGetCreatorScheduleUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/admin/creators/${id}/schedule`
+}
+
+export const getCreatorSchedule = async (id: string, options?: RequestInit): Promise<PostsCollection> => {
+
+  return customFetch<PostsCollection>(getGetCreatorScheduleUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCreatorScheduleQueryKey = (id: string,) => {
+    return [
+    `/api/v1/admin/creators/${id}/schedule`
+    ] as const;
+    }
+
+
+export const getGetCreatorScheduleQueryOptions = <TData = Awaited<ReturnType<typeof getCreatorSchedule>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCreatorSchedule>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCreatorScheduleQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCreatorSchedule>>> = ({ signal }) => getCreatorSchedule(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCreatorSchedule>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCreatorScheduleQueryResult = NonNullable<Awaited<ReturnType<typeof getCreatorSchedule>>>
+export type GetCreatorScheduleQueryError = ErrorType<UnauthorizedResponse | NotFoundResponse>
+
+
+/**
+ * @summary Get creator schedule
+ */
+
+export function useGetCreatorSchedule<TData = Awaited<ReturnType<typeof getCreatorSchedule>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCreatorSchedule>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCreatorScheduleQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+/**
+ * Returns all accounts owned by BViral company. Admin only.
+ * @summary List BViral company accounts
+ */
+export const getListBviralAccountsUrl = () => {
+
+
+
+
+  return `/api/v1/admin/bviral-accounts`
+}
+
+export const listBviralAccounts = async ( options?: RequestInit): Promise<AccountMetadataCollection> => {
+
+  return customFetch<AccountMetadataCollection>(getListBviralAccountsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBviralAccountsQueryKey = () => {
+    return [
+    `/api/v1/admin/bviral-accounts`
+    ] as const;
+    }
+
+
+export const getListBviralAccountsQueryOptions = <TData = Awaited<ReturnType<typeof listBviralAccounts>>, TError = ErrorType<UnauthorizedResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBviralAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBviralAccountsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBviralAccounts>>> = ({ signal }) => listBviralAccounts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBviralAccounts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBviralAccountsQueryResult = NonNullable<Awaited<ReturnType<typeof listBviralAccounts>>>
+export type ListBviralAccountsQueryError = ErrorType<UnauthorizedResponse>
+
+
+/**
+ * @summary List BViral company accounts
+ */
+
+export function useListBviralAccounts<TData = Awaited<ReturnType<typeof listBviralAccounts>>, TError = ErrorType<UnauthorizedResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBviralAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBviralAccountsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+/**
+ * Creates a company-owned account. Admin only.
+ * @summary Connect a BViral company account
+ */
+export const getCreateBviralAccountUrl = () => {
+
+
+
+
+  return `/api/v1/admin/bviral-accounts`
+}
+
+export const createBviralAccount = async (createBviralAccountRequest: CreateBviralAccountRequest, options?: RequestInit): Promise<Account> => {
+
+  return customFetch<Account>(getCreateBviralAccountUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      createBviralAccountRequest,)
+  }
+);}
+
+
+
+
+export const getCreateBviralAccountMutationOptions = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBviralAccount>>, TError,{data: BodyType<CreateBviralAccountRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBviralAccount>>, TError,{data: BodyType<CreateBviralAccountRequest>}, TContext> => {
+
+const mutationKey = ['createBviralAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBviralAccount>>, {data: BodyType<CreateBviralAccountRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createBviralAccount(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateBviralAccountMutationResult = NonNullable<Awaited<ReturnType<typeof createBviralAccount>>>
+    export type CreateBviralAccountMutationBody = BodyType<CreateBviralAccountRequest>
+    export type CreateBviralAccountMutationError = ErrorType<BadRequestResponse | UnauthorizedResponse>
+
+    /**
+ * @summary Connect a BViral company account
+ */
+export const useCreateBviralAccount = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBviralAccount>>, TError,{data: BodyType<CreateBviralAccountRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createBviralAccount>>,
+        TError,
+        {data: BodyType<CreateBviralAccountRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateBviralAccountMutationOptions(options));
     }
 

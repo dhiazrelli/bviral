@@ -2,7 +2,7 @@ import fp from "fastify-plugin";
 import { videoStatusValues } from "@workspace/db";
 
 const uuidPattern =
-  "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$";
+  "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
 
 export default fp(async function videoSchemas(fastify) {
   fastify.addSchema({
@@ -13,6 +13,7 @@ export default fp(async function videoSchemas(fastify) {
       id: { type: "string", pattern: uuidPattern },
       userId: { type: "string", pattern: uuidPattern },
       originalUrl: { type: "string" },
+      originalFilename: { anyOf: [{ type: "string" }, { type: "null" }] },
       processedUrl: { anyOf: [{ type: "string" }, { type: "null" }] },
       duration: { anyOf: [{ type: "integer" }, { type: "null" }] },
       status: { type: "string", enum: [...videoStatusValues] },
@@ -22,6 +23,7 @@ export default fp(async function videoSchemas(fastify) {
       "id",
       "userId",
       "originalUrl",
+      "originalFilename",
       "processedUrl",
       "duration",
       "status",
@@ -40,6 +42,19 @@ export default fp(async function videoSchemas(fastify) {
       },
     },
     required: ["data"],
+  });
+
+  fastify.addSchema({
+    $id: "duplicateVideoResponse",
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      statusCode: { type: "integer" },
+      error: { type: "string" },
+      message: { type: "string" },
+      existing: { $ref: "video#" },
+    },
+    required: ["statusCode", "error", "message", "existing"],
   });
 }, {
   name: "video-schemas",

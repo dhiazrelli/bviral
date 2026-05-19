@@ -12,6 +12,7 @@ export interface VideoResponseDto {
   id: string;
   userId: string;
   originalUrl: string;
+  originalFilename: string | null;
   processedUrl: string | null;
   duration: number | null;
   status: VideoStatus;
@@ -21,12 +22,14 @@ export interface VideoResponseDto {
 export interface CreateUploadedVideoPayload {
   userId: string;
   originalUrl: string;
+  originalFilename?: string | null;
   duration?: number | null;
 }
 
 export interface VideosRepository {
   listForUser(userId: string): Promise<VideoResponseDto[]>;
   findForUser(videoId: string, userId: string): Promise<VideoResponseDto | null>;
+  findByOriginalFilenameForUser(userId: string, originalFilename: string): Promise<VideoResponseDto | null>;
   createUploaded(input: CreateUploadedVideoPayload): Promise<VideoResponseDto>;
   updateStatus(videoId: string, status: VideoStatus): Promise<VideoResponseDto | null>;
 }
@@ -36,6 +39,7 @@ function serializeVideo(video: VideoRecord): VideoResponseDto {
     id: video.id,
     userId: video.userId,
     originalUrl: video.originalUrl,
+    originalFilename: video.originalFilename ?? null,
     processedUrl: video.processedUrl ?? null,
     duration: video.duration ?? null,
     status: video.status,
@@ -68,10 +72,25 @@ export function buildVideosRepository(db: Database): VideosRepository {
       return video ? serializeVideo(video) : null;
     },
 
+    async findByOriginalFilenameForUser(userId, originalFilename) {
+      const [video] = await db
+        .select()
+        .from(videosTable)
+        .where(and(
+          eq(videosTable.userId, userId),
+          eq(videosTable.originalFilename, originalFilename),
+        ))
+        .orderBy(desc(videosTable.createdAt))
+        .limit(1);
+
+      return video ? serializeVideo(video) : null;
+    },
+
     async createUploaded(input) {
       const payload: NewVideoRecord = {
         userId: input.userId,
         originalUrl: input.originalUrl,
+        originalFilename: input.originalFilename ?? null,
         duration: input.duration ?? null,
         status: "uploaded",
       };
