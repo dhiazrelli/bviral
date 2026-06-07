@@ -564,49 +564,15 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
-  /v1/admin/bviral-accounts:
-    get:
-      operationId: listBviralAccounts
-      tags: [admin]
-      summary: List BViral company accounts
-      description: Returns all accounts owned by BViral company. Admin only.
-      responses:
-        "200":
-          description: BViral accounts
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AccountMetadataCollection"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-    post:
-      operationId: createBviralAccount
-      tags: [admin]
-      summary: Connect a BViral company account
-      description: Creates a company-owned account. Admin only.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateBviralAccountRequest"
-      responses:
-        "201":
-          description: Created account
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Account"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
   /v1/ai/virality/predict:
     post:
       operationId: predictVirality
       tags: [ai]
       summary: Predict virality for an uploaded video
-      description: Runs the virality model on an uploaded video and returns the predicted views, viral tier, SHAP attributions, and an LLM analysis.
+      description: >
+        Requests a virality prediction for a video. Returns a cached prediction
+        immediately (200, status "done") when available, otherwise enqueues an
+        async job (202, status "queued") to poll at GET /v1/ai/virality/jobs/{jobId}.
       requestBody:
         required: true
         content:
@@ -615,11 +581,40 @@ paths:
               $ref: "#/components/schemas/ViralityPredictRequest"
       responses:
         "200":
-          description: Virality prediction
+          description: Cached prediction (status "done")
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ViralityPrediction"
+                $ref: "#/components/schemas/ViralityJob"
+        "202":
+          description: Job queued (status "queued")
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ViralityJob"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/ai/virality/jobs/{jobId}:
+    get:
+      operationId: getViralityJob
+      tags: [ai]
+      summary: Get virality job status
+      description: Returns the status of a virality job; includes the prediction once status is "done".
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Virality job status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ViralityJob"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -647,6 +642,34 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/ai/captions/jobs/{jobId}/approve:
+    post:
+      operationId: approveCaptions
+      tags: [ai]
+      summary: Approve a captioned preview
+      description: >-
+        Approves the captioned preview produced by a finished captions job and
+        replaces the source video's URL with the captioned version. Returns the
+        updated video.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated video
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Video"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/ai/enhance:
     post:
       operationId: enhanceVideo
@@ -1348,11 +1371,6 @@ components:
         - statusCode
         - error
         - message
-    AccountOwnerKind:
-      type: string
-      enum:
-        - user
-        - bviral_company
     AccountMetadata:
       type: object
       additionalProperties: false
@@ -1370,13 +1388,9 @@ components:
             - type: string
               format: date-time
             - type: "null"
-        ownerKind:
-          $ref: "#/components/schemas/AccountOwnerKind"
         userId:
-          oneOf:
-            - type: string
-              format: uuid
-            - type: "null"
+          type: string
+          format: uuid
         createdAt:
           type: string
           format: date-time
@@ -1385,7 +1399,6 @@ components:
         - platform
         - accountName
         - tokenExpiry
-        - ownerKind
         - userId
         - createdAt
     AccountMetadataCollection:
@@ -1416,6 +1429,14 @@ components:
         lastActiveAt:
           type: string
           format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        suspendedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
       required:
         - id
         - email
@@ -1423,6 +1444,25 @@ components:
         - connectedAccountsCount
         - unresolvedAlertsCount
         - lastActiveAt
+        - createdAt
+        - suspendedAt
+    PaginationMeta:
+      type: object
+      additionalProperties: false
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+      required:
+        - page
+        - pageSize
+        - total
+        - totalPages
     CreatorsCollection:
       type: object
       additionalProperties: false
@@ -1431,6 +1471,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CreatorSummary"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
       required:
         - data
     CreatorDetail:
@@ -1447,6 +1489,11 @@ components:
         createdAt:
           type: string
           format: date-time
+        suspendedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: "null"
         accounts:
           type: array
           items:
@@ -1458,29 +1505,9 @@ components:
         - email
         - fullName
         - createdAt
+        - suspendedAt
         - accounts
         - analytics
-    CreateBviralAccountRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        platform:
-          $ref: "#/components/schemas/AccountPlatform"
-        accountName:
-          type: string
-          minLength: 1
-        accessToken:
-          type: string
-          minLength: 1
-        refreshToken:
-          type: string
-        metadata:
-          type: object
-          additionalProperties: true
-      required:
-        - platform
-        - accountName
-        - accessToken
     ViralityShapEntry:
       type: object
       additionalProperties: false
@@ -1583,8 +1610,38 @@ components:
         videoId:
           type: string
           format: uuid
+        force:
+          type: boolean
+          default: false
+          description: Re-run the model even if a cached prediction exists.
       required:
         - videoId
+    ViralityJob:
+      type: object
+      additionalProperties: false
+      description: >
+        Async virality job. A cache hit returns status "done" with the
+        prediction inline and jobId null; a miss returns "queued" with a jobId
+        to poll at GET /v1/ai/virality/jobs/{jobId}.
+      properties:
+        jobId:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [queued, running, done, failed]
+        prediction:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ViralityPrediction"
+        error:
+          type: string
+          nullable: true
+      required:
+        - jobId
+        - status
+        - prediction
+        - error
     CaptionsGenerateRequest:
       type: object
       additionalProperties: false
@@ -1595,6 +1652,16 @@ components:
         style:
           type: string
           enum: [stroke, yellow, pill]
+        wordsPerFlash:
+          type: integer
+          minimum: 1
+          maximum: 10
+        modelSize:
+          type: string
+          enum: [tiny, base, small, medium, large]
+        force:
+          type: boolean
+          default: false
       required:
         - videoId
     EnhanceRequest:

@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
   AiJobNotFoundError,
   AiVideoNotFoundError,
+  CaptionsNotReadyError,
   LtxGenerationCapReachedError,
   LtxNotConfiguredError,
 } from "../../../services/ai.service";
@@ -18,6 +19,7 @@ function sendError(reply: FastifyReply, statusCode: number, message: string) {
     statusCode,
     error:
       statusCode === 404 ? "Not Found"
+      : statusCode === 409 ? "Conflict"
       : statusCode === 429 ? "Too Many Requests"
       : statusCode === 503 ? "Service Unavailable"
       : statusCode >= 500 ? "Internal Server Error"
@@ -28,11 +30,23 @@ function sendError(reply: FastifyReply, statusCode: number, message: string) {
 
 interface ViralityRequestBody {
   videoId: string;
+  force?: boolean;
+}
+
+interface ViralityJobParams {
+  jobId: string;
 }
 
 interface CaptionsRequestBody {
   videoId: string;
   style?: "stroke" | "yellow" | "pill";
+  wordsPerFlash?: number;
+  modelSize?: "tiny" | "base" | "small" | "medium" | "large";
+  force?: boolean;
+}
+
+interface CaptionApproveParams {
+  jobId: string;
 }
 
 interface EnhanceRequestBody {
@@ -57,7 +71,8 @@ export default async function aiRoutes(fastify: FastifyInstance) {
     schema: {
       body: { $ref: "viralityPredictRequest#" },
       response: {
-        200: { $ref: "viralityPrediction#" },
+        200: { $ref: "viralityJob#" },
+        202: { $ref: "viralityJob#" },
         401: { $ref: "errorResponse#" },
         404: { $ref: "errorResponse#" },
       },
@@ -65,10 +80,37 @@ export default async function aiRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     try {
       const userId = getCurrentUserId(request);
-      return await fastify.aiService.predictVirality(request.body.videoId, userId);
+      const job = await fastify.viralityService.requestPrediction(
+        request.body.videoId,
+        userId,
+        request.body.force ?? false,
+      );
+      reply.code(job.status === "queued" ? 202 : 200);
+      return job;
     } catch (error) {
       if (error instanceof AiVideoNotFoundError) {
         sendError(reply, 404, "Video was not found.");
+        return;
+      }
+      throw error;
+    }
+  });
+
+  fastify.get<{ Params: ViralityJobParams }>("/virality/jobs/:jobId", {
+    schema: {
+      response: {
+        200: { $ref: "viralityJob#" },
+        401: { $ref: "errorResponse#" },
+        404: { $ref: "errorResponse#" },
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      getCurrentUserId(request);
+      return await fastify.viralityService.getJob(request.params.jobId);
+    } catch (error) {
+      if (error instanceof AiJobNotFoundError) {
+        sendError(reply, 404, "Virality job was not found.");
         return;
       }
       throw error;
@@ -91,12 +133,48 @@ export default async function aiRoutes(fastify: FastifyInstance) {
         videoId: request.body.videoId,
         userId,
         style: request.body.style,
+        wordsPerFlash: request.body.wordsPerFlash,
+        modelSize: request.body.modelSize,
+        force: request.body.force,
       });
       reply.code(202);
       return { jobId: job.jobId, status: job.status };
     } catch (error) {
       if (error instanceof AiVideoNotFoundError) {
         sendError(reply, 404, "Video was not found.");
+        return;
+      }
+      throw error;
+    }
+  });
+
+  fastify.post<{ Params: CaptionApproveParams }>("/captions/jobs/:jobId/approve", {
+    schema: {
+      response: {
+        200: { $ref: "video#" },
+        401: { $ref: "errorResponse#" },
+        404: { $ref: "errorResponse#" },
+        409: { $ref: "errorResponse#" },
+      },
+    },
+  }, async (request, reply) => {
+    try {
+      const userId = getCurrentUserId(request);
+      return await fastify.aiService.approveCaptions({
+        jobId: request.params.jobId,
+        userId,
+      });
+    } catch (error) {
+      if (error instanceof AiJobNotFoundError) {
+        sendError(reply, 404, "Caption job was not found.");
+        return;
+      }
+      if (error instanceof AiVideoNotFoundError) {
+        sendError(reply, 404, "Video was not found.");
+        return;
+      }
+      if (error instanceof CaptionsNotReadyError) {
+        sendError(reply, 409, error.message);
         return;
       }
       throw error;

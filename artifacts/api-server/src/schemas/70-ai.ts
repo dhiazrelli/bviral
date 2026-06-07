@@ -15,15 +15,25 @@ export default fp(async function aiSchemas(fastify) {
     required: ["msg", "impact"],
   });
 
+  // The LLM (Groq) step is non-fatal by design: if it fails or no key is set,
+  // the Python service returns an empty llm_analysis and the rest of the
+  // prediction (views, tier, SHAP) is still valid. So none of these fields are
+  // required -- otherwise an empty llm_analysis would fail response
+  // serialization and 500 the whole request.
+  //
+  // additionalProperties: true -- the LLM is free-form JSON and may return keys
+  // beyond the ones we document; scores are `number` (not integer) because the
+  // model sometimes emits fractional scores like 8.5. Strict validation here
+  // would 500 the request via the anyOf in viralityJob (see note there).
   fastify.addSchema({
     $id: "viralityLlmAnalysis",
     type: "object",
-    additionalProperties: false,
+    additionalProperties: true,
     properties: {
       video_summary: { type: "string" },
-      hook_score: { type: "integer", minimum: 0, maximum: 10 },
-      clarity_score: { type: "integer", minimum: 0, maximum: 10 },
-      quality_score: { type: "integer", minimum: 0, maximum: 10 },
+      hook_score: { type: "number", minimum: 0, maximum: 10 },
+      clarity_score: { type: "number", minimum: 0, maximum: 10 },
+      quality_score: { type: "number", minimum: 0, maximum: 10 },
       hook_type: { type: "string" },
       tone: { type: "string" },
       emotion: { type: "string" },
@@ -33,26 +43,19 @@ export default fp(async function aiSchemas(fastify) {
       weaknesses: { type: "array", items: { type: "string" } },
       improvement_suggestion: { type: "string" },
     },
-    required: [
-      "video_summary",
-      "hook_score",
-      "clarity_score",
-      "quality_score",
-      "hook_type",
-      "tone",
-      "emotion",
-      "content_category",
-      "engagement_triggers",
-      "strengths",
-      "weaknesses",
-      "improvement_suggestion",
-    ],
   });
 
+  // additionalProperties: true -- the Python /analyze response carries extra
+  // diagnostic fields (viral_score, processing_time_seconds, title, platform)
+  // on top of the contract below, and the worker caches the payload verbatim.
+  // Because `prediction` is wrapped in an anyOf in viralityJob, fast-json-
+  // stringify validates it strictly with ajv (it doesn't just strip extras as
+  // it would for a top-level object), so additionalProperties: false here makes
+  // every anyOf branch fail -> the request 500s. Allow the extras through.
   fastify.addSchema({
     $id: "viralityPrediction",
     type: "object",
-    additionalProperties: false,
+    additionalProperties: true,
     properties: {
       video: { type: "string" },
       predicted_views_estimate: { type: "integer", minimum: 0 },
@@ -79,8 +82,24 @@ export default fp(async function aiSchemas(fastify) {
     additionalProperties: false,
     properties: {
       videoId: { type: "string", pattern: uuidPattern },
+      force: { type: "boolean", default: false },
     },
     required: ["videoId"],
+  });
+
+  // Unified shape for POST /virality/predict (200 cache hit / 202 queued) and
+  // GET /virality/jobs/{jobId}. prediction is present once status is "done".
+  fastify.addSchema({
+    $id: "viralityJob",
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      jobId: { anyOf: [{ type: "string" }, { type: "null" }] },
+      status: { type: "string", enum: ["queued", "running", "done", "failed"] },
+      prediction: { anyOf: [{ $ref: "viralityPrediction#" }, { type: "null" }] },
+      error: { anyOf: [{ type: "string" }, { type: "null" }] },
+    },
+    required: ["jobId", "status", "prediction", "error"],
   });
 
   fastify.addSchema({
@@ -90,6 +109,9 @@ export default fp(async function aiSchemas(fastify) {
     properties: {
       videoId: { type: "string", pattern: uuidPattern },
       style: { type: "string", enum: ["stroke", "yellow", "pill"] },
+      wordsPerFlash: { type: "integer", minimum: 1, maximum: 10 },
+      modelSize: { type: "string", enum: ["tiny", "base", "small", "medium", "large"] },
+      force: { type: "boolean", default: false },
     },
     required: ["videoId"],
   });

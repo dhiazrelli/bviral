@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import {
   accountsTable,
   type AccountRecord,
@@ -24,8 +24,7 @@ export interface AccountResponseDto {
   platform: AccountPlatform;
   accountName: string;
   tokenExpiry: string | null;
-  ownerKind: "user" | "bviral_company";
-  userId: string | null;
+  userId: string;
   metadata: Record<string, unknown>;
   createdAt: string;
 }
@@ -41,8 +40,7 @@ export interface CreateAccountPayload {
   accessToken: string;
   refreshToken?: string | null;
   tokenExpiry?: Date | null;
-  ownerKind?: "user" | "bviral_company";
-  userId?: string | null;
+  userId: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -51,8 +49,7 @@ export interface AccountMetadataDto {
   platform: AccountPlatform;
   accountName: string;
   tokenExpiry: string | null;
-  ownerKind: "user" | "bviral_company";
-  userId: string | null;
+  userId: string;
   createdAt: string;
 }
 
@@ -63,7 +60,6 @@ export interface UpdateAccountPayload {
 
 export interface AccountsRepository {
   listForUser(userId: string): Promise<AccountResponseDto[]>;
-  listBviralAccounts(): Promise<AccountMetadataDto[]>;
   listForCreator(creatorId: string): Promise<AccountMetadataDto[]>;
   findForUser(accountId: string, userId: string): Promise<AccountResponseDto | null>;
   findSecretForUser(accountId: string, userId: string): Promise<AccountSecretRecord | null>;
@@ -83,6 +79,7 @@ export interface AccountsRepository {
     },
   ): Promise<void>;
   deleteForUser(accountId: string, userId: string): Promise<boolean>;
+  deleteById(accountId: string): Promise<boolean>;
 }
 
 function serializeAccount(account: AccountRecord): AccountResponseDto {
@@ -91,8 +88,7 @@ function serializeAccount(account: AccountRecord): AccountResponseDto {
     platform: account.platform,
     accountName: account.accountName,
     tokenExpiry: account.tokenExpiry?.toISOString() ?? null,
-    ownerKind: account.ownerKind,
-    userId: account.userId ?? null,
+    userId: account.userId,
     metadata: account.metadata,
     createdAt: account.createdAt.toISOString(),
   };
@@ -140,8 +136,7 @@ function serializeAccountMetadata(account: AccountRecord): AccountMetadataDto {
     platform: account.platform,
     accountName: account.accountName,
     tokenExpiry: account.tokenExpiry?.toISOString() ?? null,
-    ownerKind: account.ownerKind,
-    userId: account.userId ?? null,
+    userId: account.userId,
     createdAt: account.createdAt.toISOString(),
   };
 }
@@ -169,16 +164,6 @@ export function buildAccountsRepository(db: Database): AccountsRepository {
         .orderBy(desc(accountsTable.createdAt));
 
       return accounts.map(serializeAccount);
-    },
-
-    async listBviralAccounts() {
-      const accounts = await db
-        .select()
-        .from(accountsTable)
-        .where(isNull(accountsTable.userId))
-        .orderBy(desc(accountsTable.createdAt));
-
-      return accounts.map(serializeAccountMetadata);
     },
 
     async listForCreator(creatorId) {
@@ -213,8 +198,7 @@ export function buildAccountsRepository(db: Database): AccountsRepository {
         accessToken: encryptToken(input.accessToken),
         refreshToken: encryptOptionalToken(input.refreshToken ?? null),
         tokenExpiry: input.tokenExpiry ?? null,
-        ownerKind: input.ownerKind ?? (input.userId ? "user" : "bviral_company"),
-        userId: input.userId ?? null,
+        userId: input.userId,
         metadata: input.metadata ?? {},
       };
 
@@ -229,21 +213,18 @@ export function buildAccountsRepository(db: Database): AccountsRepository {
         accessToken: encryptToken(input.accessToken),
         refreshToken: encryptOptionalToken(input.refreshToken ?? null),
         tokenExpiry: input.tokenExpiry ?? null,
-        ownerKind: input.ownerKind ?? (input.userId ? "user" : "bviral_company"),
-        userId: input.userId ?? null,
+        userId: input.userId,
         metadata: input.metadata ?? {},
       };
 
-      const existingAccounts = input.userId
-        ? await db
-          .select()
-          .from(accountsTable)
-          .where(and(
-            eq(accountsTable.userId, input.userId),
-            eq(accountsTable.platform, input.platform),
-          ))
-          .orderBy(desc(accountsTable.createdAt))
-        : [];
+      const existingAccounts = await db
+        .select()
+        .from(accountsTable)
+        .where(and(
+          eq(accountsTable.userId, input.userId),
+          eq(accountsTable.platform, input.platform),
+        ))
+        .orderBy(desc(accountsTable.createdAt));
       const inputIdentity = getPlatformIdentity(input);
       const existing = existingAccounts.find((account) => (
         getPlatformIdentity(account) === inputIdentity
@@ -310,6 +291,15 @@ export function buildAccountsRepository(db: Database): AccountsRepository {
           eq(accountsTable.id, accountId),
           eq(accountsTable.userId, userId),
         ))
+        .returning({ id: accountsTable.id });
+
+      return deleted.length > 0;
+    },
+
+    async deleteById(accountId) {
+      const deleted = await db
+        .delete(accountsTable)
+        .where(eq(accountsTable.id, accountId))
         .returning({ id: accountsTable.id });
 
       return deleted.length > 0;

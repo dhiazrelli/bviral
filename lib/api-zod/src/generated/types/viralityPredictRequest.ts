@@ -8,4 +8,6 @@
 
 export interface ViralityPredictRequest {
   videoId: string;
+  /** Re-run the model even if a cached prediction exists. */
+  force?: boolean;
 }

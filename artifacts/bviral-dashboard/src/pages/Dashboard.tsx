@@ -48,9 +48,9 @@ import {
 const recommendationCategoryStyle: Record<RecommendationCategory, { icon: React.ComponentType<{ className?: string }>; tint: string; rail: string; chip: string }> = {
   warning: { icon: AlertTriangle, tint: "text-red-300", rail: "bg-red-400/70", chip: "bg-red-500/12 text-red-300" },
   opportunity: { icon: Sparkles, tint: "text-primary", rail: "bg-primary/80", chip: "bg-primary/14 text-primary" },
-  optimization: { icon: Wand2, tint: "text-cyan-300", rail: "bg-cyan-400/70", chip: "bg-cyan-500/12 text-cyan-300" },
+  optimization: { icon: Wand2, tint: "text-primary", rail: "bg-primary/70", chip: "bg-primary/12 text-primary" },
   growth: { icon: TrendingUp, tint: "text-emerald-300", rail: "bg-emerald-400/70", chip: "bg-emerald-500/12 text-emerald-300" },
-  celebration: { icon: CheckCircle2, tint: "text-accent", rail: "bg-accent/80", chip: "bg-accent/14 text-accent" },
+  celebration: { icon: CheckCircle2, tint: "text-emerald-300", rail: "bg-emerald-400/80", chip: "bg-emerald-500/12 text-emerald-300" },
   info: { icon: Activity, tint: "text-white/70", rail: "bg-white/30", chip: "bg-white/8 text-white/70" },
 };
 
@@ -211,12 +211,12 @@ export default function Dashboard() {
 
   const recentAlerts = unresolvedAlerts.slice(0, 5);
   const metrics = [
-    { title: "Total Accounts", value: formatCompact(accounts.length), detail: `${expiredAccounts.length} need attention`, icon: Users, accent: "text-violet-300" },
-    { title: "Scheduled Posts", value: formatCompact(scheduledPosts.length), detail: `${postedPosts.length} already posted`, icon: Calendar, accent: "text-accent" },
+    { title: "Total Accounts", value: formatCompact(accounts.length), detail: `${expiredAccounts.length} need attention`, icon: Users, accent: "text-foreground/70" },
+    { title: "Scheduled Posts", value: formatCompact(scheduledPosts.length), detail: `${postedPosts.length} already posted`, icon: Calendar, accent: "text-foreground/70" },
     { title: "Total Views", value: formatCompact(analytics.totals.views), detail: `${analytics.totals.posts} tracked posts`, icon: BarChart3, accent: "text-primary" },
-    { title: "Total Revenue", value: `$${formatCompact(analytics.totals.revenue)}`, detail: `${formatCompact(analytics.totals.likes)} likes`, icon: DollarSign, accent: "text-emerald-400" },
+    { title: "Total Revenue", value: `$${formatCompact(analytics.totals.revenue)}`, detail: `${formatCompact(analytics.totals.likes)} likes`, icon: DollarSign, accent: "text-foreground/70" },
     { title: "Open Alerts", value: formatCompact(unresolvedAlerts.length), detail: `${alerts.length - unresolvedAlerts.length} resolved`, icon: AlertTriangle, accent: "text-amber-300" },
-    { title: "Engagement", value: `${analytics.totals.engagementRate.toFixed(1)}%`, detail: `${formatCompact(analytics.totals.comments + analytics.totals.shares)} comments/shares`, icon: TrendingUp, accent: "text-cyan-300" },
+    { title: "Engagement", value: `${analytics.totals.engagementRate.toFixed(1)}%`, detail: `${formatCompact(analytics.totals.comments + analytics.totals.shares)} comments/shares`, icon: TrendingUp, accent: "text-foreground/70" },
   ];
 
   const yAxisFormatter = (value: number) => formatCompact(value);
@@ -259,10 +259,10 @@ export default function Dashboard() {
             </div>
             <div className="max-w-3xl">
               <h1 className="page-title">
-                Run the content engine from live platform, schedule, alert, and analytics signals.
+                Run every account from one live view of schedule, alerts, and performance.
               </h1>
               <p className="page-subtitle mt-4">
-                BViral is now reading the real API layer for account coverage, scheduled queue depth, incident load, and cross-platform performance.
+                Account coverage, queue depth, incident load, and cross-platform performance, read straight from the live API.
               </p>
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
@@ -339,22 +339,14 @@ export default function Dashboard() {
       </Hero3D>
 
       <motion.div variants={listVariants} initial="hidden" animate="show" className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-        {metrics.map((metric, index) => (
-          <motion.div key={metric.title} variants={tileVariants} whileHover={{ y: -4 }} className="stat-card xl:col-span-1">
-            <div className="mb-5 flex items-start justify-between">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.05]">
-                <metric.icon className={cn("h-4.5 w-4.5", metric.accent)} />
-              </div>
-              <span className="rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] font-bold text-white/62">
-                Live
-              </span>
+        {metrics.map((metric) => (
+          <motion.div key={metric.title} variants={tileVariants} whileHover={{ y: -3 }} className="stat-card xl:col-span-1">
+            <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-xl border border-white/8 bg-white/[0.04]">
+              <metric.icon className={cn("h-[18px] w-[18px]", metric.accent)} />
             </div>
-            <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-white/34">{metric.title}</p>
-            <p className="mt-3 text-[2rem] font-display font-bold tracking-[-0.05em] text-white">{metric.value}</p>
+            <p className="text-[12px] font-semibold text-white/40">{metric.title}</p>
+            <p className="mt-2 text-[2rem] font-display font-bold tracking-[-0.05em] text-white tabular-nums">{metric.value}</p>
             <p className="mt-2 text-[12px] text-white/44">{metric.detail}</p>
-            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-              <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent" style={{ width: `${Math.min(94, 52 + index * 7)}%` }} />
-            </div>
           </motion.div>
         ))}
       </motion.div>
@@ -362,10 +354,7 @@ export default function Dashboard() {
       <div className="grid gap-4 xl:grid-cols-[1.4fr_0.8fr]">
         <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12, duration: 0.3 }} className="glass-card p-6">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/36">Channel Performance</p>
-              <h2 className="mt-2 text-xl font-display font-bold text-white">Analytics trend from saved snapshots</h2>
-            </div>
+            <h2 className="text-xl font-display font-bold text-white">Channel performance</h2>
             <div className="flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] p-1">
               {(["reach", "engagement"] as const).map((mode) => (
                 <button
@@ -401,8 +390,7 @@ export default function Dashboard() {
         </motion.section>
 
         <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.3 }} className="glass-card p-6">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/36">Platform Mix</p>
-          <h2 className="mt-2 text-xl font-display font-bold text-white">Distribution from analytics views</h2>
+          <h2 className="text-xl font-display font-bold text-white">Platform mix</h2>
           <div className="relative mt-5 h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>

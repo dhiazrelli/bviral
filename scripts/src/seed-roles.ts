@@ -4,8 +4,7 @@
  * Creates:
  * - 1 admin user  (app_metadata.app_role = "admin")
  * - 1 content_creator user
- * - 1 BViral company account (owner_kind = 'bviral_company')
- * - Fake posts and analytics for creator
+ * - 1 creator-owned account, video, post, and analytics snapshot
  *
  * Usage: pnpm --filter @workspace/scripts tsx ./src/seed-roles.ts
  * Requires: DATABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env
@@ -145,37 +144,8 @@ console.log("\n2. Content creator");
 const creatorId = await ensureSupabaseUser("creator@bviral.dev", "bviral-creator-2024!", "content_creator");
 await ensureDbUser(creatorId, "creator@bviral.dev", "Demo Creator", "content_creator");
 
-// BViral company account
-console.log("\n3. BViral company account");
-const [existingBviralAccount] = await db
-  .select()
-  .from(accountsTable)
-  .where(eq(accountsTable.ownerKind, "bviral_company"))
-  .limit(1);
-
-let bviralAccountId: string;
-if (existingBviralAccount) {
-  console.log(`  BViral account exists: ${existingBviralAccount.id}`);
-  bviralAccountId = existingBviralAccount.id;
-} else {
-  const [bviralAccount] = await db
-    .insert(accountsTable)
-    .values({
-      platform: "youtube",
-      accountName: "BViral Official",
-      accessToken: "seed-placeholder-token",
-      ownerKind: "bviral_company",
-      userId: null,
-      metadata: { seeded: true },
-    })
-    .returning();
-
-  console.log(`  Created BViral company account: ${bviralAccount.id}`);
-  bviralAccountId = bviralAccount.id;
-}
-
 // Creator account
-console.log("\n4. Creator account");
+console.log("\n3. Creator account");
 const [existingCreatorAccount] = await db
   .select()
   .from(accountsTable)
@@ -193,7 +163,6 @@ if (existingCreatorAccount) {
       platform: "tiktok",
       accountName: "demo_creator",
       accessToken: "seed-placeholder-token",
-      ownerKind: "user",
       userId: creatorId,
       metadata: { seeded: true },
     })
@@ -204,7 +173,7 @@ if (existingCreatorAccount) {
 }
 
 // Video for creator
-console.log("\n5. Creator video");
+console.log("\n4. Creator video");
 const [existingVideo] = await db
   .select()
   .from(videosTable)
@@ -230,7 +199,7 @@ if (existingVideo) {
 }
 
 // Posts + analytics
-console.log("\n6. Posts and analytics");
+console.log("\n5. Posts and analytics");
 const [existingPost] = await db
   .select()
   .from(postsTable)

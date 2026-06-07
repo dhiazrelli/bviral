@@ -34,6 +34,13 @@ export interface VideosRepository {
   findByContentHashForUser(userId: string, contentHash: string): Promise<VideoResponseDto | null>;
   createUploaded(input: CreateUploadedVideoPayload): Promise<VideoResponseDto>;
   updateStatus(videoId: string, status: VideoStatus): Promise<VideoResponseDto | null>;
+  /**
+   * Store an approved captioned version as the video's processedUrl, leaving the
+   * raw originalUrl intact so it stays recoverable. Scoped to the owner so a
+   * user can only mutate their own videos. Returns null if no matching row was
+   * found.
+   */
+  setCaptionedUrl(videoId: string, userId: string, url: string): Promise<VideoResponseDto | null>;
 }
 
 function serializeVideo(video: VideoRecord): VideoResponseDto {
@@ -121,6 +128,21 @@ export function buildVideosRepository(db: Database): VideosRepository {
         .update(videosTable)
         .set({ status })
         .where(eq(videosTable.id, videoId))
+        .returning();
+
+      return video ? serializeVideo(video) : null;
+    },
+
+    async setCaptionedUrl(videoId, userId, url) {
+      // Set processedUrl only; originalUrl (the raw footage) is left untouched so
+      // the user can always recover the uncaptioned version.
+      const [video] = await db
+        .update(videosTable)
+        .set({ processedUrl: url, status: "ready" })
+        .where(and(
+          eq(videosTable.id, videoId),
+          eq(videosTable.userId, userId),
+        ))
         .returning();
 
       return video ? serializeVideo(video) : null;

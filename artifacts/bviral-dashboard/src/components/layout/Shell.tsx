@@ -3,20 +3,23 @@ import { Link, useLocation } from "wouter";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useAuth } from "@/lib/auth-context";
 import {
+  Activity,
   BarChart3,
   BellRing,
-  Building2,
   CalendarClock,
   ChevronLeft,
   ChevronRight,
   Command,
+  FileVideo,
   HelpCircle,
   LayoutDashboard,
   LogOut,
   Menu,
+  ScrollText,
   Search,
   Settings,
   Shield,
+  Trash2,
   Users,
   Wand2,
   X,
@@ -35,7 +38,12 @@ const baseNavItems = [
   { path: "/accounts", label: "Accounts", icon: Users, section: "operations", adminOnly: false },
   { path: "/settings", label: "Settings", icon: Settings, section: "operations", adminOnly: false },
   { path: "/admin/creators", label: "Creators", icon: Shield, section: "admin", adminOnly: true },
-  { path: "/admin/bviral-accounts", label: "BViral Accounts", icon: Building2, section: "admin", adminOnly: true },
+  { path: "/admin/posts", label: "All Posts", icon: CalendarClock, section: "admin", adminOnly: true },
+  { path: "/admin/videos", label: "All Videos", icon: FileVideo, section: "admin", adminOnly: true },
+  { path: "/admin/analytics", label: "Global Analytics", icon: BarChart3, section: "admin", adminOnly: true },
+  { path: "/admin/trash", label: "Trash", icon: Trash2, section: "admin", adminOnly: true },
+  { path: "/admin/audit-log", label: "Audit Log", icon: ScrollText, section: "admin", adminOnly: true },
+  { path: "/admin/system", label: "System Health", icon: Activity, section: "admin", adminOnly: true },
 ];
 
 const sectionLabels: Record<string, string> = {
@@ -53,6 +61,13 @@ const pageDescriptions: Record<string, string> = {
   "/alerts": "Review incidents, watchlist changes, and escalation paths before they affect output.",
   "/accounts": "Manage connected profiles, permissions, and account-level performance health.",
   "/settings": "Tune automations, workspace defaults, and security controls.",
+  "/admin/creators": "Invite, edit, suspend, and remove content creators across the platform.",
+  "/admin/posts": "Oversight of every scheduled post; soft-delete or bulk-remove from one place.",
+  "/admin/videos": "Browse every uploaded video with creator, posts, and performance signals.",
+  "/admin/analytics": "Cross-creator analytics with filters, time ranges, and CSV export.",
+  "/admin/trash": "Restore posts removed by admin within the retention window.",
+  "/admin/audit-log": "Audit trail of every write action performed by an administrator.",
+  "/admin/system": "Queue depth, failed jobs, and one-click retries for the publishing pipeline.",
 };
 
 function getCurrentItem(pathname: string, items: typeof baseNavItems) {
@@ -219,7 +234,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   };
 
   const sidebarContent = (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full w-full flex-col">
       <div className="border-b border-white/6 px-4 py-4">
         <div className="flex w-full justify-center">
           <img
@@ -297,12 +312,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex h-screen overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="bg-glow left-[-12rem] top-[-10rem] h-[28rem] w-[28rem] bg-primary animate-glow-pulse" />
-        <div
-          className="bg-glow bottom-[-8rem] right-[-9rem] h-[25rem] w-[25rem] bg-accent animate-glow-pulse"
-          style={{ animationDelay: "2s" }}
-        />
-        <div className="dot-grid absolute inset-0 opacity-[0.04]" />
+        <div className="bg-glow left-[-14rem] top-[-12rem] h-[30rem] w-[30rem] bg-primary animate-glow-pulse" />
+        <div className="dot-grid absolute inset-0 opacity-[0.035]" />
       </div>
 
       <motion.aside
@@ -373,7 +384,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   <p className="text-[13px] font-semibold text-white">{user?.email?.split("@")[0] ?? "Operator"}</p>
                   <p className="text-[11px] text-white/44">{role === "admin" ? "Admin" : "Creator"}</p>
                 </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent font-bold text-slate-950">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary font-bold text-primary-foreground">
                   {(user?.email?.[0] ?? "U").toUpperCase()}
                 </div>
                 <button
@@ -436,7 +447,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="px-3 py-4">{sidebarContent}</div>
+              {sidebarContent}
             </motion.aside>
           </>
         ) : null}

@@ -6,4 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type CreateBviralAccountRequestMetadata = { [key: string]: unknown };
+export interface PaginationMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}

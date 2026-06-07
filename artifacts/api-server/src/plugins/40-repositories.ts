@@ -1,6 +1,9 @@
 import fp from "fastify-plugin";
 import { buildAccountsRepository } from "../repositories/accounts.repository";
 import { buildAccountsService } from "../services/accounts.service";
+import { buildAdminAuditRepository } from "../repositories/admin-audit.repository";
+import { buildAdminPostsRepository } from "../repositories/admin-posts.repository";
+import { buildAdminVideosRepository } from "../repositories/admin-videos.repository";
 import { buildAlertsRepository } from "../repositories/alerts.repository";
 import { buildAlertsService } from "../services/alerts.service";
 import { buildAnalyticsRepository } from "../repositories/analytics.repository";
@@ -64,6 +67,9 @@ export default fp(async function repositoriesPlugin(fastify) {
     },
   ));
   fastify.decorate("usersRepository", buildUsersRepository(fastify.db));
+  fastify.decorate("adminPostsRepository", buildAdminPostsRepository(fastify.db));
+  fastify.decorate("adminVideosRepository", buildAdminVideosRepository(fastify.db));
+  fastify.decorate("adminAuditRepository", buildAdminAuditRepository(fastify.db));
   fastify.decorate("videosRepository", videosRepository);
   fastify.decorate("videosService", buildVideosService(videosRepository, {
     supabaseAdmin: fastify.supabaseAdmin,

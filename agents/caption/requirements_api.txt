@@ -1,0 +1,8 @@
+# Caption agent (FastAPI speech-to-text + burned subtitles).
+# If reusing ViralAgent's venv, only faster-whisper and aiofiles are missing.
+fastapi
+uvicorn
+faster-whisper
+python-multipart
+aiofiles
+torch

@@ -1,123 +1,17 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { AiJobRecord, AiJobStore } from "../lib/ai-job-store";
-import type { AiProcessingQueue } from "../lib/ai-processing-queue";
-import type { VideosRepository } from "../repositories/videos.repository";
+import type {
+  AiProcessingQueue,
+  CaptionStyle,
+  WhisperModelSize,
+} from "../lib/ai-processing-queue";
+import type { CaptionResultsRepository } from "../repositories/caption-results.repository";
+import type { VideoResponseDto, VideosRepository } from "../repositories/videos.repository";
 import { estimateLtxCostUsd } from "./ltx.service";
 
-const VIRAL_TIERS = [
-  { min: 0, label: "🌱 Niche reach (under 10K predicted views)" },
-  { min: 10_000, label: "👀 Steady growth (10K+ predicted views)" },
-  { min: 100_000, label: "📈 High potential (100K+ predicted views)" },
-  { min: 1_000_000, label: "🚀 Viral candidate (1M+ predicted views)" },
-];
-
-const HOOK_TYPES = ["curiosity", "shock", "list", "story", "question", "promise"];
-const TONES = ["entertaining", "informative", "inspirational", "dramatic", "playful"];
-const EMOTIONS = ["desperation", "joy", "surprise", "frustration", "wonder", "calm"];
-const CATEGORIES = ["comedy", "education", "lifestyle", "tech", "sports", "music"];
-const ENGAGEMENT_TRIGGERS = ["emotional appeal", "relatability", "humor", "controversy", "novelty"];
-const HOOK_TRANSCRIPTS = [
-  "Why, God, why?",
-  "You won't believe what happens next.",
-  "Here's the one trick nobody tells you.",
-  "I tried this for 30 days — the results were unreal.",
-  "Stop scrolling. This will change your day.",
-];
-const SHAP_PUSHING_LABELS = [
-  "Overall Visual Pattern",
-  "Hook Visual Pattern",
-  "Transcript Pacing",
-  "Color Palette Energy",
-  "Cut Rhythm",
-];
-const SHAP_DRAGGING_LABELS = [
-  "Transcript Semantics",
-  "Audio Loudness Variance",
-  "Lighting Consistency",
-  "Hook Duration",
-  "End-of-clip Drop-off",
-];
-
-export interface ViralityPrediction {
-  video: string;
-  predicted_views_estimate: number;
-  viral_tier: string;
-  shap_pushing_up: Array<{ msg: string; impact: number }>;
-  shap_dragging_down: Array<{ msg: string; impact: number }>;
-  llm_analysis: {
-    video_summary: string;
-    hook_score: number;
-    clarity_score: number;
-    quality_score: number;
-    hook_type: string;
-    tone: string;
-    emotion: string;
-    content_category: string;
-    engagement_triggers: string[];
-    strengths: string[];
-    weaknesses: string[];
-    improvement_suggestion: string;
-  };
-  hook_transcript: string;
-}
-
-function hashToBytes(input: string): Buffer {
-  return createHash("sha256").update(input).digest();
-}
-
-function pickStable<T>(seed: Buffer, byteIndex: number, choices: readonly T[]): T {
-  return choices[seed[byteIndex] % choices.length];
-}
-
-function numberInRange(seed: Buffer, byteIndex: number, min: number, max: number): number {
-  const span = max - min + 1;
-  return min + (seed[byteIndex] % span);
-}
-
-function deterministicMockPrediction(videoId: string, displayName: string): ViralityPrediction {
-  const seed = hashToBytes(videoId);
-
-  const baseEstimate = 5_000 + (seed.readUInt32BE(0) % 1_500_000);
-  const tier = [...VIRAL_TIERS].reverse().find((entry) => baseEstimate >= entry.min) ?? VIRAL_TIERS[0];
-
-  const pushing = SHAP_PUSHING_LABELS.slice(0, 3).map((label, index) => ({
-    msg: `${label} #${numberInRange(seed, 4 + index, 1, 99)}`,
-    impact: Number(((seed[10 + index] / 255) * 0.9 + 0.05).toFixed(4)),
-  })).sort((a, b) => b.impact - a.impact);
-
-  const dragging = SHAP_DRAGGING_LABELS.slice(0, 3).map((label, index) => ({
-    msg: `${label} #${numberInRange(seed, 14 + index, 0, 30)}`,
-    impact: Number((-1 * ((seed[20 + index] / 255) * 0.2 + 0.04)).toFixed(4)),
-  })).sort((a, b) => a.impact - b.impact);
-
-  const engagementTriggerCount = numberInRange(seed, 24, 1, Math.min(3, ENGAGEMENT_TRIGGERS.length));
-  const engagementTriggers = ENGAGEMENT_TRIGGERS.slice(0, engagementTriggerCount);
-
-  return {
-    video: displayName,
-    predicted_views_estimate: baseEstimate,
-    viral_tier: tier.label,
-    shap_pushing_up: pushing,
-    shap_dragging_down: dragging,
-    llm_analysis: {
-      video_summary:
-        "Preliminary analysis from the placeholder predictor. Drop in the real model checkpoint to get production-grade summaries.",
-      hook_score: numberInRange(seed, 25, 5, 10),
-      clarity_score: numberInRange(seed, 26, 5, 10),
-      quality_score: numberInRange(seed, 27, 4, 9),
-      hook_type: pickStable(seed, 28, HOOK_TYPES),
-      tone: pickStable(seed, 29, TONES),
-      emotion: pickStable(seed, 30, EMOTIONS),
-      content_category: pickStable(seed, 31, CATEGORIES),
-      engagement_triggers: engagementTriggers,
-      strengths: ["catchy hook", "clear message"],
-      weaknesses: ["short duration", "lacks context"],
-      improvement_suggestion:
-        "Add more context or visuals to enhance the comedic effect and provide a clearer resolution.",
-    },
-    hook_transcript: pickStable(seed, 32, HOOK_TRANSCRIPTS),
-  };
-}
+const DEFAULT_CAPTION_STYLE: CaptionStyle = "pill";
+const DEFAULT_WORDS_PER_FLASH = 2;
+const DEFAULT_MODEL_SIZE: WhisperModelSize = "small";
 
 export class AiVideoNotFoundError extends Error {
   readonly name = "AiVideoNotFoundError";
@@ -147,9 +41,26 @@ export class LtxNotConfiguredError extends Error {
   }
 }
 
+export class CaptionsNotReadyError extends Error {
+  readonly name = "CaptionsNotReadyError";
+  readonly statusCode = 409;
+
+  constructor() {
+    super("Caption job is not a completed captions job with a preview to approve.");
+  }
+}
+
 export interface AiService {
-  predictVirality(videoId: string, userId: string): Promise<ViralityPrediction>;
-  enqueueCaptions(input: { videoId: string; userId: string; style?: "stroke" | "yellow" | "pill" }): Promise<AiJobRecord>;
+  enqueueCaptions(input: {
+    videoId: string;
+    userId: string;
+    style?: CaptionStyle;
+    wordsPerFlash?: number;
+    modelSize?: WhisperModelSize;
+    /** Bypass the cache and re-run the caption pipeline. */
+    force?: boolean;
+  }): Promise<AiJobRecord>;
+  approveCaptions(input: { jobId: string; userId: string }): Promise<VideoResponseDto>;
   enqueueEnhance(input: { videoId: string; userId: string; upscale: boolean; faceRestore: boolean }): Promise<AiJobRecord>;
   enqueueLtxGeneration(input: {
     userId: string;
@@ -163,6 +74,7 @@ export interface AiService {
 
 export function buildAiService(options: {
   videosRepository: VideosRepository;
+  captionResultsRepository: CaptionResultsRepository;
   aiJobStore: AiJobStore;
   aiQueue: AiProcessingQueue;
   ltxConfigured: boolean;
@@ -172,23 +84,82 @@ export function buildAiService(options: {
   ltxDailyCap: number;
 }): AiService {
   return {
-    async predictVirality(videoId, userId) {
+    async enqueueCaptions({ videoId, userId, style, wordsPerFlash, modelSize, force = false }) {
       const video = await options.videosRepository.findForUser(videoId, userId);
       if (!video) {
         throw new AiVideoNotFoundError();
       }
-      return deterministicMockPrediction(videoId, video.originalFilename ?? `${video.id}.mp4`);
-    },
 
-    async enqueueCaptions({ videoId, userId, style }) {
-      const video = await options.videosRepository.findForUser(videoId, userId);
-      if (!video) {
-        throw new AiVideoNotFoundError();
+      // Resolve defaults up front so the cache key matches what the worker uses.
+      const resolvedStyle = style ?? DEFAULT_CAPTION_STYLE;
+      const resolvedWords = wordsPerFlash ?? DEFAULT_WORDS_PER_FLASH;
+      const resolvedModel = modelSize ?? DEFAULT_MODEL_SIZE;
+
+      // Cache hit: a preview for this exact video + settings already exists.
+      // Return an already-"done" job carrying the cached preview URL so the
+      // frontend shows it instantly without re-running Whisper/ffmpeg.
+      if (!force) {
+        const cached = await options.captionResultsRepository.findByParams({
+          videoId,
+          style: resolvedStyle,
+          wordsPerFlash: resolvedWords,
+          modelSize: resolvedModel,
+        });
+        if (cached) {
+          const jobId = randomUUID();
+          await options.aiJobStore.create({ jobId, kind: "captions" });
+          await options.aiJobStore.update(jobId, {
+            status: "done",
+            progress: 100,
+            resultUrl: cached.previewUrl,
+            videoId,
+          });
+          const done = await options.aiJobStore.get(jobId);
+          if (done) return done;
+        }
       }
+
       const jobId = randomUUID();
       const job = await options.aiJobStore.create({ jobId, kind: "captions" });
-      await options.aiQueue.add({ kind: "captions", jobId, videoId, userId, style });
+      await options.aiQueue.add({
+        kind: "captions",
+        jobId,
+        videoId,
+        userId,
+        style: resolvedStyle,
+        wordsPerFlash: resolvedWords,
+        modelSize: resolvedModel,
+      });
       return job;
+    },
+
+    async approveCaptions({ jobId, userId }) {
+      const job = await options.aiJobStore.get(jobId);
+      if (!job) {
+        throw new AiJobNotFoundError();
+      }
+      // Only a finished captions job carrying a preview URL + its source video
+      // can be approved.
+      if (job.kind !== "captions" || job.status !== "done" || !job.resultUrl || !job.videoId) {
+        throw new CaptionsNotReadyError();
+      }
+
+      // Ownership check, then save the captioned preview as the video's
+      // processedUrl. The raw originalUrl is kept so it stays recoverable.
+      const video = await options.videosRepository.findForUser(job.videoId, userId);
+      if (!video) {
+        throw new AiVideoNotFoundError();
+      }
+
+      const updated = await options.videosRepository.setCaptionedUrl(
+        job.videoId,
+        userId,
+        job.resultUrl,
+      );
+      if (!updated) {
+        throw new AiVideoNotFoundError();
+      }
+      return updated;
     },
 
     async enqueueEnhance({ videoId, userId, upscale, faceRestore }) {

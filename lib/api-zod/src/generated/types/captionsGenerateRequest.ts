@@ -5,9 +5,17 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CaptionsGenerateRequestModelSize } from './captionsGenerateRequestModelSize';
 import type { CaptionsGenerateRequestStyle } from './captionsGenerateRequestStyle';
 
 export interface CaptionsGenerateRequest {
   videoId: string;
   style?: CaptionsGenerateRequestStyle;
+  /**
+     * @minimum 1
+     * @maximum 10
+     */
+  wordsPerFlash?: number;
+  modelSize?: CaptionsGenerateRequestModelSize;
+  force?: boolean;
 }

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -23,9 +24,24 @@ import Settings from "@/pages/Settings";
 // Admin pages
 import Creators from "@/pages/admin/Creators";
 import CreatorDetail from "@/pages/admin/CreatorDetail";
-import BviralAccounts from "@/pages/admin/BviralAccounts";
+import AllPosts from "@/pages/admin/AllPosts";
+import AllVideos from "@/pages/admin/AllVideos";
+import GlobalAnalytics from "@/pages/admin/GlobalAnalytics";
+import Trash from "@/pages/admin/Trash";
+import AuditLog from "@/pages/admin/AuditLog";
+import SystemHealth from "@/pages/admin/SystemHealth";
 
 const queryClient = new QueryClient();
+
+function adminRoute(component: ReactNode) {
+  return (
+    <ProtectedRoute>
+      <AdminOnly>
+        <Shell>{component}</Shell>
+      </AdminOnly>
+    </ProtectedRoute>
+  );
+}
 
 function Router() {
   return (
@@ -33,36 +49,15 @@ function Router() {
       <Route path="/login" component={Login} />
 
       <Route path="/admin/creators/:id">
-        {(params) => (
-          <ProtectedRoute>
-            <AdminOnly>
-              <Shell>
-                <CreatorDetail id={params.id} />
-              </Shell>
-            </AdminOnly>
-          </ProtectedRoute>
-        )}
+        {(params) => adminRoute(<CreatorDetail id={params.id} />)}
       </Route>
-
-      <Route path="/admin/creators">
-        <ProtectedRoute>
-          <AdminOnly>
-            <Shell>
-              <Creators />
-            </Shell>
-          </AdminOnly>
-        </ProtectedRoute>
-      </Route>
-
-      <Route path="/admin/bviral-accounts">
-        <ProtectedRoute>
-          <AdminOnly>
-            <Shell>
-              <BviralAccounts />
-            </Shell>
-          </AdminOnly>
-        </ProtectedRoute>
-      </Route>
+      <Route path="/admin/creators">{adminRoute(<Creators />)}</Route>
+      <Route path="/admin/posts">{adminRoute(<AllPosts />)}</Route>
+      <Route path="/admin/videos">{adminRoute(<AllVideos />)}</Route>
+      <Route path="/admin/analytics">{adminRoute(<GlobalAnalytics />)}</Route>
+      <Route path="/admin/trash">{adminRoute(<Trash />)}</Route>
+      <Route path="/admin/audit-log">{adminRoute(<AuditLog />)}</Route>
+      <Route path="/admin/system">{adminRoute(<SystemHealth />)}</Route>
 
       <Route>
         <ProtectedRoute>

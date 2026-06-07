@@ -1,7 +1,6 @@
 import { sql } from "drizzle-orm";
 import { authUid, authenticatedRole } from "drizzle-orm/supabase";
 import {
-  check,
   index,
   integer,
   jsonb,
@@ -11,6 +10,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -42,9 +42,6 @@ export const alertTypeEnum = pgEnum("alert_type", alertTypeValues);
 export const alertStatusValues = ["unresolved", "resolved"] as const;
 export const alertStatusEnum = pgEnum("alert_status", alertStatusValues);
 
-export const accountOwnerKindValues = ["user", "bviral_company"] as const;
-export const accountOwnerKindEnum = pgEnum("account_owner_kind", accountOwnerKindValues);
-
 export const accountsTable = pgTable("accounts", {
   id: uuid("id").defaultRandom().primaryKey(),
   platform: platformEnum("platform").notNull(),
@@ -52,8 +49,7 @@ export const accountsTable = pgTable("accounts", {
   accessToken: text("access_token").notNull(),
   refreshToken: text("refresh_token"),
   tokenExpiry: timestamp("token_expiry", { withTimezone: true }),
-  ownerKind: accountOwnerKindEnum("owner_kind").default("bviral_company").notNull(),
-  userId: uuid("user_id").references(() => usersTable.id, {
+  userId: uuid("user_id").notNull().references(() => usersTable.id, {
     onDelete: "cascade",
   }),
   metadata: jsonb("metadata")
@@ -62,10 +58,6 @@ export const accountsTable = pgTable("accounts", {
     .notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
-  check(
-    "accounts_owner_check",
-    sql`(${table.ownerKind} = 'user' AND ${table.userId} IS NOT NULL) OR (${table.ownerKind} = 'bviral_company' AND ${table.userId} IS NULL)`,
-  ),
   pgPolicy("admins_full_access_accounts", {
     for: "all",
     to: authenticatedRole,
@@ -138,6 +130,122 @@ export const videosTable = pgTable("videos", {
   }),
 ]).enableRLS();
 
+/**
+ * Cached virality predictions, one row per video. The full report returned by
+ * the ViralAgent model is stored as JSON so re-opening a video is instant and
+ * the (slow, paid) pipeline isn't re-run. Keyed uniquely by videoId.
+ */
+export type ViralityPredictionPayload = {
+  video: string;
+  predicted_views_estimate: number;
+  viral_tier: string;
+  shap_pushing_up: Array<{ msg: string; impact: number }>;
+  shap_dragging_down: Array<{ msg: string; impact: number }>;
+  llm_analysis: Record<string, unknown>;
+  hook_transcript: string;
+  [key: string]: unknown;
+};
+
+export const viralityPredictionsTable = pgTable("virality_predictions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  videoId: uuid("video_id").notNull().unique().references(() => videosTable.id, {
+    onDelete: "cascade",
+  }),
+  userId: uuid("user_id").notNull().references(() => usersTable.id, {
+    onDelete: "cascade",
+  }),
+  prediction: jsonb("prediction").$type<ViralityPredictionPayload>().notNull(),
+  modelVersion: varchar("model_version", { length: 64 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  pgPolicy("admins_full_access_virality_predictions", {
+    for: "all",
+    to: authenticatedRole,
+    using: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+    withCheck: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+  }),
+  pgPolicy("virality_predictions_select_own", {
+    for: "select",
+    to: authenticatedRole,
+    using: sql`${table.userId} = ${authUid}`,
+  }),
+  pgPolicy("virality_predictions_insert_own", {
+    for: "insert",
+    to: authenticatedRole,
+    withCheck: sql`${table.userId} = ${authUid}`,
+  }),
+  pgPolicy("virality_predictions_update_own", {
+    for: "update",
+    to: authenticatedRole,
+    using: sql`${table.userId} = ${authUid}`,
+    withCheck: sql`${table.userId} = ${authUid}`,
+  }),
+  pgPolicy("virality_predictions_delete_own", {
+    for: "delete",
+    to: authenticatedRole,
+    using: sql`${table.userId} = ${authUid}`,
+  }),
+]).enableRLS();
+
+/**
+ * Cached caption results. A captioned (burned-in) preview is expensive to
+ * produce (Whisper + ffmpeg), so the preview URL is cached per video AND per
+ * generation setting. Re-requesting the same video with the same style /
+ * words-per-flash / model returns the stored preview instead of re-running the
+ * pipeline. Changing any setting is a different row, so it regenerates.
+ */
+export const captionResultsTable = pgTable("caption_results", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  videoId: uuid("video_id").notNull().references(() => videosTable.id, {
+    onDelete: "cascade",
+  }),
+  userId: uuid("user_id").notNull().references(() => usersTable.id, {
+    onDelete: "cascade",
+  }),
+  style: varchar("style", { length: 16 }).notNull(),
+  wordsPerFlash: integer("words_per_flash").notNull(),
+  modelSize: varchar("model_size", { length: 16 }).notNull(),
+  previewUrl: text("preview_url").notNull(),
+  transcript: text("transcript"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("caption_results_video_settings_idx").on(
+    table.videoId,
+    table.style,
+    table.wordsPerFlash,
+    table.modelSize,
+  ),
+  pgPolicy("admins_full_access_caption_results", {
+    for: "all",
+    to: authenticatedRole,
+    using: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+    withCheck: sql`(auth.jwt() ->> 'app_role') = 'admin'`,
+  }),
+  pgPolicy("caption_results_select_own", {
+    for: "select",
+    to: authenticatedRole,
+    using: sql`${table.userId} = ${authUid}`,
+  }),
+  pgPolicy("caption_results_insert_own", {
+    for: "insert",
+    to: authenticatedRole,
+    withCheck: sql`${table.userId} = ${authUid}`,
+  }),
+  pgPolicy("caption_results_update_own", {
+    for: "update",
+    to: authenticatedRole,
+    using: sql`${table.userId} = ${authUid}`,
+    withCheck: sql`${table.userId} = ${authUid}`,
+  }),
+  pgPolicy("caption_results_delete_own", {
+    for: "delete",
+    to: authenticatedRole,
+    using: sql`${table.userId} = ${authUid}`,
+  }),
+]).enableRLS();
+
 export const postsTable = pgTable("posts", {
   id: uuid("id").defaultRandom().primaryKey(),
   videoId: uuid("video_id").notNull().references(() => videosTable.id, {
@@ -156,6 +264,10 @@ export const postsTable = pgTable("posts", {
     .$type<Record<string, unknown>>()
     .default(sql`'{}'::jsonb`)
     .notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  deletedBy: uuid("deleted_by").references(() => usersTable.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => {
   const ownsAccount = sql`exists (
@@ -169,8 +281,10 @@ export const postsTable = pgTable("posts", {
       and ${videosTable.userId} = ${authUid}
   )`;
   const ownsPost = sql`${ownsAccount} and ${ownsVideo}`;
+  const notDeleted = sql`${table.deletedAt} is null`;
 
   return [
+    index("posts_deleted_at_idx").on(table.deletedAt),
     pgPolicy("admins_full_access_posts", {
       for: "all",
       to: authenticatedRole,
@@ -180,7 +294,7 @@ export const postsTable = pgTable("posts", {
     pgPolicy("posts_select_own", {
       for: "select",
       to: authenticatedRole,
-      using: ownsAccount,
+      using: sql`${ownsAccount} and ${notDeleted}`,
     }),
     pgPolicy("posts_insert_own", {
       for: "insert",
@@ -190,13 +304,13 @@ export const postsTable = pgTable("posts", {
     pgPolicy("posts_update_own", {
       for: "update",
       to: authenticatedRole,
-      using: ownsAccount,
+      using: sql`${ownsAccount} and ${notDeleted}`,
       withCheck: ownsPost,
     }),
     pgPolicy("posts_delete_own", {
       for: "delete",
       to: authenticatedRole,
-      using: ownsAccount,
+      using: sql`${ownsAccount} and ${notDeleted}`,
     }),
   ];
 }).enableRLS();
@@ -324,13 +438,17 @@ export const alertsTable = pgTable("alerts", {
   ];
 }).enableRLS();
 
-export type AccountOwnerKind = (typeof accountOwnerKindValues)[number];
 export type AccountRecord = typeof accountsTable.$inferSelect;
 export type NewAccountRecord = typeof accountsTable.$inferInsert;
 export type VideoRecord = typeof videosTable.$inferSelect;
 export type NewVideoRecord = typeof videosTable.$inferInsert;
 export type PostRecord = typeof postsTable.$inferSelect;
 export type NewPostRecord = typeof postsTable.$inferInsert;
+export type ViralityPredictionRecord = typeof viralityPredictionsTable.$inferSelect;
+export type NewViralityPredictionRecord = typeof viralityPredictionsTable.$inferInsert;
+
+export type CaptionResultRecord = typeof captionResultsTable.$inferSelect;
+export type NewCaptionResultRecord = typeof captionResultsTable.$inferInsert;
 export type AnalyticsRecord = typeof analyticsTable.$inferSelect;
 export type NewAnalyticsRecord = typeof analyticsTable.$inferInsert;
 export type AlertRecord = typeof alertsTable.$inferSelect;

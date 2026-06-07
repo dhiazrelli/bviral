@@ -1,0 +1,1411 @@
+{
+  "id": "3fdf706c-32cb-4fbe-9b16-07a81ebe1d7c",
+  "prevId": "95c100ed-9348-4ee2-b56f-8784bc04de7d",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.admin_audit_log": {
+      "name": "admin_audit_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "admin_id": {
+          "name": "admin_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_type": {
+          "name": "target_type",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_id": {
+          "name": "target_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "admin_audit_log_admin_created_idx": {
+          "name": "admin_audit_log_admin_created_idx",
+          "columns": [
+            {
+              "expression": "admin_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "admin_audit_log_target_idx": {
+          "name": "admin_audit_log_target_idx",
+          "columns": [
+            {
+              "expression": "target_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "target_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "admin_audit_log_admin_id_users_id_fk": {
+          "name": "admin_audit_log_admin_id_users_id_fk",
+          "tableFrom": "admin_audit_log",
+          "tableTo": "users",
+          "columnsFrom": [
+            "admin_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "admins_full_access_audit_log": {
+          "name": "admins_full_access_audit_log",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(auth.jwt() ->> 'app_role') = 'admin'",
+          "withCheck": "(auth.jwt() ->> 'app_role') = 'admin'"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.accounts": {
+      "name": "accounts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "platform": {
+          "name": "platform",
+          "type": "platform",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_name": {
+          "name": "account_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_token": {
+          "name": "access_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refresh_token": {
+          "name": "refresh_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "token_expiry": {
+          "name": "token_expiry",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "accounts_user_id_users_id_fk": {
+          "name": "accounts_user_id_users_id_fk",
+          "tableFrom": "accounts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "admins_full_access_accounts": {
+          "name": "admins_full_access_accounts",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(auth.jwt() ->> 'app_role') = 'admin'",
+          "withCheck": "(auth.jwt() ->> 'app_role') = 'admin'"
+        },
+        "accounts_select_own": {
+          "name": "accounts_select_own",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"accounts\".\"user_id\" = (select auth.uid())"
+        },
+        "accounts_insert_own": {
+          "name": "accounts_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "\"accounts\".\"user_id\" = (select auth.uid())"
+        },
+        "accounts_update_own": {
+          "name": "accounts_update_own",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"accounts\".\"user_id\" = (select auth.uid())",
+          "withCheck": "\"accounts\".\"user_id\" = (select auth.uid())"
+        },
+        "accounts_delete_own": {
+          "name": "accounts_delete_own",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"accounts\".\"user_id\" = (select auth.uid())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.alerts": {
+      "name": "alerts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "type": {
+          "name": "type",
+          "type": "alert_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "alert_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'unresolved'"
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "platform": {
+          "name": "platform",
+          "type": "platform",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "post_id": {
+          "name": "post_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "alerts_account_id_accounts_id_fk": {
+          "name": "alerts_account_id_accounts_id_fk",
+          "tableFrom": "alerts",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "alerts_post_id_posts_id_fk": {
+          "name": "alerts_post_id_posts_id_fk",
+          "tableFrom": "alerts",
+          "tableTo": "posts",
+          "columnsFrom": [
+            "post_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "admins_full_access_alerts": {
+          "name": "admins_full_access_alerts",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(auth.jwt() ->> 'app_role') = 'admin'",
+          "withCheck": "(auth.jwt() ->> 'app_role') = 'admin'"
+        },
+        "alerts_select_own": {
+          "name": "alerts_select_own",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(\n    (\n      \"alerts\".\"account_id\" is not null\n      and exists (\n        select 1 from \"accounts\"\n        where \"accounts\".\"id\" = \"alerts\".\"account_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n    or (\n      \"alerts\".\"post_id\" is not null\n      and exists (\n        select 1\n        from \"posts\"\n        inner join \"accounts\"\n          on \"accounts\".\"id\" = \"posts\".\"account_id\"\n        where \"posts\".\"id\" = \"alerts\".\"post_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n  )"
+        },
+        "alerts_insert_own": {
+          "name": "alerts_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "(\n    (\n      \"alerts\".\"account_id\" is not null\n      and exists (\n        select 1 from \"accounts\"\n        where \"accounts\".\"id\" = \"alerts\".\"account_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n    or (\n      \"alerts\".\"post_id\" is not null\n      and exists (\n        select 1\n        from \"posts\"\n        inner join \"accounts\"\n          on \"accounts\".\"id\" = \"posts\".\"account_id\"\n        where \"posts\".\"id\" = \"alerts\".\"post_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n  )"
+        },
+        "alerts_update_own": {
+          "name": "alerts_update_own",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(\n    (\n      \"alerts\".\"account_id\" is not null\n      and exists (\n        select 1 from \"accounts\"\n        where \"accounts\".\"id\" = \"alerts\".\"account_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n    or (\n      \"alerts\".\"post_id\" is not null\n      and exists (\n        select 1\n        from \"posts\"\n        inner join \"accounts\"\n          on \"accounts\".\"id\" = \"posts\".\"account_id\"\n        where \"posts\".\"id\" = \"alerts\".\"post_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n  )",
+          "withCheck": "(\n    (\n      \"alerts\".\"account_id\" is not null\n      and exists (\n        select 1 from \"accounts\"\n        where \"accounts\".\"id\" = \"alerts\".\"account_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n    or (\n      \"alerts\".\"post_id\" is not null\n      and exists (\n        select 1\n        from \"posts\"\n        inner join \"accounts\"\n          on \"accounts\".\"id\" = \"posts\".\"account_id\"\n        where \"posts\".\"id\" = \"alerts\".\"post_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n  )"
+        },
+        "alerts_delete_own": {
+          "name": "alerts_delete_own",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(\n    (\n      \"alerts\".\"account_id\" is not null\n      and exists (\n        select 1 from \"accounts\"\n        where \"accounts\".\"id\" = \"alerts\".\"account_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n    or (\n      \"alerts\".\"post_id\" is not null\n      and exists (\n        select 1\n        from \"posts\"\n        inner join \"accounts\"\n          on \"accounts\".\"id\" = \"posts\".\"account_id\"\n        where \"posts\".\"id\" = \"alerts\".\"post_id\"\n          and \"accounts\".\"user_id\" = (select auth.uid())\n      )\n    )\n  )"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.analytics": {
+      "name": "analytics",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "post_id": {
+          "name": "post_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "views": {
+          "name": "views",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "likes": {
+          "name": "likes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "comments": {
+          "name": "comments",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "shares": {
+          "name": "shares",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "revenue": {
+          "name": "revenue",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
+        "fetched_at": {
+          "name": "fetched_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "analytics_post_id_posts_id_fk": {
+          "name": "analytics_post_id_posts_id_fk",
+          "tableFrom": "analytics",
+          "tableTo": "posts",
+          "columnsFrom": [
+            "post_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "admins_full_access_analytics": {
+          "name": "admins_full_access_analytics",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(auth.jwt() ->> 'app_role') = 'admin'",
+          "withCheck": "(auth.jwt() ->> 'app_role') = 'admin'"
+        },
+        "analytics_select_own": {
+          "name": "analytics_select_own",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n    select 1\n    from \"posts\"\n    inner join \"accounts\"\n      on \"accounts\".\"id\" = \"posts\".\"account_id\"\n    where \"posts\".\"id\" = \"analytics\".\"post_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  )"
+        },
+        "analytics_insert_own": {
+          "name": "analytics_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "exists (\n    select 1\n    from \"posts\"\n    inner join \"accounts\"\n      on \"accounts\".\"id\" = \"posts\".\"account_id\"\n    where \"posts\".\"id\" = \"analytics\".\"post_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  )"
+        },
+        "analytics_update_own": {
+          "name": "analytics_update_own",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n    select 1\n    from \"posts\"\n    inner join \"accounts\"\n      on \"accounts\".\"id\" = \"posts\".\"account_id\"\n    where \"posts\".\"id\" = \"analytics\".\"post_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  )",
+          "withCheck": "exists (\n    select 1\n    from \"posts\"\n    inner join \"accounts\"\n      on \"accounts\".\"id\" = \"posts\".\"account_id\"\n    where \"posts\".\"id\" = \"analytics\".\"post_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  )"
+        },
+        "analytics_delete_own": {
+          "name": "analytics_delete_own",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n    select 1\n    from \"posts\"\n    inner join \"accounts\"\n      on \"accounts\".\"id\" = \"posts\".\"account_id\"\n    where \"posts\".\"id\" = \"analytics\".\"post_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  )"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.caption_results": {
+      "name": "caption_results",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "video_id": {
+          "name": "video_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "style": {
+          "name": "style",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "words_per_flash": {
+          "name": "words_per_flash",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model_size": {
+          "name": "model_size",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "preview_url": {
+          "name": "preview_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "transcript": {
+          "name": "transcript",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "caption_results_video_settings_idx": {
+          "name": "caption_results_video_settings_idx",
+          "columns": [
+            {
+              "expression": "video_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "style",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "words_per_flash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "model_size",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "caption_results_video_id_videos_id_fk": {
+          "name": "caption_results_video_id_videos_id_fk",
+          "tableFrom": "caption_results",
+          "tableTo": "videos",
+          "columnsFrom": [
+            "video_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "caption_results_user_id_users_id_fk": {
+          "name": "caption_results_user_id_users_id_fk",
+          "tableFrom": "caption_results",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "admins_full_access_caption_results": {
+          "name": "admins_full_access_caption_results",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(auth.jwt() ->> 'app_role') = 'admin'",
+          "withCheck": "(auth.jwt() ->> 'app_role') = 'admin'"
+        },
+        "caption_results_select_own": {
+          "name": "caption_results_select_own",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"caption_results\".\"user_id\" = (select auth.uid())"
+        },
+        "caption_results_insert_own": {
+          "name": "caption_results_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "\"caption_results\".\"user_id\" = (select auth.uid())"
+        },
+        "caption_results_update_own": {
+          "name": "caption_results_update_own",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"caption_results\".\"user_id\" = (select auth.uid())",
+          "withCheck": "\"caption_results\".\"user_id\" = (select auth.uid())"
+        },
+        "caption_results_delete_own": {
+          "name": "caption_results_delete_own",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"caption_results\".\"user_id\" = (select auth.uid())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.posts": {
+      "name": "posts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "video_id": {
+          "name": "video_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "platform": {
+          "name": "platform",
+          "type": "platform",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scheduled_at": {
+          "name": "scheduled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "posted_at": {
+          "name": "posted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "post_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'scheduled'"
+        },
+        "external_post_id": {
+          "name": "external_post_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deleted_by": {
+          "name": "deleted_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "posts_deleted_at_idx": {
+          "name": "posts_deleted_at_idx",
+          "columns": [
+            {
+              "expression": "deleted_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "posts_video_id_videos_id_fk": {
+          "name": "posts_video_id_videos_id_fk",
+          "tableFrom": "posts",
+          "tableTo": "videos",
+          "columnsFrom": [
+            "video_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "posts_account_id_accounts_id_fk": {
+          "name": "posts_account_id_accounts_id_fk",
+          "tableFrom": "posts",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "posts_deleted_by_users_id_fk": {
+          "name": "posts_deleted_by_users_id_fk",
+          "tableFrom": "posts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "deleted_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "admins_full_access_posts": {
+          "name": "admins_full_access_posts",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(auth.jwt() ->> 'app_role') = 'admin'",
+          "withCheck": "(auth.jwt() ->> 'app_role') = 'admin'"
+        },
+        "posts_select_own": {
+          "name": "posts_select_own",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n    select 1 from \"accounts\"\n    where \"accounts\".\"id\" = \"posts\".\"account_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  ) and \"posts\".\"deleted_at\" is null"
+        },
+        "posts_insert_own": {
+          "name": "posts_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "exists (\n    select 1 from \"accounts\"\n    where \"accounts\".\"id\" = \"posts\".\"account_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  ) and exists (\n    select 1 from \"videos\"\n    where \"videos\".\"id\" = \"posts\".\"video_id\"\n      and \"videos\".\"user_id\" = (select auth.uid())\n  )"
+        },
+        "posts_update_own": {
+          "name": "posts_update_own",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n    select 1 from \"accounts\"\n    where \"accounts\".\"id\" = \"posts\".\"account_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  ) and \"posts\".\"deleted_at\" is null",
+          "withCheck": "exists (\n    select 1 from \"accounts\"\n    where \"accounts\".\"id\" = \"posts\".\"account_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  ) and exists (\n    select 1 from \"videos\"\n    where \"videos\".\"id\" = \"posts\".\"video_id\"\n      and \"videos\".\"user_id\" = (select auth.uid())\n  )"
+        },
+        "posts_delete_own": {
+          "name": "posts_delete_own",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "exists (\n    select 1 from \"accounts\"\n    where \"accounts\".\"id\" = \"posts\".\"account_id\"\n      and \"accounts\".\"user_id\" = (select auth.uid())\n  ) and \"posts\".\"deleted_at\" is null"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.videos": {
+      "name": "videos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_url": {
+          "name": "original_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_filename": {
+          "name": "original_filename",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "content_hash": {
+          "name": "content_hash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "processed_url": {
+          "name": "processed_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duration": {
+          "name": "duration",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "video_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'uploaded'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "videos_user_content_hash_idx": {
+          "name": "videos_user_content_hash_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "content_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "videos_user_id_users_id_fk": {
+          "name": "videos_user_id_users_id_fk",
+          "tableFrom": "videos",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "admins_full_access_videos": {
+          "name": "admins_full_access_videos",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(auth.jwt() ->> 'app_role') = 'admin'",
+          "withCheck": "(auth.jwt() ->> 'app_role') = 'admin'"
+        },
+        "videos_select_own": {
+          "name": "videos_select_own",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"videos\".\"user_id\" = (select auth.uid())"
+        },
+        "videos_insert_own": {
+          "name": "videos_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "\"videos\".\"user_id\" = (select auth.uid())"
+        },
+        "videos_update_own": {
+          "name": "videos_update_own",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"videos\".\"user_id\" = (select auth.uid())",
+          "withCheck": "\"videos\".\"user_id\" = (select auth.uid())"
+        },
+        "videos_delete_own": {
+          "name": "videos_delete_own",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"videos\".\"user_id\" = (select auth.uid())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.virality_predictions": {
+      "name": "virality_predictions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "video_id": {
+          "name": "video_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prediction": {
+          "name": "prediction",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model_version": {
+          "name": "model_version",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "virality_predictions_video_id_videos_id_fk": {
+          "name": "virality_predictions_video_id_videos_id_fk",
+          "tableFrom": "virality_predictions",
+          "tableTo": "videos",
+          "columnsFrom": [
+            "video_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "virality_predictions_user_id_users_id_fk": {
+          "name": "virality_predictions_user_id_users_id_fk",
+          "tableFrom": "virality_predictions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "virality_predictions_video_id_unique": {
+          "name": "virality_predictions_video_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "video_id"
+          ]
+        }
+      },
+      "policies": {
+        "admins_full_access_virality_predictions": {
+          "name": "admins_full_access_virality_predictions",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(auth.jwt() ->> 'app_role') = 'admin'",
+          "withCheck": "(auth.jwt() ->> 'app_role') = 'admin'"
+        },
+        "virality_predictions_select_own": {
+          "name": "virality_predictions_select_own",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"virality_predictions\".\"user_id\" = (select auth.uid())"
+        },
+        "virality_predictions_insert_own": {
+          "name": "virality_predictions_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "\"virality_predictions\".\"user_id\" = (select auth.uid())"
+        },
+        "virality_predictions_update_own": {
+          "name": "virality_predictions_update_own",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"virality_predictions\".\"user_id\" = (select auth.uid())",
+          "withCheck": "\"virality_predictions\".\"user_id\" = (select auth.uid())"
+        },
+        "virality_predictions_delete_own": {
+          "name": "virality_predictions_delete_own",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"virality_predictions\".\"user_id\" = (select auth.uid())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "full_name": {
+          "name": "full_name",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "user_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'content_creator'"
+        },
+        "suspended_at": {
+          "name": "suspended_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "suspended_by": {
+          "name": "suspended_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {
+        "admins_full_access_users": {
+          "name": "admins_full_access_users",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "(auth.jwt() ->> 'app_role') = 'admin'",
+          "withCheck": "(auth.jwt() ->> 'app_role') = 'admin'"
+        },
+        "users_select_own": {
+          "name": "users_select_own",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"users\".\"id\" = (select auth.uid())"
+        },
+        "users_insert_own": {
+          "name": "users_insert_own",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated"
+          ],
+          "withCheck": "\"users\".\"id\" = (select auth.uid())"
+        },
+        "users_update_own": {
+          "name": "users_update_own",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"users\".\"id\" = (select auth.uid())",
+          "withCheck": "\"users\".\"id\" = (select auth.uid())"
+        },
+        "users_delete_own": {
+          "name": "users_delete_own",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated"
+          ],
+          "using": "\"users\".\"id\" = (select auth.uid())"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    }
+  },
+  "enums": {
+    "public.alert_status": {
+      "name": "alert_status",
+      "schema": "public",
+      "values": [
+        "unresolved",
+        "resolved"
+      ]
+    },
+    "public.alert_type": {
+      "name": "alert_type",
+      "schema": "public",
+      "values": [
+        "error",
+        "copyright",
+        "success"
+      ]
+    },
+    "public.platform": {
+      "name": "platform",
+      "schema": "public",
+      "values": [
+        "facebook",
+        "instagram",
+        "tiktok",
+        "youtube",
+        "snapchat"
+      ]
+    },
+    "public.post_status": {
+      "name": "post_status",
+      "schema": "public",
+      "values": [
+        "scheduled",
+        "posted",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "public.video_status": {
+      "name": "video_status",
+      "schema": "public",
+      "values": [
+        "uploaded",
+        "processing",
+        "ready",
+        "failed"
+      ]
+    },
+    "public.user_role": {
+      "name": "user_role",
+      "schema": "public",
+      "values": [
+        "admin",
+        "content_creator"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

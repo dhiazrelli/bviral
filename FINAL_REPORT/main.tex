@@ -1,0 +1,126 @@
+\documentclass[12pt,a4paper]{report}
+
+% ---------- Packages ----------
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{lmodern}
+\else
+  \usepackage{fontspec}
+  \setmainfont{Arial} % or Calibri if installed
+\fi
+\usepackage{setspace}
+\onehalfspacing
+\raggedbottom
+
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[hidelinks,hypertexnames=false]{hyperref}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{tocloft}
+
+% ---------- Header / Footer ----------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\leftmark}
+\fancyfoot[L]{PFA -- 4th year GL / IA}
+\fancyfoot[R]{\thepage}
+\setlength{\headheight}{15pt}
+
+% ---------- Chapter formatting ----------
+\titleformat{\chapter}[display]
+{\bfseries\Large}
+{\chaptername\ \thechapter}
+{0.75em}
+{\Huge}
+\titlespacing*{\chapter}{0pt}{0pt}{1.5ex}
+\titlespacing*{\section}{0pt}{1.5ex plus 0.5ex minus 0.2ex}{0.8ex}
+\titlespacing*{\subsection}{0pt}{1.2ex plus 0.4ex minus 0.2ex}{0.6ex}
+
+% ---------- Line breaking ----------
+\hyphenpenalty=10000
+\exhyphenpenalty=10000
+\tolerance=2000
+\emergencystretch=3em
+\righthyphenmin=62
+\lefthyphenmin=62
+\hbadness=10000
+\vbadness=10000
+\hfuzz=5pt
+\vfuzz=5pt
+
+% ---------- Document ----------
+\begin{document}
+
+% ---------- Cover Page ----------
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+
+    {\Large EPI Educational Group}\\[0.5cm]
+    {\large Department / Track: GL -- IA/DS}\\[2cm]
+
+    {\Huge \textbf{Project Title}}\\[1cm]
+    {\Large PFA Report}\\[2cm]
+
+    \begin{flushleft}
+    \textbf{Student(s):} Name 1, Name 2\\
+    \textbf{Supervisor:} Supervisor Name\\
+    \textbf{Academic Year:} 2024/2025\\
+    \textbf{Date:} Month Year
+    \end{flushleft}
+
+    \vfill
+\end{titlepage}
+
+% ---------- Preliminary Pages ----------
+\pagenumbering{roman}
+\input{prelim/acknowledgements}
+\input{prelim/abstract}
+\input{prelim/resume}
+\clearpage
+\tableofcontents
+\clearpage
+\listoffigures
+\clearpage
+\listoftables
+\clearpage  
+\input{prelim/glossary}
+
+% ---------- Main Report ----------
+\clearpage
+\pagenumbering{arabic}
+\input{chapters/general-introduction}
+\input{chapters/chapter1-overview-state-art}
+\input{chapters/chapter2-requirements-data}
+\input{chapters/chapter3-system-design}
+\input{chapters/chapter4-ai-experiments}
+\input{chapters/general-conclusion}
+
+% ---------- References ----------
+\begin{thebibliography}{99}
+\phantomsection
+\addcontentsline{toc}{chapter}{References}
+
+\bibitem{lecun2015}
+Y. LeCun, Y. Bengio, and G. Hinton, ``Deep learning,'' \textit{Nature}, vol. 521, pp. 436--444, 2015.
+
+\end{thebibliography}
+
+% ---------- Appendices ----------
+\appendix
+\input{appendices/installation-guide}
+\input{appendices/additional-diagrams}
+\input{appendices/api-documentation}
+
+\end{document}

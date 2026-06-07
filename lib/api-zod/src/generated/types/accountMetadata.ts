@@ -5,7 +5,6 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { AccountOwnerKind } from './accountOwnerKind';
 import type { AccountPlatform } from './accountPlatform';
 
 /**
@@ -16,7 +15,6 @@ export interface AccountMetadata {
   platform: AccountPlatform;
   accountName: string;
   tokenExpiry: Date | null;
-  ownerKind: AccountOwnerKind;
-  userId: string | null;
+  userId: string;
   createdAt: Date;
 }

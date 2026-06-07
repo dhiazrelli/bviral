@@ -99,6 +99,8 @@ export interface InsertAnalyticsSnapshotInput {
 export interface AnalyticsFilterParams {
   videoId?: string;
   creatorId?: string;
+  accountId?: string;
+  postId?: string;
   platform?: AccountPlatform;
   from?: string;
   to?: string;
@@ -287,6 +289,14 @@ export function buildAnalyticsRepository(db: Database): AnalyticsRepository {
 
       if (filters.creatorId) {
         conditions.push(eq(accountsTable.userId, filters.creatorId));
+      }
+
+      if (filters.accountId) {
+        conditions.push(eq(postsTable.accountId, filters.accountId));
+      }
+
+      if (filters.postId) {
+        conditions.push(eq(postsTable.id, filters.postId));
       }
 
       if (filters.platform) {

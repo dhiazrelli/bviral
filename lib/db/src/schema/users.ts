@@ -17,6 +17,8 @@ export const usersTable = pgTable("users", {
   email: varchar("email", { length: 255 }).notNull().unique(),
   fullName: varchar("full_name", { length: 120 }).notNull(),
   role: userRoleEnum("role").default("content_creator").notNull(),
+  suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+  suspendedBy: uuid("suspended_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [

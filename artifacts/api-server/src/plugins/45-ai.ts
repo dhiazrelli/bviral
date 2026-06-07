@@ -1,6 +1,7 @@
 import fp from "fastify-plugin";
 import { buildAiJobStore } from "../lib/ai-job-store";
 import { createRedisConnection } from "../lib/redis";
+import { buildCaptionResultsRepository } from "../repositories/caption-results.repository";
 import { buildAiService } from "../services/ai.service";
 import { buildLtxService } from "../services/ltx.service";
 
@@ -15,6 +16,7 @@ export default fp(async function aiPlugin(fastify) {
   fastify.decorate("aiJobStore", aiJobStore);
   fastify.decorate("aiService", buildAiService({
     videosRepository: fastify.videosRepository,
+    captionResultsRepository: buildCaptionResultsRepository(fastify.db),
     aiJobStore,
     aiQueue: fastify.aiProcessingQueue,
     ltxConfigured: ltxService.isConfigured(),

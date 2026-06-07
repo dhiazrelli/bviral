@@ -11,7 +11,8 @@
     "worker:posts": "tsx src/workers/posts.worker.ts",
     "worker:videos": "tsx src/workers/videos.worker.ts",
     "worker:analytics": "tsx src/workers/analytics.worker.ts",
-    "worker:ai": "tsx src/workers/ai.worker.ts"
+    "worker:ai": "tsx src/workers/ai.worker.ts",
+    "worker:virality": "tsx src/workers/virality.worker.ts"
   },
   "dependencies": {
     "@fastify/autoload": "^6.3.1",

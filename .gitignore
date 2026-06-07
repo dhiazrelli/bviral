@@ -9,6 +9,13 @@ out-tsc
 .expo
 .expo-shared
 
+# framework caches
+.next/
+.turbo/
+.vercel/
+.parcel-cache/
+.eslintcache
+
 # dependencies
 node_modules
 .pnpm-store
@@ -21,6 +28,10 @@ node_modules
 *.launch
 .settings/
 *.sublime-workspace
+.history/
+*.swp
+*.swo
+*~
 
 # IDE - VSCode
 .vscode/*
@@ -29,22 +40,40 @@ node_modules
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# misc
-/.env
-/.env.*
-!/.env.example
-/.sass-cache
-/connect.lock
-/coverage
-/libpeerconnection.log
+# env files (any directory) — keep examples and samples
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log
 pnpm-debug.log*
 testem.log
-/typings
 dev-server.log
+
+# test output
+coverage/
+playwright-report/
+test-results/
+
+# misc
+/.sass-cache
+/connect.lock
+/libpeerconnection.log
+/typings
 *.local
+*.tmp
+_tmp_*
+
+# secrets / certs
+*.pem
+*.key
+*.crt
+*.p12
 
 # System Files
 .DS_Store
@@ -60,3 +89,16 @@ Thumbs.db
 # Generated agent/skill installs
 .agents/
 .claude/
+
+# Python AI agents (agents/ViralAgent, agents/caption, agents/VideoEnhancement)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.python-version
+.ipynb_checkpoints/
+# Caption agent runtime output (burned videos + temp folders)
+agents/caption/outputs/
+# Local model/feature caches downloaded at runtime
+.cache/huggingface/

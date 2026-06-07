@@ -34,6 +34,10 @@ export interface AppConfig {
   ltxDefaultResolution: string;
   ltxMaxDurationSec: number;
   ltxDailyGenerationCap: number;
+  viralityServiceUrl: string;
+  viralityServiceTimeoutMs: number;
+  captionsServiceUrl: string;
+  captionsServiceTimeoutMs: number;
 }
 
 /**
@@ -214,6 +218,20 @@ export function resolveConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     ltxDefaultResolution: env.LTX_DEFAULT_RESOLUTION?.trim() || "1080x1920",
     ltxMaxDurationSec: parsePositiveNumber(env.LTX_MAX_DURATION_SEC, 10, "LTX_MAX_DURATION_SEC"),
     ltxDailyGenerationCap: parsePositiveNumber(env.LTX_DAILY_GENERATION_CAP, 5, "LTX_DAILY_GENERATION_CAP"),
+    viralityServiceUrl: (env.VIRALITY_SERVICE_URL?.trim() || "http://127.0.0.1:8000").replace(/\/+$/, ""),
+    viralityServiceTimeoutMs: parsePositiveNumber(
+      env.VIRALITY_SERVICE_TIMEOUT_MS,
+      180_000,
+      "VIRALITY_SERVICE_TIMEOUT_MS",
+    ),
+    // Caption service runs on a different port than ViralAgent (which uses 8000)
+    // so both Python agents can run side by side.
+    captionsServiceUrl: (env.CAPTIONS_SERVICE_URL?.trim() || "http://127.0.0.1:8001").replace(/\/+$/, ""),
+    captionsServiceTimeoutMs: parsePositiveNumber(
+      env.CAPTIONS_SERVICE_TIMEOUT_MS,
+      300_000,
+      "CAPTIONS_SERVICE_TIMEOUT_MS",
+    ),
   });
 }
 

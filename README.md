@@ -44,6 +44,11 @@ lib/
   api-zod/             Generated Zod schemas
   db/                  Drizzle schema + Postgres helpers
 
+agents/                Python FastAPI AI services (not in the pnpm workspace)
+  ViralAgent/          Virality prediction (port 8000)
+  caption/             Speech-to-text + burned captions (port 8001)
+  VideoEnhancement/    Upscale / face restore
+
 scripts/               Workspace utility scripts
 ```
 
@@ -65,6 +70,10 @@ The API server auto-loads the first `.env` it finds in the current directory, `a
 | `CORS_ORIGINS` | required in prod | Comma-separated allow list. |
 | `YOUTUBE_*`, `TIKTOK_*`, `META_*` | optional | Per-provider OAuth. Missing creds return `503` rather than crashing. |
 | `LTX_API_KEY` (a.k.a. `LTXV_API_KEY`) | optional | Enables AI video generation in the studio. |
+| `VIRALITY_SERVICE_URL` | optional | ViralAgent Python service. Defaults to `http://127.0.0.1:8000`. |
+| `CAPTIONS_SERVICE_URL` | optional | Caption Python service. Defaults to `http://127.0.0.1:8001`. |
+| `CAPTIONS_SERVICE_TIMEOUT_MS` | optional | Max time for one caption job. Defaults to `300000` (5 min). |
+| `GROQ_API_KEY` | optional | Used by ViralAgent's LLM analysis step. |
 | `VITE_BVIRAL_VIDEO_EDITOR_URL` | optional | Points AI Studio at the editor host. Defaults to `http://localhost:3000/projects`. |
 | `VITE_API_PROXY_TARGET` | optional | Used by the Vite dev proxy when tunneling through HTTPS. |
 
@@ -114,6 +123,49 @@ Notes:
 - Projects and media are stored in the browser (localStorage/IndexedDB/OPFS). Keep source files until export completes.
 - Optional AI features (transcription, voiceover, stock search) need keys from `artifacts/openvideo/.env.sample`. Timeline editing and export work without them.
 - The editor is dual-licensed by its upstream project — see `artifacts/openvideo/LICENSE-AGPL3.md` before shipping commercially.
+
+## AI agents (Python services)
+
+The **Virality Predictor** and **Generate Captions** cards in AI Studio are backed
+by local Python FastAPI services in `agents/`. The api-server downloads an uploaded
+video from Supabase and POSTs it to the relevant service, so the Python side stays
+stateless. Each has its own README with full setup.
+
+| Agent | Port | Drives | Env var |
+|---|---|---|---|
+| `agents/ViralAgent` | 8000 | Virality Predictor card | `VIRALITY_SERVICE_URL` |
+| `agents/caption` | 8001 | Generate Captions card | `CAPTIONS_SERVICE_URL` |
+
+Both need **Python 3.11** and **ffmpeg** on PATH. The caption agent can reuse
+ViralAgent's venv (only `faster-whisper` + `aiofiles` are extra), so you don't
+re-download torch:
+
+```powershell
+# ViralAgent (port 8000)
+cd agents\ViralAgent
+python -m venv .venv; .\.venv\Scripts\Activate.ps1
+pip install -r requirements_api.txt
+uvicorn api:app --host 0.0.0.0 --port 8000
+
+# caption agent (port 8001) — reusing ViralAgent's venv
+cd agents\caption
+& "..\ViralAgent\.venv\Scripts\python.exe" -m pip install faster-whisper aiofiles
+& "..\ViralAgent\.venv\Scripts\python.exe" -m uvicorn api:app --host 0.0.0.0 --port 8001
+```
+
+Captions run through a preview → approve flow: the **AI worker** (`worker:ai`) calls
+the caption service, stores the result as a preview, and the dashboard plays it for
+approval. Results are cached in the `caption_results` table (keyed by video +
+style/words-per-flash/model), so re-requesting the same settings is instant; the
+**Regenerate** button forces a fresh run. Run the AI worker alongside the services:
+
+```powershell
+pnpm --filter @workspace/api-server run worker:ai
+```
+
+The first run of each Whisper model size downloads it once to the HuggingFace cache
+(`~/.cache/huggingface`); subsequent runs reuse it. faster-whisper auto-selects the
+GPU when CUDA-capable torch is installed.
 
 ## Database
 

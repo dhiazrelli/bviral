@@ -7,6 +7,7 @@
     "hello": "tsx ./src/hello.ts",
     "seed:roles": "tsx ./src/seed-roles.ts",
     "seed:demo": "tsx ./src/seed-demo.ts",
+    "migrate:admin": "tsx ./src/apply-admin-migration.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

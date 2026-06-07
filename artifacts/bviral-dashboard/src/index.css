@@ -62,69 +62,78 @@
   --font-serif: Georgia, serif;
   --font-mono: 'IBM Plex Mono', monospace;
 
-  --radius-sm: calc(var(--radius) - 6px);
-  --radius-md: calc(var(--radius) - 3px);
+  --radius-sm: calc(var(--radius) - 5px);
+  --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 6px);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
+/*
+ * Palette: one accent (brand orange) over a single cool-grey neutral family.
+ * No second brand hue, no neon glows, no gradient text. Cyan survives only
+ * inside the data-viz chart ramp, never in the UI chrome.
+ */
 :root {
-  --opaque-button-border-intensity: 8;
+  --opaque-button-border-intensity: 6;
 
-  --background: 216 32% 8%;
-  --foreground: 210 22% 96%;
-  --border: 216 18% 18%;
+  --background: 222 20% 9%;
+  --foreground: 210 18% 96%;
+  --border: 220 12% 18%;
 
-  --card: 216 28% 11%;
-  --card-foreground: 210 22% 96%;
-  --card-border: 217 18% 19%;
+  --card: 222 18% 11%;
+  --card-foreground: 210 18% 96%;
+  --card-border: 220 12% 19%;
 
-  --sidebar: 217 33% 9%;
-  --sidebar-foreground: 210 18% 95%;
-  --sidebar-border: 216 18% 16%;
-  --sidebar-primary: 20 94% 61%;
+  --sidebar: 222 22% 8%;
+  --sidebar-foreground: 210 14% 93%;
+  --sidebar-border: 220 12% 16%;
+  --sidebar-primary: 20 92% 58%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 214 21% 15%;
-  --sidebar-accent-foreground: 193 92% 64%;
-  --sidebar-ring: 20 94% 61%;
+  --sidebar-accent: 220 12% 15%;
+  --sidebar-accent-foreground: 210 18% 96%;
+  --sidebar-ring: 20 92% 58%;
 
-  --popover: 216 26% 10%;
-  --popover-foreground: 210 22% 96%;
-  --popover-border: 216 18% 18%;
+  --popover: 222 18% 10%;
+  --popover-foreground: 210 18% 96%;
+  --popover-border: 220 12% 18%;
 
-  --primary: 20 94% 61%;
-  --primary-foreground: 214 45% 10%;
+  --primary: 20 92% 58%;
+  --primary-foreground: 222 38% 9%;
 
-  --secondary: 215 18% 18%;
-  --secondary-foreground: 210 22% 96%;
+  --secondary: 220 12% 17%;
+  --secondary-foreground: 210 18% 96%;
 
-  --muted: 214 16% 14%;
-  --muted-foreground: 213 12% 68%;
+  --muted: 220 12% 14%;
+  --muted-foreground: 215 11% 63%;
 
-  --accent: 193 92% 56%;
-  --accent-foreground: 212 52% 11%;
+  /* Neutral surface (shadcn hover/active state) — no longer a second brand hue. */
+  --accent: 220 12% 16%;
+  --accent-foreground: 210 18% 96%;
 
-  --destructive: 0 78% 62%;
+  --destructive: 0 70% 57%;
   --destructive-foreground: 0 0% 98%;
 
-  --input: 214 17% 16%;
-  --ring: 20 94% 61%;
+  --input: 220 12% 16%;
+  --ring: 20 92% 58%;
 
-  --chart-1: 20 94% 61%;
-  --chart-2: 193 92% 56%;
-  --chart-3: 271 77% 69%;
-  --chart-4: 156 73% 46%;
-  --chart-5: 45 93% 58%;
+  /* Data-viz ramp only: brand orange leads, the rest are desaturated supports. */
+  --chart-1: 20 90% 60%;
+  --chart-2: 199 64% 54%;
+  --chart-3: 248 26% 62%;
+  --chart-4: 160 42% 48%;
+  --chart-5: 38 78% 60%;
 
-  --radius: 1.15rem;
+  --radius: 0.9rem;
 
-  --shadow-sm: 0 1px 2px rgba(3, 8, 20, 0.35);
-  --shadow: 0 10px 30px rgba(2, 10, 22, 0.22);
-  --shadow-md: 0 18px 44px rgba(2, 10, 22, 0.3);
-  --shadow-lg: 0 24px 64px rgba(2, 10, 22, 0.4);
-  --shadow-xl: 0 36px 88px rgba(2, 10, 22, 0.52);
-  --shadow-glow-primary: 0 0 0 1px rgba(255, 146, 74, 0.18), 0 24px 80px rgba(255, 146, 74, 0.18);
-  --shadow-glow-accent: 0 0 0 1px rgba(46, 202, 255, 0.18), 0 24px 80px rgba(46, 202, 255, 0.12);
+  /* Tinted, soft elevation — shadows carry the background hue, never pure black. */
+  --shadow-sm: 0 1px 2px hsl(222 40% 4% / 0.4);
+  --shadow: 0 8px 24px hsl(222 40% 4% / 0.3);
+  --shadow-md: 0 14px 36px hsl(222 40% 4% / 0.38);
+  --shadow-lg: 0 20px 50px hsl(222 40% 4% / 0.46);
+  --shadow-xl: 0 30px 70px hsl(222 40% 4% / 0.55);
+  /* "glow" names kept for compatibility, redefined as restrained tinted lifts. */
+  --shadow-glow-primary: 0 12px 34px hsl(20 80% 30% / 0.28);
+  --shadow-glow-accent: 0 12px 34px hsl(222 40% 4% / 0.4);
 
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
   --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
@@ -145,12 +154,15 @@
     text-rendering: optimizeLegibility;
   }
 
+  /*
+   * Single quiet vignette instead of the old three-colour aurora mesh.
+   * One faint warm hint top-left, the rest is neutral depth.
+   */
   body {
+    background-color: hsl(var(--background));
     background-image:
-      radial-gradient(circle at top left, rgba(255, 150, 74, 0.14), transparent 28%),
-      radial-gradient(circle at 85% 14%, rgba(46, 202, 255, 0.14), transparent 24%),
-      radial-gradient(circle at bottom right, rgba(122, 92, 255, 0.12), transparent 24%),
-      linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(9, 14, 26, 1));
+      radial-gradient(120% 90% at 0% 0%, hsl(20 80% 40% / 0.06), transparent 45%),
+      linear-gradient(180deg, hsl(222 22% 10%), hsl(222 24% 7%));
   }
 
   #root {
@@ -164,6 +176,11 @@
   h5,
   h6 {
     @apply font-display tracking-tight;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
   }
 
   button,
@@ -180,42 +197,39 @@
 @utility glass-card {
   position: relative;
   overflow: hidden;
-  border-radius: 1.35rem;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
-    color-mix(in srgb, hsl(var(--card)) 82%, transparent);
-  backdrop-filter: blur(24px);
-  box-shadow: var(--shadow-lg);
+  border-radius: calc(var(--radius) + 4px);
+  border: 1px solid hsl(var(--card-border));
+  background: color-mix(in srgb, hsl(var(--card)) 92%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
 }
 
 @utility glass-panel {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015)),
-    color-mix(in srgb, hsl(var(--background)) 88%, transparent);
-  backdrop-filter: blur(32px);
-  border-color: color-mix(in srgb, hsl(var(--border)) 54%, transparent);
+  background: color-mix(in srgb, hsl(var(--sidebar)) 90%, transparent);
+  backdrop-filter: blur(18px);
+  border-color: hsl(var(--border));
 }
 
+/* Restrained: a tight warm tint, not a rainbow sweep. Use rarely. */
 @utility text-gradient {
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
-  background-image: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--accent)) 55%, #fff 100%);
+  background-image: linear-gradient(120deg, hsl(var(--primary)), color-mix(in srgb, hsl(var(--primary)) 40%, white));
 }
 
 @utility text-gradient-static {
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
-  background-image: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--accent)));
+  background-image: linear-gradient(120deg, hsl(var(--primary)), color-mix(in srgb, hsl(var(--primary)) 45%, white));
 }
 
 @utility bg-glow {
   position: absolute;
   border-radius: 999px;
-  filter: blur(100px);
-  opacity: 0.22;
+  filter: blur(110px);
+  opacity: 0.1;
   pointer-events: none;
 }
 
@@ -233,16 +247,17 @@
   justify-content: center;
   gap: 0.5rem;
   border-radius: 999px;
-  padding: 0.72rem 1.1rem;
-  background: linear-gradient(135deg, hsl(var(--primary)), color-mix(in srgb, hsl(var(--primary)) 72%, white));
+  padding: 0.72rem 1.15rem;
+  background: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
   font-size: 0.84rem;
-  font-weight: 800;
-  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+  font-weight: 700;
+  border: 1px solid color-mix(in srgb, hsl(var(--primary)) 70%, white 8%);
+  transition: transform 180ms ease, background-color 180ms ease;
   box-shadow: var(--shadow-glow-primary);
   &:hover {
     transform: translateY(-1px);
-    filter: brightness(1.04);
+    background: color-mix(in srgb, hsl(var(--primary)) 90%, white);
   }
   &:active {
     transform: translateY(0);
@@ -255,54 +270,50 @@
   justify-content: center;
   gap: 0.5rem;
   border-radius: 999px;
-  padding: 0.7rem 1rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(242, 247, 255, 0.92);
+  padding: 0.7rem 1.05rem;
+  background: hsl(var(--secondary));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--secondary-foreground));
   font-size: 0.84rem;
-  font-weight: 700;
+  font-weight: 600;
   transition: background-color 180ms ease, border-color 180ms ease, transform 180ms ease;
   &:hover {
-    background: rgba(255, 255, 255, 0.075);
-    border-color: rgba(255, 255, 255, 0.14);
+    background: color-mix(in srgb, hsl(var(--secondary)) 85%, white 6%);
     transform: translateY(-1px);
   }
 }
 
 @utility input-field {
   width: 100%;
-  border-radius: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-  padding: 0.75rem 0.95rem;
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--input));
+  background: color-mix(in srgb, hsl(var(--card)) 70%, transparent);
+  padding: 0.7rem 0.95rem;
   font-size: 0.875rem;
-  color: white;
+  color: hsl(var(--foreground));
   transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
   &::placeholder {
-    color: color-mix(in srgb, hsl(var(--muted-foreground)) 68%, transparent);
+    color: color-mix(in srgb, hsl(var(--muted-foreground)) 70%, transparent);
   }
   &:focus {
-    border-color: rgba(255, 150, 74, 0.46);
-    box-shadow: 0 0 0 4px rgba(255, 150, 74, 0.12);
-    background: rgba(255, 255, 255, 0.06);
+    border-color: color-mix(in srgb, hsl(var(--primary)) 55%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, hsl(var(--primary)) 14%, transparent);
   }
 }
 
 @utility stat-card {
   position: relative;
   overflow: hidden;
-  border-radius: 1.2rem;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.08), transparent 35%),
-    rgba(10, 18, 34, 0.84);
-  box-shadow: var(--shadow);
+  border-radius: calc(var(--radius) + 2px);
+  border: 1px solid hsl(var(--card-border));
+  background: hsl(var(--card));
+  box-shadow: var(--shadow-sm);
   padding: 1.25rem;
-  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+  transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
   &:hover {
-    transform: translateY(-3px);
-    border-color: rgba(255, 255, 255, 0.12);
-    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, hsl(var(--foreground)) 12%, transparent);
+    box-shadow: var(--shadow);
   }
 }
 
@@ -312,10 +323,11 @@
 
 @utility page-title {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: clamp(1.8rem, 2.8vw, 3.2rem);
+  font-size: clamp(1.7rem, 2.6vw, 2.9rem);
   font-weight: 700;
-  color: white;
-  letter-spacing: -0.045em;
+  color: hsl(var(--foreground));
+  letter-spacing: -0.04em;
+  line-height: 1.05;
 }
 
 @utility page-subtitle {
@@ -330,19 +342,19 @@
   align-items: center;
   gap: 0.45rem;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid hsl(var(--border));
+  background: color-mix(in srgb, hsl(var(--card)) 70%, transparent);
   padding: 0.35rem 0.7rem;
   font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(241, 245, 249, 0.72);
+  color: hsl(var(--muted-foreground));
 }
 
 @utility dot-grid {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-  background-size: 18px 18px;
+  background-image: radial-gradient(hsl(var(--foreground) / 0.06) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
 @keyframes shimmer {
@@ -356,12 +368,12 @@
 }
 
 @keyframes glow-pulse {
-  0%, 100% { opacity: 0.18; transform: scale(1); }
-  50% { opacity: 0.34; transform: scale(1.08); }
+  0%, 100% { opacity: 0.08; transform: scale(1); }
+  50% { opacity: 0.14; transform: scale(1.05); }
 }
 
 .animate-glow-pulse {
-  animation: glow-pulse 8s ease-in-out infinite;
+  animation: glow-pulse 9s ease-in-out infinite;
 }
 
 ::-webkit-scrollbar {
@@ -403,6 +415,6 @@
 }
 
 ::selection {
-  background: rgba(255, 150, 74, 0.24);
+  background: hsl(var(--primary) / 0.24);
   color: white;
 }

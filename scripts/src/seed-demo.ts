@@ -162,7 +162,6 @@ const creatorAccounts = await db
       accessToken: "demo-placeholder-token",
       refreshToken: "demo-placeholder-refresh",
       tokenExpiry: row.tokenExpiry,
-      ownerKind: "user" as const,
       userId: creator.id,
       metadata: DEMO_METADATA,
     })),
@@ -174,37 +173,7 @@ for (const account of creatorAccounts) {
   console.log(`  ${account.platform.padEnd(9)} ${account.accountName} (expires ${account.tokenExpiry?.toISOString().slice(0, 10) ?? "never"})`);
 }
 
-// ---------- 4. Insert BViral company accounts ----------
-
-console.log("\nInserting BViral company accounts...");
-const bviralAccounts = await db
-  .insert(accountsTable)
-  .values([
-    {
-      platform: "tiktok",
-      accountName: "BViral Official",
-      accessToken: "demo-placeholder-token",
-      tokenExpiry: future(120),
-      ownerKind: "bviral_company" as const,
-      userId: null,
-      metadata: DEMO_METADATA,
-    },
-    {
-      platform: "youtube",
-      accountName: "BViral Shorts",
-      accessToken: "demo-placeholder-token",
-      tokenExpiry: future(120),
-      ownerKind: "bviral_company" as const,
-      userId: null,
-      metadata: DEMO_METADATA,
-    },
-  ])
-  .returning();
-for (const account of bviralAccounts) {
-  console.log(`  ${account.platform.padEnd(9)} ${account.accountName}`);
-}
-
-// ---------- 5. Insert videos ----------
+// ---------- 4. Insert videos ----------
 
 console.log("\nInserting videos...");
 const videoCount = 14;

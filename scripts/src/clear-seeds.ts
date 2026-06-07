@@ -5,7 +5,6 @@
  *   - all posts in those accounts
  *   - all videos owned by the seed creator
  *   - all creator accounts (user-owned) for the seed creator
- *   - all bviral_company accounts
  *
  * Idempotent: safe to re-run. Leaves the Supabase auth users + their
  * `users` table rows in place — delete those from the Supabase dashboard
@@ -127,15 +126,7 @@ if (creatorId) {
   console.log(`Creator ${CREATOR_EMAIL} not found — skipping creator-scoped cleanup.`);
 }
 
-// 6. Any BViral company accounts left over (from either seed).
-//    Cascade-deletes posts/analytics referencing them. Alerts get
-//    account_id nulled by FK ON DELETE SET NULL — clean those up next.
-await runStep(
-  "accounts (bviral_company)",
-  `DELETE FROM accounts WHERE owner_kind = 'bviral_company'`,
-);
-
-// 7. Orphan alerts (account_id and post_id both NULL after cascades).
+// 6. Orphan alerts (account_id and post_id both NULL after cascades).
 await runStep(
   "alerts (orphans)",
   `DELETE FROM alerts WHERE account_id IS NULL AND post_id IS NULL`,

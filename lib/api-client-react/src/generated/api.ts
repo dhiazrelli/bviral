@@ -21,7 +21,6 @@ import type {
 
 import type {
   Account,
-  AccountMetadataCollection,
   AccountsCollection,
   AiJobAcceptedResponse,
   AiJobStatus,
@@ -32,7 +31,6 @@ import type {
   CaptionsGenerateRequest,
   ConflictResponse,
   CreateAccountRequest,
-  CreateBviralAccountRequest,
   CreatePostRequest,
   CreatorDetail,
   CreatorsCollection,
@@ -54,8 +52,8 @@ import type {
   UploadVideoRequest,
   Video,
   VideosCollection,
-  ViralityPredictRequest,
-  ViralityPrediction
+  ViralityJob,
+  ViralityPredictRequest
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -2156,157 +2154,8 @@ export function useGetCreatorSchedule<TData = Awaited<ReturnType<typeof getCreat
 
 
 /**
- * Returns all accounts owned by BViral company. Admin only.
- * @summary List BViral company accounts
- */
-export const getListBviralAccountsUrl = () => {
+ * Requests a virality prediction for a video. Returns a cached prediction immediately (200, status "done") when available, otherwise enqueues an async job (202, status "queued") to poll at GET /v1/ai/virality/jobs/{jobId}.
 
-
-
-
-  return `/api/v1/admin/bviral-accounts`
-}
-
-export const listBviralAccounts = async ( options?: RequestInit): Promise<AccountMetadataCollection> => {
-
-  return customFetch<AccountMetadataCollection>(getListBviralAccountsUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListBviralAccountsQueryKey = () => {
-    return [
-    `/api/v1/admin/bviral-accounts`
-    ] as const;
-    }
-
-
-export const getListBviralAccountsQueryOptions = <TData = Awaited<ReturnType<typeof listBviralAccounts>>, TError = ErrorType<UnauthorizedResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBviralAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getListBviralAccountsQueryKey();
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBviralAccounts>>> = ({ signal }) => listBviralAccounts({ signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBviralAccounts>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListBviralAccountsQueryResult = NonNullable<Awaited<ReturnType<typeof listBviralAccounts>>>
-export type ListBviralAccountsQueryError = ErrorType<UnauthorizedResponse>
-
-
-/**
- * @summary List BViral company accounts
- */
-
-export function useListBviralAccounts<TData = Awaited<ReturnType<typeof listBviralAccounts>>, TError = ErrorType<UnauthorizedResponse>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBviralAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListBviralAccountsQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-
-
-
-
-
-
-/**
- * Creates a company-owned account. Admin only.
- * @summary Connect a BViral company account
- */
-export const getCreateBviralAccountUrl = () => {
-
-
-
-
-  return `/api/v1/admin/bviral-accounts`
-}
-
-export const createBviralAccount = async (createBviralAccountRequest: CreateBviralAccountRequest, options?: RequestInit): Promise<Account> => {
-
-  return customFetch<Account>(getCreateBviralAccountUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      createBviralAccountRequest,)
-  }
-);}
-
-
-
-
-export const getCreateBviralAccountMutationOptions = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBviralAccount>>, TError,{data: BodyType<CreateBviralAccountRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createBviralAccount>>, TError,{data: BodyType<CreateBviralAccountRequest>}, TContext> => {
-
-const mutationKey = ['createBviralAccount'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBviralAccount>>, {data: BodyType<CreateBviralAccountRequest>}> = (props) => {
-          const {data} = props ?? {};
-
-          return  createBviralAccount(data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateBviralAccountMutationResult = NonNullable<Awaited<ReturnType<typeof createBviralAccount>>>
-    export type CreateBviralAccountMutationBody = BodyType<CreateBviralAccountRequest>
-    export type CreateBviralAccountMutationError = ErrorType<BadRequestResponse | UnauthorizedResponse>
-
-    /**
- * @summary Connect a BViral company account
- */
-export const useCreateBviralAccount = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBviralAccount>>, TError,{data: BodyType<CreateBviralAccountRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof createBviralAccount>>,
-        TError,
-        {data: BodyType<CreateBviralAccountRequest>},
-        TContext
-      > => {
-      return useMutation(getCreateBviralAccountMutationOptions(options));
-    }
-
-/**
- * Runs the virality model on an uploaded video and returns the predicted views, viral tier, SHAP attributions, and an LLM analysis.
  * @summary Predict virality for an uploaded video
  */
 export const getPredictViralityUrl = () => {
@@ -2317,9 +2166,9 @@ export const getPredictViralityUrl = () => {
   return `/api/v1/ai/virality/predict`
 }
 
-export const predictVirality = async (viralityPredictRequest: ViralityPredictRequest, options?: RequestInit): Promise<ViralityPrediction> => {
+export const predictVirality = async (viralityPredictRequest: ViralityPredictRequest, options?: RequestInit): Promise<ViralityJob> => {
 
-  return customFetch<ViralityPrediction>(getPredictViralityUrl(),
+  return customFetch<ViralityJob>(getPredictViralityUrl(),
   {
     ...options,
     method: 'POST',
@@ -2376,6 +2225,84 @@ export const usePredictVirality = <TError = ErrorType<UnauthorizedResponse | Not
       > => {
       return useMutation(getPredictViralityMutationOptions(options));
     }
+
+/**
+ * Returns the status of a virality job; includes the prediction once status is "done".
+ * @summary Get virality job status
+ */
+export const getGetViralityJobUrl = (jobId: string,) => {
+
+
+
+
+  return `/api/v1/ai/virality/jobs/${jobId}`
+}
+
+export const getViralityJob = async (jobId: string, options?: RequestInit): Promise<ViralityJob> => {
+
+  return customFetch<ViralityJob>(getGetViralityJobUrl(jobId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetViralityJobQueryKey = (jobId: string,) => {
+    return [
+    `/api/v1/ai/virality/jobs/${jobId}`
+    ] as const;
+    }
+
+
+export const getGetViralityJobQueryOptions = <TData = Awaited<ReturnType<typeof getViralityJob>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(jobId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getViralityJob>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetViralityJobQueryKey(jobId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getViralityJob>>> = ({ signal }) => getViralityJob(jobId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(jobId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getViralityJob>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetViralityJobQueryResult = NonNullable<Awaited<ReturnType<typeof getViralityJob>>>
+export type GetViralityJobQueryError = ErrorType<UnauthorizedResponse | NotFoundResponse>
+
+
+/**
+ * @summary Get virality job status
+ */
+
+export function useGetViralityJob<TData = Awaited<ReturnType<typeof getViralityJob>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(
+ jobId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getViralityJob>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetViralityJobQueryOptions(jobId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 /**
  * Enqueues a Whisper-backed caption generation job. Poll /v1/ai/jobs/{jobId} for status.
@@ -2447,6 +2374,77 @@ export const useGenerateCaptions = <TError = ErrorType<UnauthorizedResponse | No
         TContext
       > => {
       return useMutation(getGenerateCaptionsMutationOptions(options));
+    }
+
+/**
+ * Approves the captioned preview produced by a finished captions job and replaces the source video's URL with the captioned version. Returns the updated video.
+ * @summary Approve a captioned preview
+ */
+export const getApproveCaptionsUrl = (jobId: string,) => {
+
+
+
+
+  return `/api/v1/ai/captions/jobs/${jobId}/approve`
+}
+
+export const approveCaptions = async (jobId: string, options?: RequestInit): Promise<Video> => {
+
+  return customFetch<Video>(getApproveCaptionsUrl(jobId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getApproveCaptionsMutationOptions = <TError = ErrorType<UnauthorizedResponse | NotFoundResponse | ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveCaptions>>, TError,{jobId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveCaptions>>, TError,{jobId: string}, TContext> => {
+
+const mutationKey = ['approveCaptions'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveCaptions>>, {jobId: string}> = (props) => {
+          const {jobId} = props ?? {};
+
+          return  approveCaptions(jobId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveCaptionsMutationResult = NonNullable<Awaited<ReturnType<typeof approveCaptions>>>
+
+    export type ApproveCaptionsMutationError = ErrorType<UnauthorizedResponse | NotFoundResponse | ConflictResponse>
+
+    /**
+ * @summary Approve a captioned preview
+ */
+export const useApproveCaptions = <TError = ErrorType<UnauthorizedResponse | NotFoundResponse | ConflictResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveCaptions>>, TError,{jobId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveCaptions>>,
+        TError,
+        {jobId: string},
+        TContext
+      > => {
+      return useMutation(getApproveCaptionsMutationOptions(options));
     }
 
 /**

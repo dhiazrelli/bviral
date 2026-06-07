@@ -2,12 +2,17 @@ export const aiProcessingQueueName = "ai-processing";
 
 export type AiJobKind = "captions" | "enhance" | "ltx";
 
+export type CaptionStyle = "stroke" | "yellow" | "pill";
+export type WhisperModelSize = "tiny" | "base" | "small" | "medium" | "large";
+
 export interface CaptionsJobData {
   kind: "captions";
   jobId: string;
   videoId: string;
   userId: string;
-  style?: "stroke" | "yellow" | "pill";
+  style?: CaptionStyle;
+  wordsPerFlash?: number;
+  modelSize?: WhisperModelSize;
 }
 
 export interface EnhanceJobData {

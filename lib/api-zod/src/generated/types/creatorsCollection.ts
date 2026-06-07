@@ -6,7 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreatorSummary } from './creatorSummary';
+import type { PaginationMeta } from './paginationMeta';
 
 export interface CreatorsCollection {
   data: CreatorSummary[];
+  pagination?: PaginationMeta;
 }

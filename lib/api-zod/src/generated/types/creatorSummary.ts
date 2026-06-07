@@ -13,4 +13,6 @@ export interface CreatorSummary {
   connectedAccountsCount: number;
   unresolvedAlertsCount: number;
   lastActiveAt: Date;
+  createdAt: Date;
+  suspendedAt: Date | null;
 }

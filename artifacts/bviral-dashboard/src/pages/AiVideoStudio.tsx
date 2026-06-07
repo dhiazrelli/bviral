@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import {
   getListVideosQueryKey,
+  useApproveCaptions,
   useGenerateLtx,
   useListVideos,
   type Video,
@@ -13,7 +14,7 @@ import { useAiJob } from '@/hooks/useAiJob';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { estimateLtxCostUsd } from '@/lib/ltx-pricing';
-import { CaptionGeneratorCard } from '@/components/ai-studio/CaptionGeneratorCard';
+import { CaptionGeneratorCard, type CaptionPreview } from '@/components/ai-studio/CaptionGeneratorCard';
 import { LtxGenerateConfirmModal } from '@/components/ai-studio/LtxGenerateConfirmModal';
 import { VideoEnhancementCard } from '@/components/ai-studio/VideoEnhancementCard';
 import { VideoUploadZone } from '@/components/ai-studio/VideoUploadZone';
@@ -45,6 +46,28 @@ export default function AiVideoStudio() {
 
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const [captionPreview, setCaptionPreview] = useState<CaptionPreview | null>(null);
+
+  const approveCaptionsMutation = useApproveCaptions({
+    mutation: {
+      onSuccess: (updatedVideo) => {
+        setSelectedVideo(updatedVideo);
+        setCaptionPreview(null);
+        queryClient.invalidateQueries({ queryKey: getListVideosQueryKey() });
+        toast({
+          title: 'Captions approved',
+          description: 'Saved the captioned version. The original raw video is still recoverable.',
+        });
+      },
+      onError: (error) => {
+        toast({
+          title: 'Approval failed',
+          description: error instanceof Error ? error.message : 'Unknown error',
+          variant: 'destructive',
+        });
+      },
+    },
+  });
 
   const [prompt, setPrompt] = useState('');
   const [styleTemplate, setStyleTemplate] = useState<string>('None');
@@ -127,10 +150,24 @@ export default function AiVideoStudio() {
       <div className="flex flex-1 flex-col gap-4 lg:flex-row">
         {/* LEFT: Upload + 3 tool cards */}
         <div className="w-full lg:w-[58%] flex flex-col gap-4 min-h-0">
-          <VideoUploadZone selectedVideo={selectedVideo} onUploaded={setSelectedVideo} />
+          <VideoUploadZone
+            selectedVideo={selectedVideo}
+            onUploaded={(video) => {
+              setCaptionPreview(null);
+              setSelectedVideo(video);
+            }}
+            captionPreviewUrl={captionPreview?.url ?? null}
+            isApprovingCaption={approveCaptionsMutation.isPending}
+            onApproveCaption={() => {
+              if (captionPreview) {
+                approveCaptionsMutation.mutate({ jobId: captionPreview.jobId });
+              }
+            }}
+            onDiscardCaption={() => setCaptionPreview(null)}
+          />
           <div className="flex flex-col gap-4 overflow-y-auto pr-1">
             <ViralityPredictorCard video={selectedVideo} />
-            <CaptionGeneratorCard video={selectedVideo} />
+            <CaptionGeneratorCard video={selectedVideo} onPreview={setCaptionPreview} />
             <VideoEnhancementCard video={selectedVideo} />
           </div>
         </div>

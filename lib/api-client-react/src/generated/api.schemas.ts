@@ -262,14 +262,6 @@ export interface ErrorResponse {
   message: string;
 }
 
-export type AccountOwnerKind = typeof AccountOwnerKind[keyof typeof AccountOwnerKind];
-
-
-export const AccountOwnerKind = {
-  user: 'user',
-  bviral_company: 'bviral_company',
-} as const;
-
 /**
  * Account metadata visible to admins — no token fields.
  */
@@ -278,8 +270,7 @@ export interface AccountMetadata {
   platform: AccountPlatform;
   accountName: string;
   tokenExpiry: string | null;
-  ownerKind: AccountOwnerKind;
-  userId: string | null;
+  userId: string;
   createdAt: string;
 }
 
@@ -294,10 +285,20 @@ export interface CreatorSummary {
   connectedAccountsCount: number;
   unresolvedAlertsCount: number;
   lastActiveAt: string;
+  createdAt: string;
+  suspendedAt: string | null;
+}
+
+export interface PaginationMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }
 
 export interface CreatorsCollection {
   data: CreatorSummary[];
+  pagination?: PaginationMeta;
 }
 
 export interface CreatorDetail {
@@ -305,20 +306,9 @@ export interface CreatorDetail {
   email: string;
   fullName: string;
   createdAt: string;
+  suspendedAt: string | null;
   accounts: AccountMetadata[];
   analytics: AnalyticsOverview;
-}
-
-export type CreateBviralAccountRequestMetadata = { [key: string]: unknown };
-
-export interface CreateBviralAccountRequest {
-  platform: AccountPlatform;
-  /** @minLength 1 */
-  accountName: string;
-  /** @minLength 1 */
-  accessToken: string;
-  refreshToken?: string;
-  metadata?: CreateBviralAccountRequestMetadata;
 }
 
 export interface ViralityShapEntry {
@@ -366,6 +356,29 @@ export interface ViralityPrediction {
 
 export interface ViralityPredictRequest {
   videoId: string;
+  /** Re-run the model even if a cached prediction exists. */
+  force?: boolean;
+}
+
+export type ViralityJobStatus = typeof ViralityJobStatus[keyof typeof ViralityJobStatus];
+
+
+export const ViralityJobStatus = {
+  queued: 'queued',
+  running: 'running',
+  done: 'done',
+  failed: 'failed',
+} as const;
+
+/**
+ * Async virality job. A cache hit returns status "done" with the prediction inline and jobId null; a miss returns "queued" with a jobId to poll at GET /v1/ai/virality/jobs/{jobId}.
+
+ */
+export interface ViralityJob {
+  jobId: string | null;
+  status: ViralityJobStatus;
+  prediction: ViralityPrediction | null;
+  error: string | null;
 }
 
 export type CaptionsGenerateRequestStyle = typeof CaptionsGenerateRequestStyle[keyof typeof CaptionsGenerateRequestStyle];
@@ -377,9 +390,27 @@ export const CaptionsGenerateRequestStyle = {
   pill: 'pill',
 } as const;
 
+export type CaptionsGenerateRequestModelSize = typeof CaptionsGenerateRequestModelSize[keyof typeof CaptionsGenerateRequestModelSize];
+
+
+export const CaptionsGenerateRequestModelSize = {
+  tiny: 'tiny',
+  base: 'base',
+  small: 'small',
+  medium: 'medium',
+  large: 'large',
+} as const;
+
 export interface CaptionsGenerateRequest {
   videoId: string;
   style?: CaptionsGenerateRequestStyle;
+  /**
+     * @minimum 1
+     * @maximum 10
+     */
+  wordsPerFlash?: number;
+  modelSize?: CaptionsGenerateRequestModelSize;
+  force?: boolean;
 }
 
 export interface EnhanceRequest {

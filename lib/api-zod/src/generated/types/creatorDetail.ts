@@ -13,6 +13,7 @@ export interface CreatorDetail {
   email: string;
   fullName: string;
   createdAt: Date;
+  suspendedAt: Date | null;
   accounts: AccountMetadata[];
   analytics: AnalyticsOverview;
 }

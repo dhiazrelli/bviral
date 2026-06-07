@@ -24,6 +24,14 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import {
+  SiFacebook,
+  SiInstagram,
+  SiSnapchat,
+  SiTiktok,
+  SiYoutube,
+} from "react-icons/si";
+import type { IconType } from "react-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   type Account,
@@ -67,6 +75,39 @@ const platformColors: Record<AccountPlatform, string> = {
   snapchat: "bg-yellow-500/10 text-yellow-400 border-yellow-500/15",
   facebook: "bg-blue-500/10 text-blue-400 border-blue-500/15",
 };
+
+const platformIcons: Record<AccountPlatform, IconType> = {
+  instagram: SiInstagram,
+  tiktok: SiTiktok,
+  youtube: SiYoutube,
+  snapchat: SiSnapchat,
+  facebook: SiFacebook,
+};
+
+function PlatformBadge({
+  platform,
+  className,
+  iconClassName,
+}: {
+  platform: AccountPlatform;
+  className?: string;
+  iconClassName?: string;
+}) {
+  const Icon = platformIcons[platform];
+  return (
+    <span
+      title={platformLabels[platform]}
+      aria-label={platformLabels[platform]}
+      className={cn(
+        "inline-flex h-6 w-6 items-center justify-center rounded-md border",
+        platformColors[platform],
+        className,
+      )}
+    >
+      <Icon className={cn("h-3.5 w-3.5", iconClassName)} aria-hidden="true" />
+    </span>
+  );
+}
 
 const statusConfig = {
   Active: { color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/15", dot: "bg-emerald-400" },
@@ -1047,9 +1088,7 @@ export default function Scheduling() {
                         {account?.accountName ?? <span className="text-muted-foreground/50">Unknown</span>}
                       </td>
                       <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${platformColors[post.platform]}`}>
-                          {platformLabels[post.platform]}
-                        </span>
+                        <PlatformBadge platform={post.platform} />
                       </td>
                       <td className="p-3 min-w-[200px] max-w-[340px]">
                         <p className="text-white/85 text-xs font-medium truncate">{title ?? "Untitled post"}</p>
@@ -1175,9 +1214,7 @@ export default function Scheduling() {
                       >
                         <td className="p-3 pl-5 font-semibold text-white/90">{lane.account.accountName}</td>
                         <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${platformColors[lane.account.platform]}`}>
-                            {platformLabels[lane.account.platform]}
-                          </span>
+                          <PlatformBadge platform={lane.account.platform} />
                         </td>
                         <td className="p-3 text-white/80 font-mono text-xs">{lane.scheduled.length}</td>
                         <td className="p-3 text-muted-foreground/50 text-xs">{timeAgo(lane.lastPostAt)}</td>
@@ -1222,7 +1259,7 @@ export default function Scheduling() {
                   .map((post) => (
                     <div key={post.id} className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-xs">
                       <div className="flex items-center justify-between gap-3">
-                        <span className="font-semibold text-white">{platformLabels[post.platform]}</span>
+                        <PlatformBadge platform={post.platform} />
                         <span className="font-mono text-primary">{formatDateTime(post.scheduledAt)}</span>
                       </div>
                     </div>
@@ -1272,7 +1309,7 @@ export default function Scheduling() {
                     <div className="w-[90px] h-[22px] bg-black rounded-full border border-white/[0.04]" />
                   </div>
                   <div className="absolute inset-0 group cursor-pointer">
-                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/60 via-purple-900/40 to-slate-900/60" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/70 via-zinc-900/50 to-zinc-950/70" />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center group-hover:scale-110 group-hover:bg-white/20 transition-all duration-300 border border-white/10">
                         <Play className="w-6 h-6 text-white ml-1" />
@@ -1280,7 +1317,7 @@ export default function Scheduling() {
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-16">
                       <div className="flex items-center gap-2.5 mb-2.5">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
                           {previewAccount.accountName.charAt(0).toUpperCase()}
                         </div>
                         <span className="font-bold text-white text-[13px]">{previewAccount.accountName}</span>
@@ -1302,9 +1339,7 @@ export default function Scheduling() {
                   </div>
                   <div className="flex justify-between text-xs gap-3">
                     <span className="text-muted-foreground/50">Platform:</span>
-                    <span className={`px-2 h-5 rounded border flex items-center justify-center text-[9px] font-bold ${platformColors[previewAccount.platform]}`}>
-                      {platformLabels[previewAccount.platform]}
-                    </span>
+                    <PlatformBadge platform={previewAccount.platform} />
                   </div>
                   <button
                     onClick={() => activePost
@@ -1336,7 +1371,7 @@ export default function Scheduling() {
                 {recentCancelledPosts.map((post) => (
                   <div key={post.id} className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-xs flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${platformColors[post.platform]}`}>{platformLabels[post.platform]}</span>
+                      <PlatformBadge platform={post.platform} className="h-5 w-5" iconClassName="h-3 w-3" />
                       <span className="text-white/70 truncate">was scheduled {formatDateTime(post.scheduledAt)}</span>
                     </div>
                     <span className="text-muted-foreground/50 shrink-0">{timeAgo(post.createdAt)}</span>
@@ -1548,7 +1583,7 @@ export default function Scheduling() {
                     <div className="absolute top-2 left-0 right-0 flex justify-center z-20">
                       <div className="w-[70px] h-[18px] bg-black rounded-full border border-white/[0.04]" />
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/60 via-purple-900/40 to-slate-900/60" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/70 via-zinc-900/50 to-zinc-950/70" />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/10">
                         <Play className="w-5 h-5 text-white ml-0.5" />
@@ -1556,7 +1591,7 @@ export default function Scheduling() {
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-12">
                       <div className="flex items-center gap-2 mb-1.5">
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-[9px] font-bold text-white shrink-0">
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-[9px] font-bold text-white shrink-0">
                           {composerAccount.accountName.charAt(0).toUpperCase()}
                         </div>
                         <span className="font-bold text-white text-[11px] truncate">{composerAccount.accountName}</span>
@@ -1570,9 +1605,7 @@ export default function Scheduling() {
                   <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 text-xs space-y-2">
                     <div className="flex justify-between gap-3">
                       <span className="text-muted-foreground/50">Platform</span>
-                      <span className={`px-2 h-5 rounded border flex items-center justify-center text-[9px] font-bold ${platformColors[composerAccount.platform]}`}>
-                        {platformLabels[composerAccount.platform]}
-                      </span>
+                      <PlatformBadge platform={composerAccount.platform} className="h-5 w-5" iconClassName="h-3 w-3" />
                     </div>
                     <div className="flex justify-between gap-3">
                       <span className="text-muted-foreground/50">Posting at</span>

@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from 'react';
-import { Upload, RefreshCcw, Film, Loader2 } from 'lucide-react';
+import { Upload, RefreshCcw, Film, Loader2, Check, X, Captions } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   getListVideosQueryKey,
@@ -7,10 +7,16 @@ import {
   type Video,
 } from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface VideoUploadZoneProps {
   selectedVideo: Video | null;
   onUploaded: (video: Video) => void;
+  /** When set, the captioned preview is played instead of the source video. */
+  captionPreviewUrl?: string | null;
+  onApproveCaption?: () => void;
+  onDiscardCaption?: () => void;
+  isApprovingCaption?: boolean;
 }
 
 function formatDuration(seconds: number | null): string {
@@ -35,7 +41,14 @@ function statusTone(status: string): string {
   }
 }
 
-export function VideoUploadZone({ selectedVideo, onUploaded }: VideoUploadZoneProps) {
+export function VideoUploadZone({
+  selectedVideo,
+  onUploaded,
+  captionPreviewUrl,
+  onApproveCaption,
+  onDiscardCaption,
+  isApprovingCaption,
+}: VideoUploadZoneProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -74,10 +87,12 @@ export function VideoUploadZone({ selectedVideo, onUploaded }: VideoUploadZonePr
     },
   });
 
+  const isCaptionPreview = Boolean(captionPreviewUrl);
   const previewUrl = useMemo(() => {
+    if (captionPreviewUrl) return captionPreviewUrl;
     if (!selectedVideo) return null;
     return selectedVideo.processedUrl || selectedVideo.originalUrl;
-  }, [selectedVideo]);
+  }, [captionPreviewUrl, selectedVideo]);
 
   const triggerFilePicker = () => fileInputRef.current?.click();
 
@@ -127,12 +142,16 @@ export function VideoUploadZone({ selectedVideo, onUploaded }: VideoUploadZonePr
     <div className="glass-card p-4">
       {hiddenInput}
       <div className="flex flex-col gap-3">
-        <div className="relative w-full overflow-hidden rounded-xl border border-white/[0.06] bg-black/60 aspect-video">
+        <div className={cn(
+          'relative w-full overflow-hidden rounded-xl border bg-black/60 aspect-video',
+          isCaptionPreview ? 'border-primary/40' : 'border-white/[0.06]',
+        )}>
           {previewUrl ? (
             <video
               key={previewUrl}
               src={previewUrl}
               controls
+              autoPlay={isCaptionPreview}
               playsInline
               preload="metadata"
               className="h-full w-full object-contain bg-black"
@@ -142,7 +161,43 @@ export function VideoUploadZone({ selectedVideo, onUploaded }: VideoUploadZonePr
               <Film className="mr-2 h-4 w-4" /> Preview not available yet
             </div>
           )}
+          {isCaptionPreview && (
+            <div className="pointer-events-none absolute left-2 top-2 flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-primary backdrop-blur-sm">
+              <Captions className="h-3 w-3" /> Captioned preview
+            </div>
+          )}
         </div>
+
+        {isCaptionPreview && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[0.06] px-3 py-2.5">
+            <p className="text-xs text-white/75">
+              This captioned version isn't saved yet. Approve to keep it (the raw original stays recoverable), or discard.
+            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={onDiscardCaption}
+                disabled={isApprovingCaption}
+                className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/80 transition-colors hover:bg-white/[0.08] disabled:opacity-50 cursor-pointer"
+              >
+                <X className="h-3.5 w-3.5" /> Discard
+              </button>
+              <button
+                type="button"
+                onClick={onApproveCaption}
+                disabled={isApprovingCaption}
+                className="btn-primary flex items-center gap-1.5 px-3 py-2 text-xs disabled:opacity-50"
+              >
+                {isApprovingCaption ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                {isApprovingCaption ? 'Approving…' : 'Approve'}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">

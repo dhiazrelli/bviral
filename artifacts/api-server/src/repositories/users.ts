@@ -6,6 +6,7 @@ export interface UserResponseDto {
   email: string;
   fullName: string;
   role: "admin" | "content_creator";
+  suspendedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,6 +47,7 @@ function serializeUser(user: UserRecord): UserResponseDto {
     email: user.email,
     fullName: user.fullName,
     role: user.role,
+    suspendedAt: user.suspendedAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };

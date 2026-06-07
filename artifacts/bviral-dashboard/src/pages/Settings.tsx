@@ -158,7 +158,7 @@ export default function Settings() {
               onChange={handleAvatarChange}
             />
             <div className="flex items-center gap-5 mb-6">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-accent to-primary p-[2px]">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-primary/40 to-primary p-[2px]">
                 <div className="w-full h-full rounded-[14px] bg-background flex items-center justify-center">
                   <User className="w-7 h-7 text-primary" />
                 </div>

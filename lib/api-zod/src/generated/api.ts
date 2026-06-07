@@ -404,8 +404,16 @@ export const ListCreatorsResponse = zod.object({
   "fullName": zod.string(),
   "connectedAccountsCount": zod.number(),
   "unresolvedAlertsCount": zod.number(),
-  "lastActiveAt": zod.date()
-}))
+  "lastActiveAt": zod.date(),
+  "createdAt": zod.date(),
+  "suspendedAt": zod.union([zod.date(),zod.null()])
+})),
+  "pagination": zod.object({
+  "page": zod.number(),
+  "pageSize": zod.number(),
+  "total": zod.number(),
+  "totalPages": zod.number()
+}).optional()
 })
 
 
@@ -422,13 +430,13 @@ export const GetCreatorResponse = zod.object({
   "email": zod.string(),
   "fullName": zod.string(),
   "createdAt": zod.date(),
+  "suspendedAt": zod.union([zod.date(),zod.null()]),
   "accounts": zod.array(zod.object({
   "id": zod.string().uuid(),
   "platform": zod.enum(['facebook', 'instagram', 'tiktok', 'youtube', 'snapchat']),
   "accountName": zod.string(),
   "tokenExpiry": zod.union([zod.date(),zod.null()]),
-  "ownerKind": zod.enum(['user', 'bviral_company']),
-  "userId": zod.union([zod.string().uuid(),zod.null()]),
+  "userId": zod.string().uuid(),
   "createdAt": zod.date()
 }).describe('Account metadata visible to admins — no token fields.')),
   "analytics": zod.object({
@@ -499,63 +507,36 @@ export const GetCreatorScheduleResponse = zod.object({
 
 
 /**
- * Returns all accounts owned by BViral company. Admin only.
- * @summary List BViral company accounts
- */
-export const ListBviralAccountsResponse = zod.object({
-  "data": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "platform": zod.enum(['facebook', 'instagram', 'tiktok', 'youtube', 'snapchat']),
-  "accountName": zod.string(),
-  "tokenExpiry": zod.union([zod.date(),zod.null()]),
-  "ownerKind": zod.enum(['user', 'bviral_company']),
-  "userId": zod.union([zod.string().uuid(),zod.null()]),
-  "createdAt": zod.date()
-}).describe('Account metadata visible to admins — no token fields.'))
-})
+ * Requests a virality prediction for a video. Returns a cached prediction immediately (200, status "done") when available, otherwise enqueues an async job (202, status "queued") to poll at GET /v1/ai/virality/jobs/{jobId}.
 
-
-/**
- * Creates a company-owned account. Admin only.
- * @summary Connect a BViral company account
- */
-
-
-
-
-export const CreateBviralAccountBody = zod.object({
-  "platform": zod.enum(['facebook', 'instagram', 'tiktok', 'youtube', 'snapchat']),
-  "accountName": zod.string().min(1),
-  "accessToken": zod.string().min(1),
-  "refreshToken": zod.string().optional(),
-  "metadata": zod.record(zod.string(), zod.unknown()).optional()
-})
-
-
-/**
- * Runs the virality model on an uploaded video and returns the predicted views, viral tier, SHAP attributions, and an LLM analysis.
  * @summary Predict virality for an uploaded video
  */
+export const predictViralityBodyForceDefault = false;
+
 export const PredictViralityBody = zod.object({
-  "videoId": zod.string().uuid()
+  "videoId": zod.string().uuid(),
+  "force": zod.boolean().default(predictViralityBodyForceDefault).describe('Re-run the model even if a cached prediction exists.')
 })
 
-export const predictViralityResponsePredictedViewsEstimateMin = 0;
+export const predictViralityResponsePredictionOnePredictedViewsEstimateMin = 0;
 
-export const predictViralityResponseLlmAnalysisHookScoreMin = 0;
-export const predictViralityResponseLlmAnalysisHookScoreMax = 10;
+export const predictViralityResponsePredictionOneLlmAnalysisHookScoreMin = 0;
+export const predictViralityResponsePredictionOneLlmAnalysisHookScoreMax = 10;
 
-export const predictViralityResponseLlmAnalysisClarityScoreMin = 0;
-export const predictViralityResponseLlmAnalysisClarityScoreMax = 10;
+export const predictViralityResponsePredictionOneLlmAnalysisClarityScoreMin = 0;
+export const predictViralityResponsePredictionOneLlmAnalysisClarityScoreMax = 10;
 
-export const predictViralityResponseLlmAnalysisQualityScoreMin = 0;
-export const predictViralityResponseLlmAnalysisQualityScoreMax = 10;
+export const predictViralityResponsePredictionOneLlmAnalysisQualityScoreMin = 0;
+export const predictViralityResponsePredictionOneLlmAnalysisQualityScoreMax = 10;
 
 
 
 export const PredictViralityResponse = zod.object({
+  "jobId": zod.string().nullable(),
+  "status": zod.enum(['queued', 'running', 'done', 'failed']),
+  "prediction": zod.object({
   "video": zod.string(),
-  "predicted_views_estimate": zod.number().min(predictViralityResponsePredictedViewsEstimateMin),
+  "predicted_views_estimate": zod.number().min(predictViralityResponsePredictionOnePredictedViewsEstimateMin),
   "viral_tier": zod.string(),
   "shap_pushing_up": zod.array(zod.object({
   "msg": zod.string(),
@@ -567,9 +548,9 @@ export const PredictViralityResponse = zod.object({
 })),
   "llm_analysis": zod.object({
   "video_summary": zod.string(),
-  "hook_score": zod.number().min(predictViralityResponseLlmAnalysisHookScoreMin).max(predictViralityResponseLlmAnalysisHookScoreMax),
-  "clarity_score": zod.number().min(predictViralityResponseLlmAnalysisClarityScoreMin).max(predictViralityResponseLlmAnalysisClarityScoreMax),
-  "quality_score": zod.number().min(predictViralityResponseLlmAnalysisQualityScoreMin).max(predictViralityResponseLlmAnalysisQualityScoreMax),
+  "hook_score": zod.number().min(predictViralityResponsePredictionOneLlmAnalysisHookScoreMin).max(predictViralityResponsePredictionOneLlmAnalysisHookScoreMax),
+  "clarity_score": zod.number().min(predictViralityResponsePredictionOneLlmAnalysisClarityScoreMin).max(predictViralityResponsePredictionOneLlmAnalysisClarityScoreMax),
+  "quality_score": zod.number().min(predictViralityResponsePredictionOneLlmAnalysisQualityScoreMin).max(predictViralityResponsePredictionOneLlmAnalysisQualityScoreMax),
   "hook_type": zod.string(),
   "tone": zod.string(),
   "emotion": zod.string(),
@@ -580,16 +561,101 @@ export const PredictViralityResponse = zod.object({
   "improvement_suggestion": zod.string()
 }),
   "hook_transcript": zod.string()
+}).nullable(),
+  "error": zod.string().nullable()
+}).describe('Async virality job. A cache hit returns status \"done\" with the prediction inline and jobId null; a miss returns \"queued\" with a jobId to poll at GET \/v1\/ai\/virality\/jobs\/{jobId}.\n')
+
+
+/**
+ * Returns the status of a virality job; includes the prediction once status is "done".
+ * @summary Get virality job status
+ */
+export const GetViralityJobParams = zod.object({
+  "jobId": zod.coerce.string()
 })
+
+export const getViralityJobResponsePredictionOnePredictedViewsEstimateMin = 0;
+
+export const getViralityJobResponsePredictionOneLlmAnalysisHookScoreMin = 0;
+export const getViralityJobResponsePredictionOneLlmAnalysisHookScoreMax = 10;
+
+export const getViralityJobResponsePredictionOneLlmAnalysisClarityScoreMin = 0;
+export const getViralityJobResponsePredictionOneLlmAnalysisClarityScoreMax = 10;
+
+export const getViralityJobResponsePredictionOneLlmAnalysisQualityScoreMin = 0;
+export const getViralityJobResponsePredictionOneLlmAnalysisQualityScoreMax = 10;
+
+
+
+export const GetViralityJobResponse = zod.object({
+  "jobId": zod.string().nullable(),
+  "status": zod.enum(['queued', 'running', 'done', 'failed']),
+  "prediction": zod.object({
+  "video": zod.string(),
+  "predicted_views_estimate": zod.number().min(getViralityJobResponsePredictionOnePredictedViewsEstimateMin),
+  "viral_tier": zod.string(),
+  "shap_pushing_up": zod.array(zod.object({
+  "msg": zod.string(),
+  "impact": zod.number()
+})),
+  "shap_dragging_down": zod.array(zod.object({
+  "msg": zod.string(),
+  "impact": zod.number()
+})),
+  "llm_analysis": zod.object({
+  "video_summary": zod.string(),
+  "hook_score": zod.number().min(getViralityJobResponsePredictionOneLlmAnalysisHookScoreMin).max(getViralityJobResponsePredictionOneLlmAnalysisHookScoreMax),
+  "clarity_score": zod.number().min(getViralityJobResponsePredictionOneLlmAnalysisClarityScoreMin).max(getViralityJobResponsePredictionOneLlmAnalysisClarityScoreMax),
+  "quality_score": zod.number().min(getViralityJobResponsePredictionOneLlmAnalysisQualityScoreMin).max(getViralityJobResponsePredictionOneLlmAnalysisQualityScoreMax),
+  "hook_type": zod.string(),
+  "tone": zod.string(),
+  "emotion": zod.string(),
+  "content_category": zod.string(),
+  "engagement_triggers": zod.array(zod.string()),
+  "strengths": zod.array(zod.string()),
+  "weaknesses": zod.array(zod.string()),
+  "improvement_suggestion": zod.string()
+}),
+  "hook_transcript": zod.string()
+}).nullable(),
+  "error": zod.string().nullable()
+}).describe('Async virality job. A cache hit returns status \"done\" with the prediction inline and jobId null; a miss returns \"queued\" with a jobId to poll at GET \/v1\/ai\/virality\/jobs\/{jobId}.\n')
 
 
 /**
  * Enqueues a Whisper-backed caption generation job. Poll /v1/ai/jobs/{jobId} for status.
  * @summary Generate captions for a video
  */
+export const generateCaptionsBodyWordsPerFlashMax = 10;
+
+export const generateCaptionsBodyForceDefault = false;
+
 export const GenerateCaptionsBody = zod.object({
   "videoId": zod.string().uuid(),
-  "style": zod.enum(['stroke', 'yellow', 'pill']).optional()
+  "style": zod.enum(['stroke', 'yellow', 'pill']).optional(),
+  "wordsPerFlash": zod.number().min(1).max(generateCaptionsBodyWordsPerFlashMax).optional(),
+  "modelSize": zod.enum(['tiny', 'base', 'small', 'medium', 'large']).optional(),
+  "force": zod.boolean().default(generateCaptionsBodyForceDefault)
+})
+
+
+/**
+ * Approves the captioned preview produced by a finished captions job and replaces the source video's URL with the captioned version. Returns the updated video.
+ * @summary Approve a captioned preview
+ */
+export const ApproveCaptionsParams = zod.object({
+  "jobId": zod.coerce.string()
+})
+
+export const ApproveCaptionsResponse = zod.object({
+  "id": zod.string().uuid(),
+  "userId": zod.string().uuid(),
+  "originalUrl": zod.string(),
+  "originalFilename": zod.union([zod.string(),zod.null()]),
+  "processedUrl": zod.union([zod.string(),zod.null()]),
+  "duration": zod.union([zod.number(),zod.null()]),
+  "status": zod.enum(['uploaded', 'processing', 'ready', 'failed']),
+  "createdAt": zod.date()
 })
 
 

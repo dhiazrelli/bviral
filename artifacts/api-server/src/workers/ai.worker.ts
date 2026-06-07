@@ -10,7 +10,9 @@ import {
 import { resolveConfig } from "../lib/config";
 import { loadEnv } from "../lib/load-env";
 import { createRedisConnection } from "../lib/redis";
+import { buildCaptionResultsRepository } from "../repositories/caption-results.repository";
 import { buildVideosRepository } from "../repositories/videos.repository";
+import { captionViaPython } from "../services/caption.service";
 import { buildLtxService, estimateLtxCostUsd } from "../services/ltx.service";
 
 loadEnv();
@@ -19,6 +21,7 @@ const config = resolveConfig();
 const pool = createPool(config.databaseUrl, { max: config.dbPoolMax });
 const db = createDatabase(pool);
 const videosRepository = buildVideosRepository(db);
+const captionResultsRepository = buildCaptionResultsRepository(db);
 const redis = createRedisConnection(config.redisUrl);
 const aiJobStore = buildAiJobStore(redis);
 const ltxService = buildLtxService({
@@ -48,7 +51,11 @@ async function ensureBucket(bucket: string) {
   }
 }
 
-async function handleCaptionsStub(data: Extract<AiJobData, { kind: "captions" }>) {
+async function handleCaptions(data: Extract<AiJobData, { kind: "captions" }>) {
+  if (!supabaseAdmin) {
+    throw new Error("Supabase service role key is required to store captioned videos.");
+  }
+
   await aiJobStore.update(data.jobId, { status: "running", progress: 10 });
 
   const video = await videosRepository.findForUser(data.videoId, data.userId);
@@ -56,13 +63,52 @@ async function handleCaptionsStub(data: Extract<AiJobData, { kind: "captions" }>
     throw new Error("Source video not found");
   }
 
-  // Real Whisper inference will land here later (see ai_module/speechtotext.py).
-  await new Promise((resolve) => setTimeout(resolve, 3000));
+  // Burn captions via the Python caption service (faster-whisper + ffmpeg ASS).
+  const style = data.style ?? "pill";
+  const wordsPerFlash = data.wordsPerFlash ?? 2;
+  const modelSize = data.modelSize ?? "small";
+  const { mp4, transcript } = await captionViaPython({
+    serviceUrl: config.captionsServiceUrl,
+    timeoutMs: config.captionsServiceTimeoutMs,
+    video,
+    style,
+    wordsPerFlash,
+    modelSize,
+  });
+
+  await aiJobStore.update(data.jobId, { progress: 75 });
+
+  // Store the captioned result as a *preview* under the user's folder. It is NOT
+  // written to the videos table here — the user reviews it in the player and the
+  // approve endpoint persists it onto the source video only if they accept.
+  const storagePath = `${data.userId}/captions/${randomUUID()}.mp4`;
+  await ensureBucket(config.supabaseVideoBucket);
+
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from(config.supabaseVideoBucket)
+    .upload(storagePath, mp4, { contentType: "video/mp4", upsert: false });
+
+  if (uploadError) throw uploadError;
+
+  const previewUrl = supabaseAdmin.storage
+    .from(config.supabaseVideoBucket)
+    .getPublicUrl(storagePath).data.publicUrl;
+
+  // Cache the preview so the same video + settings isn't re-captioned next time.
+  await captionResultsRepository.upsert({
+    videoId: video.id,
+    userId: data.userId,
+    style,
+    wordsPerFlash,
+    modelSize,
+    previewUrl,
+    transcript,
+  });
 
   await aiJobStore.update(data.jobId, {
     status: "done",
     progress: 100,
-    resultUrl: video.originalUrl,
+    resultUrl: previewUrl,
     videoId: video.id,
   });
 }
@@ -153,7 +199,7 @@ const worker = new Worker<AiJobData>(
     try {
       switch (data.kind) {
         case "captions":
-          return await handleCaptionsStub(data);
+          return await handleCaptions(data);
         case "enhance":
           return await handleEnhanceStub(data);
         case "ltx":

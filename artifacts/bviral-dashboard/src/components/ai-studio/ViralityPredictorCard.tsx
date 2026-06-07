@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { BarChart3, Quote, RefreshCcw, Sparkles, TrendingDown, TrendingUp } from 'lucide-react';
 import {
   usePredictVirality,
@@ -6,6 +6,7 @@ import {
   type ViralityPrediction,
   type ViralityShapEntry,
 } from '@workspace/api-client-react';
+import { useViralityJob } from '@/hooks/useViralityJob';
 import { cn } from '@/lib/utils';
 
 interface ViralityPredictorCardProps {
@@ -81,6 +82,13 @@ function EmptyState() {
 }
 
 function PredictionView({ prediction }: { prediction: ViralityPrediction }) {
+  const llm = prediction.llm_analysis;
+  // The LLM (Groq) step is non-fatal: if it fails or no key is set it comes
+  // back empty. Only render the LLM-derived blocks when we actually have them.
+  const hasLlm = Boolean(llm && typeof llm.hook_score === 'number');
+  const shapUp = prediction.shap_pushing_up ?? [];
+  const shapDown = prediction.shap_dragging_down ?? [];
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/10 to-accent/5 p-4">
@@ -93,25 +101,39 @@ function PredictionView({ prediction }: { prediction: ViralityPrediction }) {
         </div>
       </div>
 
-      <div className="rounded-xl border border-white/[0.06] bg-black/30 p-3">
-        <div className="flex items-start gap-2">
-          <Quote className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/60" />
-          <p className="text-xs italic text-white/75">{prediction.hook_transcript}</p>
+      {prediction.hook_transcript && (
+        <div className="rounded-xl border border-white/[0.06] bg-black/30 p-3">
+          <div className="flex items-start gap-2">
+            <Quote className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary/60" />
+            <p className="text-xs italic text-white/75">{prediction.hook_transcript}</p>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="grid grid-cols-3 gap-2">
-        <ScoreTile label="Hook" value={prediction.llm_analysis.hook_score} />
-        <ScoreTile label="Clarity" value={prediction.llm_analysis.clarity_score} />
-        <ScoreTile label="Quality" value={prediction.llm_analysis.quality_score} />
-      </div>
+      {!hasLlm && (
+        <div className="rounded-xl border border-amber-500/15 bg-amber-500/[0.06] p-3 text-xs text-amber-200/80">
+          LLM analysis unavailable (no Groq API key, or the call failed). Predicted views, tier, and the
+          SHAP attributions below are still valid — set <code className="font-mono">GROQ_API_KEY</code> and
+          re-analyze for the full creative breakdown.
+        </div>
+      )}
 
-      <div className="grid grid-cols-2 gap-2">
-        <Pill label="Category" value={prediction.llm_analysis.content_category} />
-        <Pill label="Tone" value={prediction.llm_analysis.tone} />
-        <Pill label="Emotion" value={prediction.llm_analysis.emotion} />
-        <Pill label="Hook type" value={prediction.llm_analysis.hook_type} />
-      </div>
+      {hasLlm && (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <ScoreTile label="Hook" value={llm.hook_score!} />
+            <ScoreTile label="Clarity" value={llm.clarity_score!} />
+            <ScoreTile label="Quality" value={llm.quality_score!} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Pill label="Category" value={llm.content_category ?? '—'} />
+            <Pill label="Tone" value={llm.tone ?? '—'} />
+            <Pill label="Emotion" value={llm.emotion ?? '—'} />
+            <Pill label="Hook type" value={llm.hook_type ?? '—'} />
+          </div>
+        </>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.04] p-3">
@@ -120,7 +142,10 @@ function PredictionView({ prediction }: { prediction: ViralityPrediction }) {
             Pushing virality up
           </div>
           <div className="space-y-2.5">
-            {prediction.shap_pushing_up.map((entry) => (
+            {shapUp.length === 0 && (
+              <p className="text-[11px] text-white/40">No strong positive signals detected.</p>
+            )}
+            {shapUp.map((entry) => (
               <ShapBar key={entry.msg} entry={entry} kind="up" />
             ))}
           </div>
@@ -131,47 +156,85 @@ function PredictionView({ prediction }: { prediction: ViralityPrediction }) {
             Dragging virality down
           </div>
           <div className="space-y-2.5">
-            {prediction.shap_dragging_down.map((entry) => (
+            {shapDown.length === 0 && (
+              <p className="text-[11px] text-white/40">No strong negative signals detected.</p>
+            )}
+            {shapDown.map((entry) => (
               <ShapBar key={entry.msg} entry={entry} kind="down" />
             ))}
           </div>
         </div>
       </div>
 
-      <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50">LLM analysis</div>
-        <p className="text-xs leading-relaxed text-white/75">{prediction.llm_analysis.video_summary}</p>
-        <div className="grid grid-cols-2 gap-3 pt-1">
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-300/70">Strengths</div>
-            <ul className="mt-1 list-disc pl-4 text-xs text-white/70 space-y-0.5">
-              {prediction.llm_analysis.strengths.map((item) => <li key={item}>{item}</li>)}
-            </ul>
+      {hasLlm && (
+        <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/50">LLM analysis</div>
+          {llm.video_summary && (
+            <p className="text-xs leading-relaxed text-white/75">{llm.video_summary}</p>
+          )}
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-300/70">Strengths</div>
+              <ul className="mt-1 list-disc pl-4 text-xs text-white/70 space-y-0.5">
+                {(llm.strengths ?? []).map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </div>
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-rose-300/70">Weaknesses</div>
+              <ul className="mt-1 list-disc pl-4 text-xs text-white/70 space-y-0.5">
+                {(llm.weaknesses ?? []).map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </div>
           </div>
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-rose-300/70">Weaknesses</div>
-            <ul className="mt-1 list-disc pl-4 text-xs text-white/70 space-y-0.5">
-              {prediction.llm_analysis.weaknesses.map((item) => <li key={item}>{item}</li>)}
-            </ul>
-          </div>
+          {llm.improvement_suggestion && (
+            <div className="mt-2 rounded-lg border border-primary/15 bg-primary/[0.06] p-2.5">
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary/80">Improvement suggestion</div>
+              <p className="mt-1 text-xs text-white/80">{llm.improvement_suggestion}</p>
+            </div>
+          )}
         </div>
-        <div className="mt-2 rounded-lg border border-primary/15 bg-primary/[0.06] p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary/80">Improvement suggestion</div>
-          <p className="mt-1 text-xs text-white/80">{prediction.llm_analysis.improvement_suggestion}</p>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
 export function ViralityPredictorCard({ video }: ViralityPredictorCardProps) {
   const predictMutation = usePredictVirality();
+  const [jobId, setJobId] = useState<string | null>(null);
+  const jobQuery = useViralityJob(jobId);
+
+  const runPrediction = useCallback(
+    (videoId: string, force: boolean) => {
+      setJobId(null);
+      predictMutation.mutate(
+        { data: { videoId, force } },
+        {
+          // A cache hit returns the prediction inline (jobId null); a miss
+          // returns a jobId we then poll until the worker finishes.
+          onSuccess: (job) => setJobId(job.status === 'queued' ? job.jobId : null),
+        },
+      );
+    },
+    [predictMutation],
+  );
 
   useEffect(() => {
-    if (!video) return;
-    predictMutation.mutate({ data: { videoId: video.id } });
+    if (!video) {
+      setJobId(null);
+      predictMutation.reset();
+      return;
+    }
+    runPrediction(video.id, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video?.id]);
+
+  const polledJob = jobQuery.data;
+  const prediction = polledJob?.prediction ?? predictMutation.data?.prediction ?? null;
+
+  const isFailed = predictMutation.isError || polledJob?.status === 'failed';
+  const isWaitingOnJob =
+    jobId !== null && polledJob?.status !== 'done' && polledJob?.status !== 'failed';
+  const isWorking = predictMutation.isPending || isWaitingOnJob;
 
   return (
     <div className="glass-card p-5 flex flex-col gap-4">
@@ -186,18 +249,18 @@ export function ViralityPredictorCard({ video }: ViralityPredictorCardProps) {
           </div>
         </div>
         <button
-          onClick={() => video && predictMutation.mutate({ data: { videoId: video.id } })}
-          disabled={!video || predictMutation.isPending}
+          onClick={() => video && runPrediction(video.id, true)}
+          disabled={!video || isWorking}
           className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-[11px] font-semibold text-white/75 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <RefreshCcw className={cn('h-3 w-3', predictMutation.isPending && 'animate-spin')} />
+          <RefreshCcw className={cn('h-3 w-3', isWorking && 'animate-spin')} />
           Re-analyze
         </button>
       </div>
 
       {!video && <EmptyState />}
 
-      {video && predictMutation.isPending && (
+      {video && isWorking && (
         <div className="space-y-3">
           <div className="h-20 rounded-2xl bg-white/[0.04] animate-pulse" />
           <div className="h-10 rounded-xl bg-white/[0.04] animate-pulse" />
@@ -209,14 +272,14 @@ export function ViralityPredictorCard({ video }: ViralityPredictorCardProps) {
         </div>
       )}
 
-      {video && predictMutation.isError && (
+      {video && !isWorking && isFailed && (
         <div className="rounded-xl border border-red-500/15 bg-red-500/8 p-3 text-sm text-red-300">
           Prediction failed. Hit "Re-analyze" to retry.
         </div>
       )}
 
-      {video && predictMutation.data && !predictMutation.isPending && (
-        <PredictionView prediction={predictMutation.data} />
+      {video && !isWorking && !isFailed && prediction && (
+        <PredictionView prediction={prediction} />
       )}
     </div>
   );

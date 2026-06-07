@@ -12,6 +12,14 @@ import {
   TrendingUp,
 } from "lucide-react";
 import {
+  SiFacebook,
+  SiInstagram,
+  SiSnapchat,
+  SiTiktok,
+  SiYoutube,
+} from "react-icons/si";
+import type { IconType } from "react-icons";
+import {
   Bar,
   BarChart,
   CartesianGrid,
@@ -44,42 +52,36 @@ const platformLabels: Record<AccountPlatform, string> = {
 };
 
 const platformDisplay: Record<AccountPlatform, {
-  abbr: string;
   color: string;
   bg: string;
   barColor: string;
   stroke: string;
 }> = {
   instagram: {
-    abbr: "IG",
     color: "text-pink-400",
     bg: "bg-pink-500/8 border-pink-500/15",
     barColor: "bg-pink-400",
     stroke: "hsl(330, 75%, 60%)",
   },
   tiktok: {
-    abbr: "TT",
     color: "text-cyan-400",
     bg: "bg-cyan-500/8 border-cyan-500/15",
     barColor: "bg-cyan-400",
     stroke: "hsl(185, 85%, 48%)",
   },
   youtube: {
-    abbr: "YT",
     color: "text-red-400",
     bg: "bg-red-500/8 border-red-500/15",
     barColor: "bg-red-400",
     stroke: "hsl(0, 84%, 60%)",
   },
   facebook: {
-    abbr: "FB",
     color: "text-blue-400",
     bg: "bg-blue-500/8 border-blue-500/15",
     barColor: "bg-blue-400",
     stroke: "hsl(217, 91%, 60%)",
   },
   snapchat: {
-    abbr: "SC",
     color: "text-yellow-400",
     bg: "bg-yellow-500/8 border-yellow-500/15",
     barColor: "bg-yellow-400",
@@ -94,6 +96,39 @@ const platformBadge: Record<AccountPlatform, string> = {
   facebook: "bg-blue-500/10 text-blue-400 border-blue-500/15",
   snapchat: "bg-yellow-500/10 text-yellow-400 border-yellow-500/15",
 };
+
+const platformIcons: Record<AccountPlatform, IconType> = {
+  instagram: SiInstagram,
+  tiktok: SiTiktok,
+  youtube: SiYoutube,
+  snapchat: SiSnapchat,
+  facebook: SiFacebook,
+};
+
+function PlatformBadge({
+  platform,
+  className,
+  iconClassName,
+}: {
+  platform: AccountPlatform;
+  className?: string;
+  iconClassName?: string;
+}) {
+  const Icon = platformIcons[platform];
+  return (
+    <span
+      title={platformLabels[platform]}
+      aria-label={platformLabels[platform]}
+      className={cn(
+        "inline-flex h-6 w-6 items-center justify-center rounded-md border",
+        platformBadge[platform],
+        className,
+      )}
+    >
+      <Icon className={cn("h-3.5 w-3.5", iconClassName)} aria-hidden="true" />
+    </span>
+  );
+}
 
 const HEATMAP_HOURS = ["12a", "3a", "6a", "9a", "12p", "3p", "6p", "9p"];
 const HEATMAP_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -543,8 +578,7 @@ export default function Analytics() {
                 return (
                   <div key={platform.platform} className={`rounded-xl border p-4 flex flex-col gap-3 ${display.bg} hover:border-opacity-30 transition-colors`}>
                     <div className="flex items-center justify-between">
-                      <span className={`text-xs font-bold ${display.color}`}>{platformLabels[platform.platform]}</span>
-                      <span className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black border ${display.bg} ${display.color}`}>{display.abbr}</span>
+                      <PlatformBadge platform={platform.platform} className="h-7 w-7" iconClassName="h-4 w-4" />
                     </div>
                     <div>
                       <p className="text-lg font-display font-extrabold text-white">{formatCompact(platform.views)}</p>
@@ -731,7 +765,7 @@ export default function Analytics() {
                     <div className="flex-1 min-w-0">
                       <p className="text-white/80 font-medium text-[12px] truncate">{post.externalPostId ?? post.postId}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${platformBadge[post.platform]}`}>{platformLabels[post.platform]}</span>
+                        <PlatformBadge platform={post.platform} className="h-5 w-5" iconClassName="h-3 w-3" />
                         <span className="text-[10px] text-muted-foreground/40">{formatCompact(post.views)} views</span>
                       </div>
                     </div>
